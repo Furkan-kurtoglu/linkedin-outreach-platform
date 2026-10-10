@@ -69,7 +69,15 @@ export function hedgeFigure(figure: string, kind: WizardAnswers["proofKind"]): s
   return sentence(`Sektör çalışmalarına göre ${f}`);
 }
 
-export function generateTemplates(a: WizardAnswers, opts: { premium: boolean }): GeneratedSet {
+export interface GenerateOptions {
+  premium: boolean;
+  /** Seçenek: davet notu ve bağlantıya ilk mesaj kişiye özel ilk cümleyle açılsın */
+  firstLine?: boolean;
+  /** Seçenek: mesajların sonuna randevu linki cümlesi eklensin */
+  calendar?: boolean;
+}
+
+export function generateTemplates(a: WizardAnswers, opts: GenerateOptions): GeneratedSet {
   const warm = a.tone === "samimi";
   const hitap = "{hitap}";
   const who = `${genitive(a.companyName.trim())} ${a.senderRole.trim()}`;
@@ -77,13 +85,15 @@ export function generateTemplates(a: WizardAnswers, opts: { premium: boolean }):
   const dropped: string[] = [];
   const want = warm ? "çok isteriz" : "isteriz";
   const askVerb = a.goal === "demo" ? `size kısa bir demo göstermek ${want}` : `sizinle de görüşmek ${want}`;
+  const fl = opts.firstLine ? " {ilk_cumle?}" : "";
+  const cal = opts.calendar ? " {takvim_linki?}" : "";
 
   // --- Davet notu: sığmazsa önce güven cümlesi çıkarılır ---
   const traction = a.tractionLine ? stripEnd(a.tractionLine) : "";
   const inviteFull = traction
-    ? `Merhaba ${hitap}, ${product} ${who}. ${capFirst(traction)}, ${askVerb}.`
-    : `Merhaba ${hitap}, ${product} ${who}. ${capFirst(askVerb.replace(" de ", " "))}.`;
-  const inviteShort = `Merhaba ${hitap}, ${product} ${who}. ${capFirst(askVerb.replace(" de ", " "))}.`;
+    ? `Merhaba ${hitap},${fl} ${product} ${who}. ${capFirst(traction)}, ${askVerb}.`
+    : `Merhaba ${hitap},${fl} ${product} ${who}. ${capFirst(askVerb.replace(" de ", " "))}.`;
+  const inviteShort = `Merhaba ${hitap},${fl} ${product} ${who}. ${capFirst(askVerb.replace(" de ", " "))}.`;
   // {hitap} gönderimde ~25 karaktere kadar bir isimle dolar; payı hesaba kat.
   const limit = inviteNoteLimit(opts.premium) - 25 + hitap.length;
   let invite = inviteFull;
@@ -111,12 +121,12 @@ export function generateTemplates(a: WizardAnswers, opts: { premium: boolean }):
   const proofLine = proofs.map((p) => sentence(capFirst(p))).join(" ");
   const link = a.link?.trim();
   parts.push([proofLine, link ? `Detaylar: ${link}` : ""].filter(Boolean).join(" "));
-  parts.push(GOAL_CLOSE[a.goal]);
+  parts.push(GOAL_CLOSE[a.goal] + cal);
   const message = parts.filter((p) => p.trim()).join("\n\n");
 
   // --- Mevcut bağlantıya ilk mesaj: davet notu yerine, tanışıklık cümlesiyle açılır ---
   const connectedMessage = [
-    `Merhaba ${hitap}, LinkedIn'de bağlantıdayız ama sanırım daha önce yazışma fırsatımız olmadı. ${capFirst(product)} ${who}.`,
+    `Merhaba ${hitap}, LinkedIn'de bağlantıdayız ama sanırım daha önce yazışma fırsatımız olmadı.${fl} ${capFirst(product)} ${who}.`,
     ...parts.slice(2),
   ]
     .filter((p) => p.trim())
@@ -124,7 +134,7 @@ export function generateTemplates(a: WizardAnswers, opts: { premium: boolean }):
 
   // --- Takipler ---
   const linkTail = link ? ` ${link}` : "";
-  const followUp1 = `Merhaba ${hitap}, önceki mesajımı yoğunluk içinde görmemiş olabilirsiniz. {kurum} için ${GOAL_FOLLOWUP[a.goal]} kısa bir online görüşmede anlatmak isterim.${linkTail}`;
+  const followUp1 = `Merhaba ${hitap}, önceki mesajımı yoğunluk içinde görmemiş olabilirsiniz. {kurum} için ${GOAL_FOLLOWUP[a.goal]} kısa bir online görüşmede anlatmak isterim.${cal}${linkTail}`;
   const followUp2 = `Merhaba ${hitap}, son kez yazıyorum. Şu an uygun değilse sorun değil; ilerleyen dönemde konuşmak isterseniz buradayım.${linkTail}`;
 
   const rules = rulesFromAnswers(a, opts.premium);

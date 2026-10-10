@@ -60,7 +60,7 @@ export function buildPrompt(req: AssistRequest): { system: string; user: string 
   const system = [
     "Sen Türkçe B2B LinkedIn mesajları yazan bir editörsün.",
     "Kurallar:",
-    "- {hitap} ve {kurum} değişkenlerini aynen koru; yerlerine isim yazma.",
+    "- Süslü parantezli değişkenleri ({hitap}, {kurum}, {ilk_cumle?}, {takvim_linki?} gibi) aynen koru; yerlerine bir şey yazma, yeni değişken ekleme.",
     "- Karşı tarafın kurumunda sorun varmış gibi yazma; rakamları yalnızca 'sektör çalışmalarına göre' diye ver.",
     "- Kesin vaat verme; 'hedefliyoruz', 'yardımcı oluyor' gibi ifadeler kullan.",
     "- Görüşme için süre yazma (ör. '20 dakika').",
@@ -113,8 +113,14 @@ export async function assist(req: AssistRequest, provider: AiProvider | null): P
     return { ok: false, reason: "unavailable", message: "Yapay zekâ servisine şu an ulaşılamıyor. Daha sonra tekrar deneyin." };
   }
   const all = parseSuggestions(raw);
+  // Şablondaki her değişken (ör. {hitap}, {kurum}, {ilk_cumle?}) öneride de aynen bulunmalı;
+  // öneri yeni bir değişken uyduramaz.
+  const vars = (t: string) => new Set([...t.matchAll(/\{[a-z_]+\??\}/g)].map((m) => m[0]));
+  const expected = vars(req.template);
   const valid = all.filter((s) => {
-    if (!s.text.includes("{hitap}") && req.template.includes("{hitap}")) return false;
+    const got = vars(s.text);
+    if ([...expected].some((v) => !got.has(v))) return false;
+    if ([...got].some((v) => !expected.has(v))) return false;
     return checkMessage(s.text, req.kind, req.rules).length === 0;
   });
   if (!valid.length) {

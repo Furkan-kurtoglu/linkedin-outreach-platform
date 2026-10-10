@@ -44,7 +44,16 @@ export function inviteNoteLimit(premium: boolean): number {
 /** LinkedIn mesaj karakter sınırı (güvenli üst sınır). */
 export const MESSAGE_LIMIT = 8000;
 
-const VARIABLE = /\{([a-z_]+)\}/g;
+/** {ad} zorunlu değişken; {ad?} isteğe bağlı (boşsa iz bırakmadan silinir). */
+const VARIABLE = /\{([a-z_]+)(\?)?\}/g;
+
+/** Şablonlarda kullanılabilen değişkenler. */
+export const KNOWN_VARIABLES: Record<string, string> = {
+  hitap: "Kişiye hitap (varsayılan ad soyad)",
+  kurum: "Kişinin kurumu",
+  ilk_cumle: "Kişiye özel ilk cümle; veri yoksa ya da seçenek kapalıysa hiç görünmez",
+  takvim_linki: "Randevu cümlesi ve linki (\"Uygun bir saati buradan seçebilirsiniz: …\"); seçenek kapalıysa hiç görünmez",
+};
 
 /** Şablondaki değişken adlarını döner: "Merhaba {ad_soyad}" -> ["ad_soyad"]. */
 export function templateVariables(template: string): string[] {
@@ -57,14 +66,24 @@ export function renderTemplate(
   values: Record<string, string | undefined>,
 ): { text: string; missing: string[] } {
   const missing: string[] = [];
-  const text = template.replace(VARIABLE, (whole, name: string) => {
-    const value = values[name]?.trim();
-    if (!value) {
-      missing.push(name);
-      return whole;
-    }
-    return value;
-  });
+  const text = template
+    .replace(VARIABLE, (whole, name: string, optional?: string) => {
+      const value = values[name]?.trim();
+      if (!value) {
+        if (optional) return "";
+        missing.push(name);
+        return whole;
+      }
+      return value;
+    })
+    // Boş kalan isteğe bağlı değişkenlerin izlerini temizle
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ +([,.;:!?])/g, "$1")
+    .replace(/^ +| +$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    // Cümle sonundan sonra küçük harfle başlayan parçayı büyüt (isteğe bağlı değişken sonrası)
+    .replace(/([.!?])(\s+)(\p{Ll})/gu, (_m, p: string, sp: string, ch: string) => p + sp + ch.toLocaleUpperCase("tr-TR"))
+    .trim();
   return { text, missing: [...new Set(missing)] };
 }
 

@@ -9,7 +9,7 @@
  * LinkedIn belge eklemeye izin vermez; bu yüzden belge yalnızca mesaj adımlarında seçilebilir.
  */
 
-export type StepType = "visit" | "invite" | "accepted_message" | "connected_message" | "follow_up";
+export type StepType = "visit" | "invite" | "accepted_message" | "connected_message" | "open_message" | "inmail" | "follow_up";
 
 export interface Attachment {
   fileId: string;
@@ -33,6 +33,16 @@ export interface Sequence {
   connectedSteps: SequenceStep[];
   /** Kabul edilmeyen davet kaç gün sonra geri çekilsin */
   withdrawAfterDays: number;
+  /**
+   * Seçenek: açık profil (Open Profile) olan 2./3. derece kişilere davet yerine doğrudan,
+   * ücretsiz mesaj. Kapalıysa bu kişiler de normal davet akışına girer.
+   */
+  openProfile?: { enabled: boolean; step: SequenceStep };
+  /**
+   * Seçenek: davet kabul edilmeyip geri çekildiğinde, uygunluk puanı yüksekse InMail gönder.
+   * Premium hesapların aylık InMail hakkı sınırlıdır.
+   */
+  inmail?: { enabled: boolean; minFitScore: number; step: SequenceStep };
 }
 
 export interface ProspectState {
@@ -45,6 +55,11 @@ export interface ProspectState {
   /** Gönderilen mesaj adımlarının id'leri ve zamanları, sırayla */
   sent: { stepId: string; at: Date }[];
   suppressed?: boolean;
+  /** Kişi LinkedIn'de açık profil mi (bağlantı olmadan ücretsiz mesaj alabilir) */
+  openProfile?: boolean;
+  fitScore?: number;
+  /** Hesapta bu ay kalan InMail hakkı */
+  inmailCreditsLeft?: number;
 }
 
 export type NextAction =
@@ -52,6 +67,7 @@ export type NextAction =
   | { kind: "visit" }
   | { kind: "invite"; stepId: string }
   | { kind: "message"; stepId: string; attachment?: Attachment }
+  | { kind: "inmail"; stepId: string; attachment?: Attachment }
   | { kind: "withdraw"; reason: string }
   | { kind: "done"; reason: string };
 
@@ -83,6 +99,13 @@ export function validateSequence(s: Sequence): string[] {
     }
   }
   if (s.withdrawAfterDays < 7) errs.push("Bekleyen davetler en erken 7 gün sonra geri çekilmeli.");
+  for (const extra of [s.openProfile?.step, s.inmail?.step]) {
+    if (extra?.attachment) {
+      const e = validateAttachment(extra.attachment);
+      if (e) errs.push(e);
+    }
+  }
+  if (s.inmail?.enabled && (s.inmail.minFitScore < 0 || s.inmail.minFitScore > 100)) errs.push("InMail için puan eşiği 0-100 arası olmalı.");
   return errs;
 }
 
@@ -92,11 +115,30 @@ const D = 24 * H;
 export function nextAction(s: Sequence, p: ProspectState, now: Date): NextAction {
   if (p.suppressed) return { kind: "done", reason: "Kişi listeden çıkarıldı." };
   if (p.repliedAt) return { kind: "done", reason: "Cevap verdi; konuşma gelen kutusunda." };
-  if (p.withdrawnAt) return { kind: "done", reason: "Davet kabul edilmedi, geri çekildi." };
+  const sentIds = new Set(p.sent.map((x) => x.stepId));
+
+  if (p.withdrawnAt) {
+    const im = s.inmail;
+    if (im?.enabled && !sentIds.has(im.step.id) && (p.fitScore ?? 0) >= im.minFitScore && (p.inmailCreditsLeft ?? 0) > 0) {
+      return { kind: "inmail", stepId: im.step.id, attachment: im.step.attachment };
+    }
+    return { kind: "done", reason: "Davet kabul edilmedi, geri çekildi." };
+  }
+
+  // Açık profil: davet yerine doğrudan ücretsiz mesaj, ardından mevcut bağlantı takipleri
+  const op = s.openProfile;
+  if (op?.enabled && p.openProfile && p.degree !== 1 && !p.invitedAt && !p.acceptedAt) {
+    const steps = [op.step, ...s.connectedSteps.slice(1)];
+    const next = steps.find((x) => !sentIds.has(x.id));
+    if (!next) return { kind: "done", reason: "Açık profil akışı tamamlandı." };
+    const last = p.sent.at(-1);
+    const due = last ? new Date(last.at.getTime() + next.delayHours * H) : now;
+    if (due.getTime() > now.getTime()) return { kind: "wait", until: due, reason: "Bir sonraki adımın zamanı bekleniyor." };
+    return { kind: "message", stepId: next.id, attachment: next.attachment };
+  }
 
   const connected = p.degree === 1 || !!p.acceptedAt;
   const steps = p.degree === 1 ? s.connectedSteps : s.newPersonSteps;
-  const sentIds = new Set(p.sent.map((x) => x.stepId));
 
   if (!connected) {
     if (!p.invitedAt) {
@@ -139,6 +181,8 @@ export function defaultSequence(): Sequence {
       { id: "conn", type: "connected_message", delayHours: 0 },
       { id: "cfu1", type: "follow_up", delayHours: 5 * 24 },
     ],
+    openProfile: { enabled: false, step: { id: "open", type: "open_message", delayHours: 0 } },
+    inmail: { enabled: false, minFitScore: 80, step: { id: "inmail", type: "inmail", delayHours: 0 } },
   };
 }
 
