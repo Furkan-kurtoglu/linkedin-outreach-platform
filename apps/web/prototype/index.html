@@ -1,0 +1,367 @@
+<title>HeAlthFintel Outreach Paneli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Düzen: solda sabit menü, sağda çalışma alanı; telefonda menü üstte yatay şerit olur. */
+:root{
+  --bg:#f3f6f6; --surface:#ffffff; --sunk:#e9eff0; --line:#d5dfe1;
+  --fg:#14262b; --muted:#5a6e73; --accent:#0d6b78; --accent-soft:#d8eef0; --on-accent:#ffffff;
+  --good:#1f7a4a; --good-soft:#dcf1e4; --warn:#9a6200; --warn-soft:#fbeccc; --bad:#b3261e; --bad-soft:#fbe0dd;
+  --add:#d9f0e1; --del:#fadcd8;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Figtree", "Segoe UI", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1719; --surface:#162226; --sunk:#1d2c31; --line:#2b3d42;
+  --fg:#e3eef0; --muted:#97abb0; --accent:#4cc3d1; --accent-soft:#163d44; --on-accent:#08262b;
+  --good:#5fd08f; --good-soft:#163b27; --warn:#f0b54a; --warn-soft:#3d2e10; --bad:#ff8a80; --bad-soft:#44201d;
+  --add:#173d27; --del:#46201c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1719; --surface:#162226; --sunk:#1d2c31; --line:#2b3d42;
+  --fg:#e3eef0; --muted:#97abb0; --accent:#4cc3d1; --accent-soft:#163d44; --on-accent:#08262b;
+  --good:#5fd08f; --good-soft:#163b27; --warn:#f0b54a; --warn-soft:#3d2e10; --bad:#ff8a80; --bad-soft:#44201d;
+  --add:#173d27; --del:#46201c; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--body)}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:232px 1fr;min-height:100%}
+nav.side{background:var(--surface);border-right:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:env(safe-area-inset-top,0px);height:100vh}
+.brand{font-family:var(--display);font-weight:700;font-size:19px;padding:4px 10px 18px;letter-spacing:-.01em}
+.brand small{display:block;font:500 12px var(--body);color:var(--muted);letter-spacing:0}
+.nav-btn{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;border:0;background:none;padding:9px 10px;border-radius:8px;color:var(--muted);font-weight:500}
+.nav-btn:hover{background:var(--sunk);color:var(--fg)}
+.nav-btn[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.count{font:500 12px var(--mono);background:var(--sunk);color:var(--fg);border-radius:20px;padding:1px 8px}
+.side-foot{margin-top:auto;font-size:12px;color:var(--muted);padding:10px;border-top:1px solid var(--line)}
+main{padding-block:28px 48px;padding-inline:clamp(16px,3vw,40px);min-width:0}
+.demo{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--warn);background:var(--warn-soft);border-radius:20px;padding:3px 10px;font-weight:600}
+h1{font-family:var(--display);font-weight:700;font-size:28px;letter-spacing:-.02em;margin:8px 0 4px;text-wrap:balance}
+h2{font-family:var(--display);font-weight:600;font-size:18px;margin:0 0 12px}
+.sub{color:var(--muted);margin:0 0 22px;max-width:65ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.grid{display:grid;gap:16px}
+.cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat b{font:500 28px var(--mono);font-variant-numeric:tabular-nums}
+.stat span{color:var(--muted);font-size:13px}
+.meter{height:8px;background:var(--sunk);border-radius:8px;overflow:hidden;margin-top:8px}
+.meter i{display:block;height:100%;background:var(--accent);border-radius:8px}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:120px;margin-top:8px}
+.week div{display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;font-size:12px;color:var(--muted)}
+.week .bar{width:100%;max-width:34px;border-radius:6px 6px 2px 2px;background:var(--accent-soft);position:relative}
+.week .bar i{position:absolute;inset:auto 0 0 0;background:var(--accent);border-radius:6px 6px 2px 2px}
+.week .today{color:var(--fg);font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.scroll{overflow-x:auto}
+.pill{display:inline-block;font-size:12px;font-weight:600;border-radius:20px;padding:2px 9px;white-space:nowrap}
+.p-good{background:var(--good-soft);color:var(--good)}.p-warn{background:var(--warn-soft);color:var(--warn)}.p-bad{background:var(--bad-soft);color:var(--bad)}.p-info{background:var(--accent-soft);color:var(--accent)}.p-mute{background:var(--sunk);color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:600;font-size:14px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{filter:brightness(1.08);color:var(--on-accent)}
+.btn.ghost{border-color:transparent;background:none}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.between{justify-content:space-between}
+.feed{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.feed li{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.feed li:last-child{border:0}
+.feed time{font:500 12px var(--mono);color:var(--muted);min-width:44px;padding-top:2px}
+.agent{display:grid;grid-template-columns:1fr auto;gap:10px 16px;align-items:start}
+.agent h3{margin:0;font-size:16px}
+.agent p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.agent .nums{display:flex;gap:18px;font-size:13px;color:var(--muted)}
+.agent .nums b{display:block;font:500 18px var(--mono);color:var(--fg)}
+/* Şablon stüdyosu */
+.studio{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px}
+.tab{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:5px 12px;font-size:13px;font-weight:600;color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+textarea{width:100%;min-height:210px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);line-height:1.55}
+.meta{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+.meta .over{color:var(--bad);font-weight:600}
+.vars{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.var{font:500 12px var(--mono);border:1px dashed var(--line);border-radius:6px;padding:2px 7px;background:none}
+.ai{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.ai .btn{font-size:13px;padding:6px 10px}
+.ask{display:flex;gap:8px;margin-top:8px}
+.ask input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--bg)}
+.checks{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.checks li{display:flex;gap:8px;align-items:baseline}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;transform:translateY(-1px)}
+.dot.ok{background:var(--good)}.dot.no{background:var(--bad)}
+.preview{background:var(--sunk);border-radius:10px;padding:14px;white-space:pre-wrap;font-size:14px}
+.preview .who{font-size:12px;color:var(--muted);margin-bottom:6px;white-space:normal}
+.suggest{border:1px solid var(--accent);border-radius:10px;padding:14px;margin-top:14px;background:var(--surface)}
+.diff{white-space:pre-wrap;font-size:14px;line-height:1.6}
+.diff del{background:var(--del);text-decoration:line-through;border-radius:3px}
+.diff ins{background:var(--add);text-decoration:none;border-radius:3px}
+.why{font-size:13px;color:var(--muted);margin:8px 0 10px}
+.versions{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.queue-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px}
+.queue-item .preview{grid-column:1/-1}
+.label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:8px;font-size:14px;font-weight:600}
+@media (max-width:880px){
+  .app{grid-template-columns:1fr}
+  nav.side{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:10px 16px;border-right:0;border-bottom:1px solid var(--line)}
+  .brand{padding:6px 10px 6px 0;font-size:16px;white-space:nowrap}.brand small{display:none}
+  .side-foot{display:none}
+  .nav-btn{white-space:nowrap}
+  .cols-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cols-2,.studio{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:no-preference){.nav-btn,.btn,.tab{transition:background .15s,color .15s,border-color .15s}}
+</style>
+
+<div class="app">
+  <nav class="side" aria-label="Ana menü">
+    <div class="brand">HeAlthFintel<small>Outreach paneli</small></div>
+    <button class="nav-btn" data-view="overview">Genel bakış</button>
+    <button class="nav-btn" data-view="agents">Temsilciler <span class="count">3</span></button>
+    <button class="nav-btn" data-view="studio">Şablon stüdyosu</button>
+    <button class="nav-btn" data-view="queue">Onay kuyruğu <span class="count" id="qcount">3</span></button>
+    <button class="nav-btn" data-view="inbox">Gelen kutusu <span class="count">2</span></button>
+    <button class="nav-btn" data-view="accounts">Hesaplar</button>
+    <div class="side-foot">Furkan Kurtoğlu<br>Yerel çalışan: <span style="color:var(--good);font-weight:600">bağlı</span> · Windows</div>
+  </nav>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const BANNED=["öğrenmek isterim","bağlantıda kalmak isterim","20 dakika"];
+const EXCLUDED=["Acıbadem"];
+const LINK="https://www.healthfintel.com.tr/";
+const SAMPLE={ad_soyad:"Elif Demirtaş",kurum:"Özel Örnek Hastanesi"};
+
+const templates={
+  hastane:{
+    invite:"Merhaba {ad_soyad}, özel hastanelerde hasta kabul ve sigorta doğrulamayı hızlandıran HeAlthFintel'in kurucusuyum. Kurumlarla pilot anlaşmalarına başladık, sizinle de görüşmek isteriz.",
+    message:"Bağlantı için teşekkürler {ad_soyad}.\n\nHeAlthFintel; hasta, hastane ve sigorta şirketi arasında çalışan, yapay zekâ destekli bir finansal triyaj ve doğrulama katmanı. Mevcut sistemlerinizi değiştirmiyor, karar vermiyor; kurumun kararını hızlandırıp doğruluyor ve sağlık verisi depolamıyor.\n\nHastaneler için hedeflediğimiz katkılar:\n• Hasta, randevudan önce poliçesine göre tahmini cepten ödeme tutarını görüyor ve QR kodla veznesiz kabulden geçiyor.\n• SGK ve özel sigorta sorguları eşzamanlı yürüyor; manuel veri girişini ve fatura retlerini azaltmayı hedefliyoruz.\n\nTÜBİTAK 1812 BiGG başvurumuz final aşamasında, TEKNOFEST 2026 Finansal Teknolojiler'de de finalist olduk. Detaylar: https://www.healthfintel.com.tr/\n\nPilot sürecini online bir görüşmede kısa bir sunumla anlatmak isterim. Size hangi gün uygun olur?"
+  },
+  klinik:{
+    invite:"Merhaba {ad_soyad}, özel kliniklerin sigortalı hastalara görünür olmasını sağlayan HeAlthFintel'in kurucusuyum. Kurumlarla pilot anlaşmalarına başladık, sizinle de görüşmek isteriz.",
+    message:"Bağlantı için teşekkürler {ad_soyad}.\n\nHeAlthFintel'in öneri sistemi, sigortalı hastalara poliçelerine, bütçelerine ve konumlarına uygun kurumları sıralıyor. {kurum} bu sistemde büyük hastane zincirleriyle aynı ekranda görünür hale geliyor.\n\nDetaylar: https://www.healthfintel.com.tr/\n\nPilot sürecini online bir görüşmede anlatmak isterim. Size hangi gün uygun olur?"
+  },
+  sigorta:{
+    invite:"Merhaba {ad_soyad}, sağlık sigortalarında poliçe doğrulama ve talep süreçlerini hızlandıran HeAlthFintel'in kurucusuyum. Kurumlarla pilot anlaşmalarına başladık, sizinle de görüşmek isteriz.",
+    message:"Bağlantı için teşekkürler {ad_soyad}.\n\nHeAlthFintel, kurumların karar motorlarına dokunmadan poliçe doğrulama ve talep süreçlerini hızlandırıyor; nihai onay sizde kalıyor.\n\nDetaylar: https://www.healthfintel.com.tr/\n\nPilot sürecini online bir görüşmede anlatmak isterim. Size hangi gün uygun olur?"
+  }
+};
+const SEG_LABEL={hastane:"Özel hastaneler",klinik:"Özel klinikler",sigorta:"Sağlık sigortacıları"};
+const KIND_LABEL={invite:"Davet notu",message:"Kabulde detay mesajı"};
+
+const queue=[
+  {id:1,name:"Elif Demirtaş",title:"Hasta Hizmetleri Müdürü",org:"Özel Örnek Hastanesi",seg:"hastane",kind:"invite"},
+  {id:2,name:"Murat Aksoy",title:"Klinik Müdürü",org:"Örnek Tıp Merkezi",seg:"klinik",kind:"invite"},
+  {id:3,name:"Selin Kaya",title:"Hastane Müdürü",org:"Özel Deneme Hastanesi",seg:"hastane",kind:"message",reason:"Bağlantıyı 3 dk önce kabul etti"}
+];
+
+let state={view:"overview",seg:"hastane",kind:"invite",suggestion:null,versions:{}};
+try{const v=localStorage.getItem("hfo-view");if(v)state.view=v}catch(e){}
+
+const $=s=>document.querySelector(s);
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fill=(t,v)=>t.replace(/\{([a-z_]+)\}/g,(m,k)=>v[k]||m);
+function toast(msg){const t=$("#toast");t.textContent=msg;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2200)}
+
+function check(text,kind){
+  const low=text.toLocaleLowerCase("tr-TR");const out=[];
+  const banned=BANNED.filter(p=>low.includes(p));
+  out.push({ok:!banned.length,msg:banned.length?`Yasak ifade: "${banned[0]}"`:"Yasak ifade yok"});
+  const ex=EXCLUDED.filter(c=>low.includes(c.toLocaleLowerCase("tr-TR")));
+  out.push({ok:!ex.length,msg:ex.length?`Hariç tutulan kurum geçiyor: ${ex[0]}`:"Hariç tutulan kurum geçmiyor"});
+  out.push({ok:/^Merhaba \{ad_soyad\}|^Bağlantı için teşekkürler \{ad_soyad\}/.test(text),msg:"Ad soyadla hitap"});
+  const missing=[...text.matchAll(/\{([a-z_]+)\}/g)].map(m=>m[1]).filter(k=>!(k in SAMPLE));
+  out.push({ok:!missing.length,msg:missing.length?`Bilinmeyen değişken: {${missing[0]}}`:"Tüm değişkenler dolduruluyor"});
+  if(kind==="invite"){const n=fill(text,SAMPLE).length;out.push({ok:n<=300,msg:`Davet notu ${n}/300 karakter`})}
+  else out.push({ok:text.includes(LINK),msg:"Web sitesi linki var"});
+  return out;
+}
+
+/* Prototipte yapay zekâ cevabı örnektir; gerçek sürümde Gemini ücretsiz katmanından gelir. */
+function fakeSuggest(action,text){
+  const seg=state.seg;
+  if(state.kind==="invite"){
+    const map={
+      better:{hastane:"Merhaba {ad_soyad}, HeAlthFintel'in kurucusuyum; özel hastanelerde hasta kabulünü ve sigorta doğrulamayı hızlandırıyoruz. Birkaç kurumla pilota başladık, sizinle de tanışmak isteriz.",
+              klinik:"Merhaba {ad_soyad}, HeAlthFintel'in kurucusuyum; özel kliniklerin poliçesine uygun kurum arayan sigortalı hastalara görünmesini sağlıyoruz. Pilot kurumlarımız arasında sizi de görmek isteriz.",
+              sigorta:"Merhaba {ad_soyad}, HeAlthFintel'in kurucusuyum; sağlık sigortalarında poliçe doğrulama ve talep süreçlerini, karar motorlarınıza dokunmadan hızlandırıyoruz. Pilot görüşmesi için tanışmak isteriz."},
+      shorter:{hastane:"Merhaba {ad_soyad}, özel hastanelerde hasta kabul ve sigorta doğrulamayı hızlandıran HeAlthFintel'in kurucusuyum. Sizinle görüşmek isteriz.",
+              klinik:"Merhaba {ad_soyad}, kliniklerin sigortalı hastalara görünür olmasını sağlayan HeAlthFintel'in kurucusuyum. Sizinle görüşmek isteriz.",
+              sigorta:"Merhaba {ad_soyad}, poliçe doğrulama ve talep süreçlerini hızlandıran HeAlthFintel'in kurucusuyum. Sizinle görüşmek isteriz."}
+    };
+    const why={better:"İlk cümlede kim olduğunuzu söyleyip sonra faydayı vermek, notu okuyan kişinin \"bu kim?\" sorusunu hemen cevaplıyor. \"Pilot anlaşmaları\" yerine \"pilot\" daha az iddialı ve doğrulanabilir.",
+               shorter:"Pilot cümlesini çıkardım; not 150 karakterin altına indi. Kısa notlar mobilde tamamen görünür."};
+    const key=action==="shorter"?"shorter":"better";
+    return {text:map[key][seg],why:why[key]};
+  }
+  const add=action==="shorter"?text.replace(/\n\nTÜBİTAK[^\n]*\n/,"\n\n"):text.replace("Size hangi gün uygun olur?","Önümüzdeki hafta size hangi gün uygun olur?");
+  return {text:add,why:action==="shorter"?"Ödül ve başvuru cümlesini çıkardım; ilk mesajda faydaya odaklanmak cevap oranını genelde artırır. Bu bilgiyi görüşmede söyleyebilirsiniz.":"Görüşme talebine zaman çerçevesi ekledim; somut bir soru cevaplanmayı kolaylaştırır."};
+}
+
+function wordDiff(a,b){
+  const A=a.split(/(\s+)/),B=b.split(/(\s+)/);const n=A.length,m=B.length;
+  const dp=Array.from({length:n+1},()=>new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)dp[i][j]=A[i]===B[j]?dp[i+1][j+1]+1:Math.max(dp[i+1][j],dp[i][j+1]);
+  let i=0,j=0,out="";
+  while(i<n&&j<m){if(A[i]===B[j]){out+=esc(A[i]);i++;j++}else if(dp[i+1][j]>=dp[i][j+1]){out+=`<del>${esc(A[i])}</del>`;i++}else{out+=`<ins>${esc(B[j])}</ins>`;j++}}
+  while(i<n)out+=`<del>${esc(A[i++])}</del>`;while(j<m)out+=`<ins>${esc(B[j++])}</ins>`;
+  return out;
+}
+
+const views={
+overview(){
+  const days=["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"],sent=[26,26,25,26,19,0,0],quota=[26,26,26,26,26,25,25];
+  return `
+  <span class="demo">Prototip · örnek verilerle</span>
+  <h1>Bu hafta</h1>
+  <p class="sub">Haftalık 180 davet 7 güne yayılıyor. Kabul edilen bağlantılara detay mesajı birkaç dakika içinde gidiyor.</p>
+  <div class="grid cols-4">
+    <div class="panel stat"><span>Gönderilen davet</span><b>122<span style="font-size:15px;color:var(--muted)"> / 180</span></b><div class="meter"><i style="width:68%"></i></div></div>
+    <div class="panel stat"><span>Kabul eden</span><b>27</b><span>Kabul oranı %22</span></div>
+    <div class="panel stat"><span>Detay mesajı giden</span><b>26</b><span>Ortalama 4 dk sonra</span></div>
+    <div class="panel stat"><span>Cevap veren</span><b>5</b><span><span class="pill p-good">2 ilgileniyor</span></span></div>
+  </div>
+  <div class="grid cols-2" style="margin-top:16px">
+    <div class="panel"><h2>Günlük davetler</h2>
+      <div class="week">${days.map((d,i)=>`<div class="${i===4?"today":""}"><span style="font-family:var(--mono)">${sent[i]||""}</span><div class="bar" style="height:${quota[i]*3}px"><i style="height:${sent[i]*3}px"></i></div>${d}</div>`).join("")}</div>
+      <p class="sub" style="margin:10px 0 0;font-size:13px">Koyu kısım gönderilen, açık kısım o günün kotası. Bugün 19/26.</p>
+    </div>
+    <div class="panel"><h2>Son hareketler</h2>
+      <ul class="feed">
+        <li><time>14:32</time><span><b>Selin Kaya</b> bağlantıyı kabul etti · detay mesajı onayınızı bekliyor</span></li>
+        <li><time>14:05</time><span><b>Can Yıldız</b> cevap verdi <span class="pill p-good">İlgileniyor</span></span></li>
+        <li><time>13:48</time><span>Davet gitti: <b>Murat Aksoy</b>, Örnek Tıp Merkezi</span></li>
+        <li><time>13:30</time><span>Kural denetimi bir mesajı durdurdu: hariç tutulan kurum adı geçiyordu</span></li>
+        <li><time>12:52</time><span>Davet gitti: <b>Zeynep Arslan</b>, Özel Deneme Hastanesi</span></li>
+      </ul>
+    </div>
+  </div>`;
+},
+agents(){
+  const a=[["Özel hastaneler","Hastane Müdürü, Hasta Hizmetleri, Başhekim…","İstanbul · %50 bütçe",64,15,3,"p-good","Aktif"],
+           ["Özel klinikler","Klinik Müdürü, Medikal Direktör…","İstanbul · %25 bütçe",31,7,1,"p-good","Aktif"],
+           ["Sağlık sigortacıları","CEO, Genel Müdür, CTO, Direktör…","İstanbul · %25 bütçe",27,5,1,"p-warn","Isınma"]];
+  return `<span class="demo">Prototip · örnek verilerle</span>
+  <div class="row between"><h1>Temsilciler</h1><button class="btn primary" data-toast="Sihirbaz açılır: ne satıyorsunuz, kime, hangi kanıtlarınız var?">Yeni temsilci</button></div>
+  <p class="sub">Her temsilcinin kendi hedeflemesi, şablonları ve bütçe payı var. Hepsi aynı LinkedIn hesabının haftalık 180 davetini paylaşıyor.</p>
+  <div class="grid">${a.map(x=>`<div class="panel agent"><div><div class="row"><h3>${x[0]}</h3><span class="pill ${x[6]}">${x[7]}</span></div><p>${x[1]}</p><p>${x[2]}</p></div>
+  <div class="nums"><div><b>${x[3]}</b>davet</div><div><b>${x[4]}</b>kabul</div><div><b>${x[5]}</b>cevap</div></div></div>`).join("")}</div>`;
+},
+studio(){
+  const t=templates[state.seg][state.kind];
+  return `<span class="demo">Prototip · yapay zekâ önerileri örnektir</span>
+  <h1>Şablon stüdyosu</h1>
+  <p class="sub">Metni birlikte yazıyoruz: siz yazarken kurallar denetleniyor, yapay zekâ öneri getiriyor, gönderilen yalnızca onayladığınız sürüm oluyor.</p>
+  <div class="tabs" role="tablist">${Object.keys(SEG_LABEL).map(k=>`<button class="tab" role="tab" data-seg="${k}" aria-selected="${state.seg===k}">${SEG_LABEL[k]}</button>`).join("")}</div>
+  <div class="tabs" role="tablist">${Object.keys(KIND_LABEL).map(k=>`<button class="tab" role="tab" data-kind="${k}" aria-selected="${state.kind===k}">${KIND_LABEL[k]}</button>`).join("")}</div>
+  <div class="studio">
+    <div class="panel">
+      <label class="label" for="tpl">Şablon · ${SEG_LABEL[state.seg]} · ${KIND_LABEL[state.kind]}</label>
+      <textarea id="tpl" spellcheck="false">${esc(t)}</textarea>
+      <div class="meta"><span id="len"></span><span>Sürüm ${state.versions[state.seg+state.kind]||1} · <span class="pill p-good">Onaylı</span></span></div>
+      <div class="vars"><span class="label" style="align-self:center">Ekle:</span><button class="var" data-var="{ad_soyad}">{ad_soyad}</button><button class="var" data-var="{kurum}">{kurum}</button></div>
+      <div class="ai">
+        <button class="btn" data-ai="better">Daha iyi yap</button>
+        <button class="btn" data-ai="shorter">Kısalt</button>
+        <button class="btn" data-ai="better">Daha samimi</button>
+        <button class="btn" data-ai="better">3 alternatif öner</button>
+      </div>
+      <form class="ask" id="ask"><input id="askq" placeholder="Kendi isteğiniz, ör. klinikler için görünürlük vurgusunu artır" aria-label="Yapay zekâdan istek"><button class="btn">Uygula</button></form>
+      <div id="sugg"></div>
+    </div>
+    <div class="grid" style="align-content:start">
+      <div class="panel"><h2>Kural denetimi</h2><ul class="checks" id="checks"></ul></div>
+      <div class="panel"><h2>Önizleme</h2><div class="preview" id="prev"></div></div>
+      <div class="panel"><h2>Performans</h2>
+        <table><tr><th>Sürüm</th><th>Gönderildi</th><th>Kabul</th><th>Cevap</th></tr>
+        <tr><td>v2 (şu an)</td><td style="font-family:var(--mono)">64</td><td style="font-family:var(--mono)">%23</td><td style="font-family:var(--mono)">%6</td></tr>
+        <tr><td>v1</td><td style="font-family:var(--mono)">58</td><td style="font-family:var(--mono)">%17</td><td style="font-family:var(--mono)">%3</td></tr></table>
+        <p class="why">Öneri: v2'deki "kurucusuyum" girişi daha çok kabul alıyor. Klinik şablonunda da aynı yapıyı deneyin.</p>
+      </div>
+    </div>
+  </div>`;
+},
+queue(){
+  return `<span class="demo">Prototip · örnek verilerle</span>
+  <h1>Onay kuyruğu</h1>
+  <p class="sub">Siz onaylamadan hiçbir mesaj gitmez. Metni burada düzenleyebilir, onaylayabilir ya da kişiyi atlayabilirsiniz.</p>
+  <div class="grid">${queue.length?queue.map(q=>{const t=fill(templates[q.seg][q.kind],{ad_soyad:q.name,kurum:q.org});return `
+  <div class="panel queue-item" id="q${q.id}"><div><div class="row"><b>${q.name}</b><span class="pill p-info">${KIND_LABEL[q.kind]}</span><span class="pill p-mute">${SEG_LABEL[q.seg]}</span></div>
+  <div style="color:var(--muted);font-size:13px">${q.title} · ${q.org}${q.reason?` · <b style="color:var(--fg)">${q.reason}</b>`:""}</div></div>
+  <div class="row"><button class="btn ghost" data-skip="${q.id}">Atla</button><button class="btn primary" data-approve="${q.id}">Onayla</button></div>
+  <div class="preview">${esc(t)}</div></div>`}).join(""):`<div class="panel">Kuyruk boş. Yeni taslaklar geldiğinde burada görünür.</div>`}</div>`;
+},
+inbox(){
+  return `<span class="demo">Prototip · örnek verilerle</span>
+  <h1>Gelen kutusu</h1>
+  <p class="sub">Cevaplar otomatik etiketlenir, size önerilen yanıt hazırlanır. Hiçbir yanıt kendiliğinden gitmez.</p>
+  <div class="grid">
+  <div class="panel"><div class="row between"><div><b>Can Yıldız</b> <span style="color:var(--muted);font-size:13px">Hastane Müdürü · Özel Örnek Hastanesi</span></div><span class="pill p-good">İlgileniyor</span></div>
+    <div class="preview" style="margin-top:10px">Merhaba Furkan Bey, ilginç görünüyor. Önümüzdeki hafta perşembe öğleden sonra uygun olabilirim.</div>
+    <p class="label" style="margin:12px 0 6px">Önerilen yanıt</p>
+    <textarea id="reply1" style="min-height:90px">Merhaba Can Yıldız, çok teşekkürler. Perşembe 15:00'te 30 dakikalık bir online görüşme uygun olur mu? Onaylarsanız davetiyeyi hemen gönderiyorum.</textarea>
+    <div class="row" style="margin-top:8px"><button class="btn primary" data-toast="Yanıt gönderim sırasına alındı">Gönder</button><button class="btn" data-toast="Yeni öneri hazırlanıyor">Başka öneri</button></div></div>
+  <div class="panel"><div class="row between"><div><b>Deniz Aydın</b> <span style="color:var(--muted);font-size:13px">Genel Müdür Yardımcısı · Örnek Sigorta</span></div><span class="pill p-warn">Sonra</span></div>
+    <div class="preview" style="margin-top:10px">Şu an bütçe dönemindeyiz, ocakta tekrar konuşalım.</div>
+    <div class="row" style="margin-top:10px"><button class="btn" data-toast="5 Ocak için hatırlatma kuruldu">Ocakta hatırlat</button></div></div>
+  </div>`;
+},
+accounts(){
+  return `<span class="demo">Prototip · örnek verilerle</span>
+  <h1>Hesaplar</h1>
+  <p class="sub">Her LinkedIn hesabı, sahibinin bilgisayarındaki yerel çalışanla bağlanır. Şifre hiçbir yerde saklanmaz.</p>
+  <div class="panel scroll"><table>
+    <tr><th>Hesap</th><th>Durum</th><th>Bu hafta</th><th>Günler</th><th>Saatler</th><th>Cihaz</th></tr>
+    <tr><td><b>Furkan Kurtoğlu</b><br><span class="pill p-info">Premium</span></td><td><span class="pill p-good">Bağlı</span></td><td style="font-family:var(--mono)">122 / 180</td><td>7 gün</td><td>09:00–18:30</td><td>Windows</td></tr>
+  </table></div>
+  <div class="row" style="margin-top:16px"><button class="btn primary" data-toast="Yerel çalışan indirilir; açılan Chrome penceresinde LinkedIn'e kendiniz giriş yaparsınız">LinkedIn hesabı bağla</button></div>`;
+}
+};
+
+function render(){
+  document.querySelectorAll(".nav-btn").forEach(b=>b.toggleAttribute("aria-current",false));
+  const cur=document.querySelector(`.nav-btn[data-view="${state.view}"]`);if(cur)cur.setAttribute("aria-current","page");
+  $("#main").innerHTML=views[state.view]();
+  $("#qcount").textContent=queue.length;
+  if(state.view==="studio")updateStudio();
+}
+
+function updateStudio(){
+  const ta=$("#tpl");const text=ta.value;
+  const filled=fill(text,SAMPLE);
+  const lim=state.kind==="invite"?300:8000;
+  $("#len").innerHTML=`<span class="${filled.length>lim?"over":""}">${filled.length} / ${lim} karakter</span>`;
+  $("#checks").innerHTML=check(text,state.kind).map(c=>`<li><span class="dot ${c.ok?"ok":"no"}"></span>${esc(c.msg)}</li>`).join("");
+  $("#prev").innerHTML=`<div class="who">${SAMPLE.ad_soyad} · ${SAMPLE.kurum} (örnek kişi)</div>${esc(filled)}`;
+  const s=state.suggestion;
+  $("#sugg").innerHTML=s?`<div class="suggest"><div class="row between"><b>Yapay zekâ önerisi</b><span class="pill p-info">Örnek</span></div>
+    <p class="why">${esc(s.why)}</p><div class="diff">${wordDiff(text,s.text)}</div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" id="acc">Kabul et ve onaya gönder</button><button class="btn" id="rej">Reddet</button></div></div>`:"";
+}
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.view){state.view=t.dataset.view;state.suggestion=null;try{localStorage.setItem("hfo-view",state.view)}catch(_){}render();return}
+  if(t.dataset.seg){state.seg=t.dataset.seg;state.suggestion=null;render();return}
+  if(t.dataset.kind){state.kind=t.dataset.kind;state.suggestion=null;render();return}
+  if(t.dataset.var){const ta=$("#tpl");const p=ta.selectionStart;ta.value=ta.value.slice(0,p)+t.dataset.var+ta.value.slice(ta.selectionEnd);templates[state.seg][state.kind]=ta.value;ta.focus();updateStudio();return}
+  if(t.dataset.ai){state.suggestion=fakeSuggest(t.dataset.ai,$("#tpl").value);updateStudio();return}
+  if(t.id==="acc"){const k=state.seg+state.kind;templates[state.seg][state.kind]=state.suggestion.text;state.versions[k]=(state.versions[k]||1)+1;state.suggestion=null;render();toast(`Sürüm ${state.versions[k]} onaylandı`);return}
+  if(t.id==="rej"){state.suggestion=null;updateStudio();toast("Öneri reddedildi");return}
+  if(t.dataset.approve||t.dataset.skip){const id=+(t.dataset.approve||t.dataset.skip);const i=queue.findIndex(q=>q.id===id);const q=queue.splice(i,1)[0];render();toast(t.dataset.approve?`${q.name}: gönderim sırasına alındı`:`${q.name} atlandı`);return}
+  if(t.dataset.toast){toast(t.dataset.toast)}
+});
+document.addEventListener("input",e=>{if(e.target.id==="tpl"){templates[state.seg][state.kind]=e.target.value;updateStudio()}});
+document.addEventListener("submit",e=>{if(e.target.id==="ask"){e.preventDefault();const q=$("#askq").value.trim();if(!q)return;const s=fakeSuggest("better",$("#tpl").value);s.why=`İsteğiniz: "${q}". ${s.why}`;state.suggestion=s;updateStudio()}});
+render();
+</script>
