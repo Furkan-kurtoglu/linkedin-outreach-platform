@@ -25,6 +25,7 @@ export interface Issue {
     | "excluded_company"
     | "too_long"
     | "missing_link"
+    | "duration"
     | "empty";
   message: string;
 }
@@ -97,6 +98,14 @@ export function checkMessage(
         message: `Hariç tutulan kurum adı geçiyor: "${company}".`,
       });
     }
+  }
+
+  // Görüşme için süre vaat edilmez ("20 dakikalık görüşme" gibi).
+  if (/\d+\s*(dk|dakika)/i.test(text)) {
+    issues.push({
+      code: "duration",
+      message: "Görüşme için süre belirtilmemeli (ör. \"20 dakika\").",
+    });
   }
 
   const limit = kind === "invite_note" ? inviteNoteLimit(rules.premium) : MESSAGE_LIMIT;

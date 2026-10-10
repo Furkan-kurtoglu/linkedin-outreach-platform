@@ -10,12 +10,12 @@ Hiçbir ücretli servis kullanılmaz. Kodun tamamı Claude tarafından yazılır
 | --- | --- |
 | `apps/web` | Panel (Next.js): temsilciler, şablon stüdyosu, onay kuyruğu, gelen kutusu |
 | `apps/runner` | Yerel çalışan: kullanıcının bilgisayarında LinkedIn'i Playwright ile kullanır (Windows ve Mac) |
-| `packages/core` | Ortak mantık: şablon doldurma ve kural denetimi, davet bütçesi, gönderim planlama |
+| `packages/core` | Mesaj motoru (yapay zekâsız): sihirbaz soruları, şablon üretimi, kural denetimi, kişi puanlama, cevap etiketleme, A/B karşılaştırma, davet planlama; isteğe bağlı Gemini yardımcısı |
 | `packages/db` | Veritabanı şeması (Prisma, Supabase PostgreSQL) |
 
 ## Durum
 
-- [x] Faz 0: proje iskeleti, çekirdek mantık (testli), veri modeli
+- [x] Faz 0: proje iskeleti, mesaj motoru (35 test), veri modeli, tıklanabilir prototip (`apps/web/prototype`)
 - [ ] Faz 0: yerel çalışan prototipi, KVKK aydınlatma metni
 - [ ] Faz 1: kayıt + hesap bağlama, temsilci ve şablonlar, gönderim motoru, kabulde anında mesaj
 - [ ] Faz 2: kişi bulma, değerlendirme, şablon stüdyosu + yapay zekâ, gelen kutusu
