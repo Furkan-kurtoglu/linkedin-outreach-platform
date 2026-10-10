@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install
+      - name: Çekirdek testleri
+        run: pnpm --filter @hfo/core test
+      - name: Tip kontrolü
+        run: pnpm --filter @hfo/core typecheck
+      - name: Veritabanı şemasını doğrula
+        run: pnpm --filter @hfo/db validate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
