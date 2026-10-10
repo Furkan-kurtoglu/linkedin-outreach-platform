@@ -411,23 +411,25 @@ agentEdit(){
 },
 wizard(){
   const qs=[
-    ["Ne satıyorsunuz?","HeAlthFintel; hasta, hastane ve sigorta şirketi arasında çalışan, yapay zekâ destekli finansal triyaj ve doğrulama katmanı."],
-    ["Kime ulaşmak istiyorsunuz?","İstanbul'daki özel diş klinikleri; klinik sahibi ve klinik müdürleri."],
-    ["Onlar için hangi sorunu çözüyorsunuz?","Sigortalı hastaların kliniği bulamaması; poliçe sorgusunun banko personelini yorması."],
-    ["Elinizdeki kanıtlar neler?","TÜBİTAK 1812 BiGG final aşaması, TEKNOFEST 2026 finalisti, pilot anlaşmalar."],
-    ["Hedefiniz ne?","Pilot proje için online görüşme."],
-    ["Kullanılmaması gereken ifadeler?","öğrenmek isterim, 20 dakika, kurum isimleri"]
+    ["Ürününüz ne yapıyor? Tek cümleyle, \"...-an/-en\" diye bitecek şekilde.","özel kliniklerin sigortalı hastalara görünür olmasını sağlayan","Davet notunda \"{bu cümle} HeAlthFintel'in kurucusuyum\" diye kullanılır."],
+    ["Kime ulaşmak istiyorsunuz? Kurum türünü çoğul yazın.","özel diş klinikleri","Unvanları ve şehri sonraki adımda hedeflemeye eklersiniz."],
+    ["Onların en çok yaşadığı sorun ne?","poliçesine uygun klinik arayan sigortalı hastaya ulaşamamak; poliçe sorgusunun banko personelini yorması","Karşı tarafı suçlamadan, sektörün genel sorunu olarak yazın."],
+    ["Bu sorunu nasıl çözüyorsunuz? Her satıra bir somut fayda.","klinik, poliçesine uygun kurum arayan sigortalı hastaların önüne çıkıyor\nhasta gelmeden cepten ödeyeceği tutarı görüyor","Mesajda \"hedefliyoruz\" diliyle kullanılır; kesin vaat verilmez."],
+    ["Elinizde hangi kanıtlar var? Rakamlar sektör verisi mi, kendi sonucunuz mu?","TÜBİTAK 1812 BiGG başvurumuz final aşamasında\nTEKNOFEST 2026 Finansal Teknolojiler'de finalist olduk","Sektör verisi her kuruma uymayabilir; mesajda \"sektör çalışmalarına göre\" diye geçer."],
+    ["Karşı tarafın ne yapmasını istiyorsunuz?","Pilot görüşmesi","Görüşme için süre yazılmaz."],
+    ["Ton ve hitap nasıl olsun?","Resmi · ad soyad","Bey/Hanım yalnızca cinsiyet kesinse kullanılır; isimden tahmin edilmez."],
+    ["Mesajlarda asla geçmemesi gerekenler?","öğrenmek isterim, 20 dakika · Acıbadem","İfadeler ve kurum isimleri her mesajda denetlenir."],
+    ["Paylaşılacak link?",LINK,"Detay mesajının sonunda yer alır."]
   ];
   const i=state.wiz-1;
   if(i<qs.length)return `${demo("Prototip · sihirbaz örneği")}
   <button class="link" data-view="agents">← Vazgeç</button>
-  <h1>Yeni temsilci</h1><p class="sub">Birkaç soruya cevap verin; hedefleme ve tüm mesaj şablonlarının ilk taslağını yapay zekâ hazırlar, siz onaylarsınız.</p>
+  <h1>Yeni temsilci</h1><p class="sub">9 soruya cevap verin; cevaplarınız denenmiş şablonlara yerleşir ve tüm mesajların ilk taslağı çıkar. Yapay zekâ gerekmez, siz onaylarsınız.</p>
   <div class="panel stack" style="max-width:640px"><span class="wiz-step">Soru ${i+1} / ${qs.length}</span><div class="meter"><i style="width:${(i+1)/qs.length*100}%"></i></div>
-  <div class="field"><label for="wq">${qs[i][0]}</label><textarea id="wq" style="min-height:90px">${esc(qs[i][1])}</textarea></div>
-  ${i===0?`<div class="field"><label for="ws">Web siteniz (isteğe bağlı)</label><input type="text" id="ws" value="${LINK}"><span class="hint">Siteden bilgi okunur, cevaplarınızı tamamlar.</span></div>`:""}
+  <div class="field"><label for="wq">${esc(qs[i][0])}</label><textarea id="wq" style="min-height:90px">${esc(qs[i][1])}</textarea><span class="hint">${esc(qs[i][2])}</span></div>
   <div class="row between"><button class="btn" data-wizard="${Math.max(1,state.wiz-1)}" ${i===0?"disabled":""}>Geri</button><button class="btn primary" data-wizard="${state.wiz+1}">${i===qs.length-1?"Taslağı hazırla":"Devam"}</button></div></div>`;
   return `${demo("Prototip · sihirbaz örneği")}
-  <h1>Taslak hazır</h1><p class="sub">Yapay zekâ cevaplarınızdan aşağıdakileri çıkardı. Kontrol edip onaylayın; temsilci onaydan sonra "taslak" durumunda açılır, siz başlatana kadar kimseye bir şey gitmez.</p>
+  <h1>Taslak hazır</h1><p class="sub">Cevaplarınızdan aşağıdakiler çıktı. Kontrol edip onaylayın; temsilci onaydan sonra "taslak" durumunda açılır, siz başlatana kadar kimseye bir şey gitmez.</p>
   <div class="grid cols-2"><div class="panel stack"><h2>Önerilen hedefleme</h2>
     <div class="field"><label>Unvanlar</label><div class="chips">${["Klinik Sahibi","Klinik Müdürü","Diş Hekimi (Kurucu)","Medikal Direktör"].map(x=>`<span class="chip">${x}</span>`).join("")}</div></div>
     <div class="field"><label>Konum</label><div class="chips"><span class="chip">İstanbul</span></div></div>
@@ -453,7 +455,7 @@ studio(){
   const t=templates[state.seg][state.kind];const vl=vlist();
   return `${demo("Prototip · yapay zekâ önerileri örnektir")}
   <h1>Şablon stüdyosu</h1>
-  <p class="sub">Metni birlikte yazıyoruz: siz yazarken kurallar denetleniyor, yapay zekâ öneri getiriyor, gönderilen yalnızca onayladığınız sürüm oluyor.</p>
+  <p class="sub">Siz yazarken kurallar denetleniyor, gerçek sonuçlara göre öneri geliyor, gönderilen yalnızca onayladığınız sürüm oluyor. Yapay zekâ düğmeleri isteğe bağlıdır.</p>
   <div class="tabs" role="tablist" aria-label="Segment">${Object.keys(SEG_LABEL).map(k=>`<button class="tab" role="tab" data-seg="${k}" aria-selected="${state.seg===k}">${SEG_LABEL[k]}</button>`).join("")}</div>
   <div class="tabs" role="tablist" aria-label="Mesaj adımı">${Object.keys(KIND_LABEL).map(k=>`<button class="tab" role="tab" data-kind="${k}" aria-selected="${state.kind===k}">${KIND_LABEL[k]}</button>`).join("")}</div>
   <div class="studio">
@@ -462,7 +464,8 @@ studio(){
       <textarea id="tpl" spellcheck="false">${esc(t)}</textarea>
       <div class="meta"><span id="len"></span><span>Sürüm ${vl[0].v} · <span class="pill ${vl[0].status==="Onaylı"?"p-good":"p-warn"}" id="vstat">${vl[0].status}</span></span></div>
       <div class="vars"><span class="label" style="align-self:center">Ekle:</span><button class="var" data-var="{ad_soyad}">{ad_soyad}</button><button class="var" data-var="{kurum}">{kurum}</button></div>
-      <div class="ai">
+      <p class="label" style="margin:14px 0 0">Yapay zekâ yardımcısı · isteğe bağlı, ücretsiz Gemini anahtarıyla</p>
+      <div class="ai" style="margin-top:6px">
         <button class="btn" data-ai="better">Daha iyi yap</button>
         <button class="btn" data-ai="shorter">Kısalt</button>
         <button class="btn" data-ai="warm">Daha samimi</button>
@@ -480,7 +483,7 @@ studio(){
         <table><tr><th>Sürüm</th><th class="num">Gönderildi</th><th class="num">Kabul</th><th class="num">Cevap</th></tr>
         <tr><td>v2</td><td class="num">64</td><td class="num">%23</td><td class="num">%6</td></tr>
         <tr><td>v1</td><td class="num">58</td><td class="num">%17</td><td class="num">%3</td></tr></table>
-        <p class="why">Öneri: "kurucusuyum" ile başlayan sürüm daha çok kabul alıyor. Klinik şablonunda da aynı yapıyı deneyin.</p>
+        <p class="why">Sonuçlara göre: v2, v1'den 6 puan daha yüksek kabul alıyor ama fark henüz kesin değil; her sürüm 40 gönderime ulaşınca karar verilecek.</p>
       </div>
     </div>
   </div>`;
@@ -550,8 +553,10 @@ settings(){
         <div class="field"><label for="ret">Cevap vermeyenlerin verisi silinsin</label><select id="ret">${[6,12,24].map(m=>`<option ${m===settings.retention?"selected":""} value="${m}">${m} ay sonra</option>`).join("")}</select></div>
         <div class="row"><button class="btn danger" data-toast="Kişi silindi; tekrar bulunmaması için yalnızca profil linkinin özeti tutuluyor">Silme talebi işle</button></div></div>
       <div class="panel stack"><h2>Yapay zekâ</h2>
-        <div class="field"><label for="gk">Gemini API anahtarı (ücretsiz)</label><input type="password" id="gk" placeholder="Google AI Studio'dan alınır"><span class="hint">Yalnızca şablon metinleri gönderilir; kişilerin adı ve profil bilgisi gönderilmez.</span></div>
-        <div class="switch"><span>Kişi değerlendirme<br><span class="hint">Kural tabanlı (ücretsiz)</span></span><span class="pill p-good">Açık</span></div></div>
+        <p class="hint" style="margin:0">Sihirbaz, kural denetimi, kişi değerlendirme, cevap etiketleme ve performans önerileri yapay zekâ olmadan çalışır.</p>
+        <div class="field"><label for="gk">Gemini API anahtarı (isteğe bağlı, ücretsiz)</label><input type="password" id="gk" placeholder="Google AI Studio'dan alınır"><span class="hint">Yalnızca "Daha iyi yap" türü düğmeler için. Yalnızca şablon metni gönderilir; kişi bilgisi gönderilmez. Günlük ücretsiz hak dolarsa düğmeler ertesi güne kadar kapanır, başka hiçbir şey etkilenmez.</span></div>
+        <div class="switch"><span>Kişi değerlendirme<br><span class="hint">Kural tabanlı</span></span><span class="pill p-good">Açık</span></div>
+        <div class="switch"><span>Cevap etiketleme<br><span class="hint">Kural tabanlı</span></span><span class="pill p-good">Açık</span></div></div>
       <div class="panel"><h2>Bildirimler</h2>
         <label class="switch" for="n1"><span>Yeni cevap ve onay bekleyen mesaj için e-posta</span><input type="checkbox" id="n1" checked></label>
         <label class="switch" for="n2"><span>Telegram bildirimi</span><input type="checkbox" id="n2"></label>
