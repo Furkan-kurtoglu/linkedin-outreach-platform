@@ -8,11 +8,13 @@ import { capFirst, lowerFirst, sentence, stripEnd } from "./text";
 import { checkMessage, inviteNoteLimit, type Issue, type TemplateRules } from "./template";
 import type { Goal, WizardAnswers } from "./wizard";
 
-export type StepKind = "invite" | "message" | "followUp1" | "followUp2";
+export type StepKind = "invite" | "message" | "connectedMessage" | "followUp1" | "followUp2";
 
 export interface GeneratedSet {
   invite: string;
   message: string;
+  /** Zaten bağlantıda olunan kişilere davetsiz giden ilk mesaj */
+  connectedMessage: string;
   followUp1: string;
   followUp2: string;
   /** Kural denetiminin her adım için bulduğu sorunlar (değişkenler doldurulmadan). */
@@ -112,6 +114,14 @@ export function generateTemplates(a: WizardAnswers, opts: { premium: boolean }):
   parts.push(GOAL_CLOSE[a.goal]);
   const message = parts.filter((p) => p.trim()).join("\n\n");
 
+  // --- Mevcut bağlantıya ilk mesaj: davet notu yerine, tanışıklık cümlesiyle açılır ---
+  const connectedMessage = [
+    `Merhaba ${hitap}, LinkedIn'de bağlantıdayız ama sanırım daha önce yazışma fırsatımız olmadı. ${capFirst(product)} ${who}.`,
+    ...parts.slice(2),
+  ]
+    .filter((p) => p.trim())
+    .join("\n\n");
+
   // --- Takipler ---
   const linkTail = link ? ` ${link}` : "";
   const followUp1 = `Merhaba ${hitap}, önceki mesajımı yoğunluk içinde görmemiş olabilirsiniz. {kurum} için ${GOAL_FOLLOWUP[a.goal]} kısa bir online görüşmede anlatmak isterim.${linkTail}`;
@@ -121,9 +131,10 @@ export function generateTemplates(a: WizardAnswers, opts: { premium: boolean }):
   const issues: Record<StepKind, Issue[]> = {
     invite: checkMessage(invite, "invite_note", rules),
     message: checkMessage(message, "message", rules),
+    connectedMessage: checkMessage(connectedMessage, "message", rules),
     followUp1: checkMessage(followUp1, "message", { ...rules, requiredLink: undefined }),
     followUp2: checkMessage(followUp2, "message", { ...rules, requiredLink: undefined }),
   };
 
-  return { invite, message, followUp1, followUp2, issues, dropped };
+  return { invite, message, connectedMessage, followUp1, followUp2, issues, dropped };
 }

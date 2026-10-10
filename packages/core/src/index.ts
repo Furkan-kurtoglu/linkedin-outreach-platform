@@ -9,3 +9,6 @@ export * from "./scoring";
 export * from "./replies";
 export * from "./abtest";
 export * from "./assistant";
+export * from "./discovery";
+export * from "./learning";
+export * from "./sequence";

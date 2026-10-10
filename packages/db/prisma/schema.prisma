@@ -36,9 +36,24 @@ enum ReviewMode {
 }
 
 enum StepType {
+  VISIT // davetten önce profil ziyareti
   INVITE // davet notu
-  MESSAGE_ON_ACCEPT // kabulde detay mesajı (bekleme 0)
+  ACCEPTED_MESSAGE // kabulde detay mesajı (bekleme 0)
+  CONNECTED_MESSAGE // zaten bağlantıda olunan kişiye davetsiz ilk mesaj
   FOLLOW_UP // cevap gelmezse takip
+}
+
+enum Branch {
+  NEW_PERSON // 2. ve 3. derece: davetle başlar
+  CONNECTED // 1. derece: doğrudan mesajla başlar
+}
+
+enum SourceKind {
+  CONNECTIONS
+  ACCOUNTS
+  SEARCH
+  ENGAGERS
+  IMPORT
 }
 
 enum TemplateStatus {
@@ -63,6 +78,8 @@ enum Direction {
 }
 
 enum JobType {
+  VISIT_PROFILE
+  WITHDRAW_INVITE
   SEND_INVITE
   SEND_MESSAGE
   CHECK_CONNECTIONS
@@ -95,6 +112,8 @@ model Workspace {
   privacyNoticeUrl String?
   /// Yanıt vermeyen kişilerin verisinin silineceği süre (ay)
   retentionMonths  Int      @default(12)
+  /// Gönderim yapılmayacak ek günler (YYYY-AA-GG), ör. dinî bayramlar
+  quietDays        String[] @default([])
   createdAt        DateTime @default(now())
 
   members          Membership[]
@@ -103,6 +122,7 @@ model Workspace {
   prospects        Prospect[]
   suppressions     Suppression[]
   auditLogs        AuditLog[]
+  files            FileAsset[]
 }
 
 model User {
@@ -170,6 +190,14 @@ model Agent {
   /// Yasak ifadeler (her mesajda denetlenir)
   bannedPhrases     String[]    @default([])
   requiredLink      String?
+  /// Davetten önce profil ziyareti
+  visitBeforeInvite Boolean     @default(true)
+  /// Kabul edilmeyen davet kaç gün sonra geri çekilir
+  withdrawAfterDays Int         @default(21)
+  /// Aynı kurumdan aynı anda en fazla kaç kişiyle süreç yürütülür
+  maxPerCompany     Int         @default(2)
+  /// Mevcut bağlantılar da hedeflensin mi (davetsiz akış)
+  includeConnections Boolean    @default(true)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -178,6 +206,7 @@ model Agent {
   segments        Segment[]
   steps           SequenceStep[]
   prospects       AgentProspect[]
+  targetAccounts  TargetAccount[]
 
   @@index([workspaceId])
 }
@@ -194,16 +223,49 @@ model Segment {
 }
 
 model SequenceStep {
-  id         String   @id @default(cuid())
-  agentId    String
-  order      Int
-  type       StepType
+  id           String   @id @default(cuid())
+  agentId      String
+  branch       Branch   @default(NEW_PERSON)
+  order        Int
+  type         StepType
   /// Önceki adımdan sonra bekleme (saat). Kabulde mesaj için 0.
-  delayHours Int      @default(0)
-  agent      Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  templates  Template[]
+  delayHours   Int      @default(0)
+  /// Mesaja eklenecek belge (davet notunda kullanılamaz)
+  attachmentId String?
+  agent        Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  attachment   FileAsset? @relation(fields: [attachmentId], references: [id])
+  templates    Template[]
 
-  @@unique([agentId, order])
+  @@unique([agentId, branch, order])
+}
+
+/// Mesajlara eklenen belgeler (Supabase Storage'da tutulur; yalnızca PDF, en fazla 10 MB)
+model FileAsset {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  mimeType    String
+  sizeBytes   Int
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  steps     SequenceStep[]
+}
+
+/// Hedef kurum listesi: önce kurum, sonra o kurumdaki doğru unvanlar aranır
+model TargetAccount {
+  id          String   @id @default(cuid())
+  agentId     String
+  name        String
+  linkedinUrl String?
+  /// Elle eklendi, şirket aramasından seçildi ya da içe aktarıldı
+  origin      String   @default("manual")
+  createdAt   DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, name])
 }
 
 /// Şablonlar sürümlüdür: yalnızca APPROVED sürüm gönderilir.
@@ -248,7 +310,13 @@ model Prospect {
   title       String?
   company     String?
   location    String?
-  source      String? // arama, liste, manuel
+  headline    String?
+  industry    String?
+  /// Bağlantı derecesi (1 = zaten bağlantıda)
+  degree      Int?
+  mutualConnections Int?
+  recentlyActive Boolean @default(false)
+  source      SourceKind @default(SEARCH)
   /// KVKK: bu tarihten sonra cevap yoksa veri silinir
   retainUntil DateTime
   createdAt   DateTime @default(now())
@@ -266,7 +334,11 @@ model AgentProspect {
   prospectId  String
   segmentId   String?
   stage       ProspectStage @default(QUEUED)
+  branch      Branch        @default(NEW_PERSON)
   fitScore    Int?
+  priority    Int?
+  visitedAt   DateTime?
+  withdrawnAt DateTime?
   fitReason   String?
   inviteSentAt DateTime?
   connectedAt DateTime?
