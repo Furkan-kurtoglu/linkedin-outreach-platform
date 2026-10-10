@@ -196,11 +196,59 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .win button:hover{color:var(--bad)}
 table.sched td{vertical-align:middle}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:6px;font-weight:500;max-width:calc(100% - 32px);z-index:20}
+/* seçenekler */
+.opt{border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.opt-h{display:flex;gap:12px;align-items:flex-start;padding:14px 16px}
+.opt-h .txt{flex:1;min-width:0}
+.opt-h p{margin:2px 0 0;color:var(--muted);font-size:13px;max-width:64ch}
+.opt-b{border-top:1px solid var(--line);padding:14px 16px;display:flex;flex-direction:column;gap:12px;background:var(--bg)}
+.switch{position:relative;width:36px;height:20px;flex:none;margin-top:2px}
+.switch input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:20px;background:var(--line-strong);transition:background .12s}
+.switch span::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:transform .12s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span::after{transform:translateX(16px)}
+.switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.optstep{display:flex;gap:10px;align-items:center;border:1px dashed var(--line-strong);border-radius:6px;padding:10px 12px;margin-top:8px;color:var(--muted);font-size:13px}
+.optstep.on{border-style:solid;border-color:var(--line);background:var(--surface);color:var(--fg)}
+/* toplu işlem, uyarı, kontrol listesi, zaman çizelgesi */
+.bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--fg);color:var(--bg);border-radius:6px;padding:8px 12px;margin-bottom:10px}
+.bulk .btn{background:transparent;color:var(--bg);border-color:color-mix(in srgb,var(--bg) 40%,transparent)}
+.bulk .btn:hover{color:var(--bg);border-color:var(--bg)}
+td.sel,th.sel{width:34px;padding-right:0}
+td.sel input,th.sel input{accent-color:var(--accent);width:16px;height:16px}
+.banner{display:flex;gap:12px;align-items:flex-start;border:1px solid;border-radius:var(--r);padding:12px 14px;margin-bottom:16px}
+.banner.warning{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.banner.error{background:var(--bad-soft);border-color:color-mix(in srgb,var(--bad) 30%,transparent)}
+.banner p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.banner .txt{flex:1;min-width:0}
+.onb{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.onb button{display:flex;gap:10px;align-items:flex-start;text-align:left;border:0;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:none;padding:12px 16px}
+.onb button:hover{background:var(--sunk)}
+.onb .n{width:22px;height:22px;border-radius:50%;border:1px solid var(--line-strong);display:grid;place-items:center;font:600 11px var(--mono);color:var(--muted);flex:none}
+.onb .done .n{background:var(--good);border-color:var(--good);color:var(--surface)}
+.onb .done b{color:var(--muted);text-decoration:line-through;font-weight:500}
+.onb .sub{display:block}
+.tl{list-style:none;margin:0;padding:0}
+.tl li{display:grid;grid-template-columns:96px 14px minmax(0,1fr);gap:10px;padding:0 16px}
+.tl .when{font:500 12px var(--mono);color:var(--faint);padding:12px 0}
+.tl .rail{position:relative}
+.tl .rail::before{content:"";position:absolute;left:6px;top:0;bottom:0;border-left:1px solid var(--line-strong)}
+.tl .rail::after{content:"";position:absolute;left:2px;top:17px;width:9px;height:9px;border-radius:50%;background:var(--surface);border:2px solid var(--line-strong)}
+.tl li.k-reply .rail::after{border-color:var(--good);background:var(--good)}
+.tl li.k-note .rail::after{border-color:var(--warn)}
+.tl li.k-message_sent .rail::after,.tl li.k-invite_sent .rail::after{border-color:var(--accent)}
+.tl .what{padding:12px 0;border-bottom:1px solid var(--line);min-width:0}
+.tl li:last-child .what{border-bottom:0}
+.tl .body{white-space:pre-wrap;background:var(--sunk);border-radius:6px;padding:8px 10px;margin-top:6px;font-size:13px}
+.toast .link{color:var(--bg);text-decoration:underline;margin-left:10px}
 .login{max-width:380px;margin:10vh auto;padding-inline:16px}
 .empty{padding:28px 16px;text-align:center;color:var(--muted)}
 .upload{border:1px dashed var(--line-strong);border-radius:var(--r);padding:20px;text-align:center;color:var(--muted)}
 @media (max-width:1100px){.editor{grid-template-columns:200px minmax(0,1fr)}.editor>.side-col{grid-column:1/-1}}
 @media (max-width:900px){
+  .onb{grid-template-columns:minmax(0,1fr)}
+  .tl li{grid-template-columns:72px 14px minmax(0,1fr);padding:0 12px}
   .app{grid-template-columns:1fr}
   .side{position:static;height:auto;flex-direction:row;overflow-x:auto;padding:8px 12px;border-right:0;border-bottom:1px solid var(--line);gap:4px}
   .logo{padding:4px 8px}.nav-group,.side-foot{display:none}.nav{white-space:nowrap;width:auto}
@@ -244,8 +292,8 @@ const files=[
   {id:"f2",name:"HeAlthFintel-Klinikler-Gorunurluk.pdf",size:"0,9 MB",pages:1,used:"—"},
   {id:"f3",name:"HeAlthFintel-Sigorta-Dogrulama.pdf",size:"1,4 MB",pages:2,used:"—"}
 ];
-const STEP_LABEL={invite:"Davet notu",accepted:"Kabulde mesaj",fu1:"1. takip",fu2:"2. takip",conn:"Bağlantıya ilk mesaj",cfu1:"Takip"};
-const STEP_KIND={invite:"invite",accepted:"message",fu1:"message",fu2:"message",conn:"message",cfu1:"message"};
+const STEP_LABEL={invite:"Davet notu",accepted:"Kabulde mesaj",fu1:"1. takip",fu2:"2. takip",conn:"Bağlantıya ilk mesaj",cfu1:"Takip",inmail:"InMail"};
+const STEP_KIND={invite:"invite",accepted:"message",fu1:"message",fu2:"message",conn:"message",cfu1:"message",inmail:"message"};
 function tpl(seg){
   const prod={hastane:"özel hastanelerde hasta kabul ve sigorta doğrulamayı hızlandıran",klinik:"özel kliniklerin sigortalı hastalara görünür olmasını sağlayan",sigorta:"sağlık sigortalarında poliçe doğrulama ve talep süreçlerini hızlandıran"}[seg];
   const body={
@@ -261,9 +309,20 @@ function tpl(seg){
     fu1:`Merhaba {hitap}, önceki mesajımı yoğunluk içinde görmemiş olabilirsiniz. {kurum} için pilot sürecini kısa bir online görüşmede anlatmak isterim. ${LINK}`,
     fu2:`Merhaba {hitap}, son kez yazıyorum. Şu an uygun değilse sorun değil; ilerleyen dönemde konuşmak isterseniz buradayım. ${LINK}`,
     conn:`Merhaba {hitap}, LinkedIn'de bağlantıdayız ama sanırım daha önce yazışma fırsatımız olmadı. ${prod.charAt(0).toLocaleUpperCase("tr-TR")+prod.slice(1)} HeAlthFintel'in kurucusuyum.\n\n${body.split("\n\n").slice(1).join("\n\n")||body}\n\n${proof}\n\n${close}`,
-    cfu1:`Merhaba {hitap}, önceki mesajımla ilgili kısa bir görüşme için uygun bir gününüz olur mu? ${LINK}`
+    cfu1:`Merhaba {hitap}, önceki mesajımla ilgili kısa bir görüşme için uygun bir gününüz olur mu? ${LINK}`,
+    inmail:`Merhaba {hitap}, birkaç hafta önce bağlantı isteği göndermiştim; ulaşmamış olabilir diye kısaca buradan yazıyorum. ${prod.charAt(0).toLocaleUpperCase("tr-TR")+prod.slice(1)} HeAlthFintel'in kurucusuyum.\n\n${proof}\n\n${close}`
   };
 }
+function tplEn(seg){
+  if(seg!=="hastane")return {};
+  const close="I would like to walk you through the pilot in a short online meeting. Which day would suit you?";
+  return {
+    invite:"Hi {hitap}, I'm the founder of HeAlthFintel, which speeds up patient admission and insurance verification at private hospitals. We have started pilots with hospitals and would like to meet you as well.",
+    accepted:"Thank you for connecting, {hitap}.\n\nHeAlthFintel is a financial triage and verification layer between the patient, the hospital and the insurer. It does not replace your systems or make decisions; it speeds up and verifies the institution's own decision, and stores no health data.\n\nDetails: "+LINK+"\n\n"+close,
+    fu1:"Hi {hitap}, you may have missed my previous message. I'd be glad to explain the pilot for {kurum} in a short online meeting. "+LINK,
+  };
+}
+const OPT_DEFAULT=()=>({firstLine:false,sources:["mutual","post","school"],calendar:false,calUrl:"",english:false,openProfile:false,inmail:false,inmailMin:80,inmailWeekly:5});
 const campaigns=[
   {id:"hastane",name:"Özel hastaneler",status:"Aktif",share:50,owner:"Furkan Kurtoğlu",review:"all",
    stats:{found:212,invited:64,accepted:15,replied:3,meetings:1},
@@ -271,19 +330,19 @@ const campaigns=[
    exTitles:["Stajyer","Asistan","Uzman Yardımcısı","Sorumlu Hemşire"],locations:["İstanbul"],industries:["Hastaneler ve Sağlık Hizmetleri"],
    required:["özel","hastane","hospital"],rule:"Yalnızca özel hastaneler; kamu, şehir ve eğitim-araştırma hastaneleri hariç.",
    accounts:["Özel Levent Hastanesi","Türkiye Hastanesi","Özel Deha Hastanesi","Pendik Hayat Şifa Hastanesi","İstanbul Cerrahi Hastanesi","Medipol Bahçelievler"],
-   steps:{invite:{},accepted:{file:"f1"},fu1:{delay:4},fu2:{delay:6},conn:{file:"f1"},cfu1:{delay:5}},
-   segments:{hastane:tpl("hastane"),klinik:tpl("klinik")}},
+   steps:{invite:{},accepted:{file:"f1"},fu1:{delay:4},fu2:{delay:6},conn:{file:"f1"},cfu1:{delay:5},inmail:{}},
+   segments:{hastane:tpl("hastane"),klinik:tpl("klinik")},en:{hastane:tplEn("hastane"),klinik:{}},opts:OPT_DEFAULT()},
   {id:"sigorta",name:"Sağlık sigortacıları",status:"Isınma",share:25,owner:"Furkan Kurtoğlu",review:"all",
    stats:{found:58,invited:27,accepted:5,replied:1,meetings:0},
    titles:["CEO","Genel Müdür","General Manager","CTO","COO","Direktör","Director","Sağlık Sigortaları","İş Geliştirme"],
    exTitles:["Satış Temsilcisi","Acente","Broker"],locations:["İstanbul"],industries:["Sigorta"],required:["sigorta","insurance"],
    rule:"Yalnızca sağlık sigortası satan şirketler; acente ve brokerlar hariç.",accounts:[],
-   steps:{invite:{},accepted:{},fu1:{delay:4},fu2:{delay:6},conn:{},cfu1:{delay:5}},segments:{sigorta:tpl("sigorta")}}
+   steps:{invite:{},accepted:{},fu1:{delay:4},fu2:{delay:6},conn:{},cfu1:{delay:5},inmail:{}},segments:{sigorta:tpl("sigorta")},en:{sigorta:{}},opts:OPT_DEFAULT()}
 ];
 const SEG_NAME={hastane:"Hastane",klinik:"Klinik / tıp merkezi",sigorta:"Sigorta şirketi"};
 const versions={};
 const people=[
-  {n:"Elif Demirtaş",t:"Hasta Hizmetleri Müdürü",o:"Özel Örnek Hastanesi",c:"hastane",seg:"hastane",deg:2,mut:4,score:82,stage:"Onay bekliyor",next:"Davet notu onayınızda",src:"Hedef kurum",why:["Unvanda \"Hasta Hizmetleri\" geçiyor","Kurum adında \"özel\" geçiyor","4 ortak bağlantı"]},
+  {n:"Elif Demirtaş",t:"Hasta Hizmetleri Müdürü",o:"Özel Örnek Hastanesi",c:"hastane",seg:"hastane",deg:2,mut:4,score:82,stage:"Onay bekliyor",next:"Davet notu onayınızda",src:"Hedef kurum",mutual:"Ahmet Yılmaz",lang:"tr",why:["Unvanda \"Hasta Hizmetleri\" geçiyor","Kurum adında \"özel\" geçiyor","4 ortak bağlantı"]},
   {n:"Kerem Özdemir",t:"Genel Müdür",o:"Özel Deneme Tıp Merkezi",c:"hastane",seg:"klinik",deg:1,mut:12,score:88,stage:"Sırada",next:"Bağlantıya ilk mesaj · bugün 14:40",src:"Bağlantılarım",why:["Zaten bağlantınız; davet gerekmez","Unvanda \"Genel Müdür\" geçiyor","Segment: Klinik / tıp merkezi"]},
   {n:"Selin Kaya",t:"Hastane Müdürü",o:"Özel Deneme Hastanesi",c:"hastane",seg:"hastane",deg:2,mut:2,score:86,stage:"Bağlandı",next:"Kabulde mesaj onayınızda",src:"LinkedIn araması",why:["Unvan birebir","Özel hastane"]},
   {n:"Can Yıldız",t:"Hastane Müdürü",o:"Özel Örnek Hastanesi",c:"hastane",seg:"hastane",deg:2,mut:3,score:85,stage:"Cevap verdi",next:"Gelen kutusunda",src:"Hedef kurum",why:["Unvan birebir","Özel hastane"]},
@@ -302,21 +361,35 @@ const convs=[
   {id:1,name:"Can Yıldız",role:"Hastane Müdürü · Özel Örnek Hastanesi",label:"İlgileniyor",cls:"t-good",msgs:[["me","Merhaba Can Yıldız, özel hastanelerde hasta kabul ve sigorta doğrulamayı hızlandıran HeAlthFintel'in kurucusuyum…","Davet notu · 8 Eki"],["me","Bağlantı için teşekkürler Can Yıldız. HeAlthFintel; hasta, hastane ve sigorta şirketi arasında…\n📎 HeAlthFintel-Hastaneler-Tanitim.pdf","Kabulden 4 dk sonra · 9 Eki"],["them","Merhaba Furkan Bey, ilginç görünüyor. Önümüzdeki hafta perşembe öğleden sonra uygun olabilirim.","Bugün 14:05"]],draft:"Merhaba Can Yıldız, çok teşekkürler. Perşembe 15:00'te online bir görüşme uygun olur mu? Onaylarsanız takvim davetini hemen gönderiyorum."},
   {id:2,name:"Deniz Aydın",role:"Genel Müdür Yardımcısı · Örnek Sigorta",label:"Sonra",cls:"t-warn",msgs:[["me","Bağlantı için teşekkürler Deniz Aydın. HeAlthFintel, kurumların karar motorlarına dokunmadan…","6 Eki"],["them","Şu an bütçe dönemindeyiz, ocakta tekrar konuşalım.","Dün 16:20"]],draft:"Anladım Deniz Aydın, teşekkürler. Ocak başında tekrar yazacağım; iyi çalışmalar."}
 ];
+const notes={3:[{at:"Bugün 14:20",a:"Furkan Kurtoğlu",b:"Perşembe öğleden sonra uygunmuş. Demo için hastane kabul ekranını hazırla."}]};
+const opps={3:{stage:"Görüşme istedi",next:"Online görüşme",date:"2026-10-16"}};
+const alerts=[{id:"runner",sev:"warning",title:"Yerel çalışan 34 dakikadır bağlanmadı",text:"Bekleyen 6 iş var. Bilgisayarınızın açık ve çalışanın başlatılmış olduğundan emin olun; açıldığında işler kaldığı yerden devam eder.",go:"accounts",cta:"Hesaba git"}];
+const onb={done:["account","schedule","campaign","templates"],hidden:false};
+const ONB=[["account","LinkedIn hesabını bağla","Çalışanı kurup LinkedIn'e bir kez giriş yapın.","accounts"],["schedule","Gönderim saatlerini ayarla","Haftalık davet, günler ve saatler.","accounts"],["privacy","KVKK aydınlatma metnini yayınla","Hazır metni düzenleyip sitenize koyun.","settings"],["campaign","İlk kampanyayı oluştur","Kimlere, hangi amaçla yazacağınızı belirleyin.","campaigns"],["templates","Mesajları onayla","Yalnızca onaylı metinler gönderilir.","campaign"],["people","Kişileri incele ve başlat","Bulunan kişileri gözden geçirin.","discover"]];
 const deals={"Görüşme istedi":[{n:"Can Yıldız",o:"Özel Örnek Hastanesi",d:"Perşembe öğleden sonra önerdi"}],"Görüşme planlandı":[{n:"Hakan Er",o:"Özel Deneme Hastanesi",d:"16 Ekim · 15:00"}],"Pilot görüşmesi":[],"Sonra dönülecek":[{n:"Deniz Aydın",o:"Örnek Sigorta",d:"Ocak 2026 başı"}]};
-let S={view:"overview",camp:"hastane",ctab:"flow",seg:"hastane",step:"invite",sugg:null,conv:1,pf:"Tümü",prv:0,disc:"sources"};
+let S={view:"overview",camp:"hastane",ctab:"flow",seg:"hastane",step:"invite",sugg:null,conv:1,pf:"Tümü",prv:0,disc:"sources",sel:[],pid:0,lang:"tr"};
 try{const v=localStorage.getItem("hfo-v2");if(v)Object.assign(S,JSON.parse(v))}catch(e){}
 
 /* ===== yardımcılar ===== */
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const fill=(t,v)=>t.replace(/\{([a-z_]+)\}/g,(m,k)=>v[k]||m);
+const fill=(t,v)=>t.replace(/\{([a-z_]+)(\?)?\}/g,(m,k,o)=>v[k]||(o?"":m)).replace(/[ \t]{2,}/g," ").replace(/ +([,.;:!?])/g,"$1").replace(/^ +| +$/gm,"").replace(/([.!?])(\s+)(\p{Ll})/gu,(x,p,sp,ch)=>p+sp+ch.toLocaleUpperCase("tr-TR")).trim();
+/* packages/core/personalize.ts ile aynı cümleler */
+function optVals(c,lang,p){const o=c.opts,en=lang==="en",v={};
+  if(o.firstLine){const mut=(p&&p.mutual)||"Ahmet Yılmaz";if(o.sources.includes("mutual")&&mut)v.ilk_cumle=en?`I came across your profile through our mutual connection ${mut}.`:`ortak bağlantımız ${mut} üzerinden profilinize denk geldim.`}
+  if(o.calendar&&/^https?:\/\//.test(o.calUrl||""))v.takvim_linki=en?`You can pick a time that suits you here: ${o.calUrl}`:`Uygun bir saati buradan seçebilirsiniz: ${o.calUrl}`;
+  return v}
+function sampleVals(c,lang){return {hitap:"Elif Demirtaş",kurum:"Özel Örnek Hastanesi",...optVals(c,lang,people[0])}}
+/* Davet notu sınırı aşılırsa önce ilk cümle, sonra takvim cümlesi çıkarılır */
+function fitInvite(t,v,lim){let x=fill(t,v),drop=[];for(const k of ["ilk_cumle","takvim_linki"]){if(x.length<=lim||!v[k])continue;v={...v,[k]:""};drop.push(k);x=fill(t,v)}return {text:x,drop}}
+const curText=()=>{const c=camp();return S.lang==="en"?((c.en[S.seg]||{})[S.step]||""):c.segments[S.seg][S.step]};
 const camp=()=>campaigns.find(c=>c.id===S.camp);
 const initials=n=>n.split(" ").map(x=>x[0]).slice(0,2).join("");
-function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2600)}
-function save(){try{localStorage.setItem("hfo-v2",JSON.stringify({view:S.view,camp:S.camp,ctab:S.ctab}))}catch(e){}}
+function toast(m,undo){const t=$("#toast");t.innerHTML=esc(m)+(undo?`<button class="link" id="undo">Geri al</button>`:"");toast.undo=undo||null;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>{t.hidden=true;toast.undo=null},undo?8000:2600)}
+function save(){try{localStorage.setItem("hfo-v2",JSON.stringify({view:S.view==="person"?"campaign":S.view,camp:S.camp,ctab:S.ctab}))}catch(e){}}
 const stageTag=s=>({"Onay bekliyor":"t-acc","Sırada":"t-mute","Bağlandı":"t-info","Cevap verdi":"t-good","Davet gitti":"t-mute","Belirsiz":"t-warn","Elendi":"t-bad","Atlandı":"t-mute"}[s]||"t-mute");
 const degTag=d=>d===1?`<span class="tag t-acc">1. derece</span>`:`<span class="tag t-mute">${d}. derece</span>`;
-function vlist(){const k=S.camp+S.seg+S.step;return versions[k]||(versions[k]=[{v:2,st:"Onaylı",note:"\"Kurucusuyum\" girişi",sent:64,rate:23},{v:1,st:"Arşiv",note:"İlk sürüm",sent:58,rate:17}])}
+function vlist(){const k=S.camp+S.seg+S.step+S.lang;return versions[k]||(versions[k]=[{v:2,st:"Onaylı",note:"\"Kurucusuyum\" girişi",sent:64,rate:23},{v:1,st:"Arşiv",note:"İlk sürüm",sent:58,rate:17}])}
 
 function rules(text,kind){
   const low=text.toLocaleLowerCase("tr-TR");const out=[];
@@ -325,10 +398,12 @@ function rules(text,kind){
   const x=settings.excluded.find(c=>low.includes(c.toLocaleLowerCase("tr-TR")));
   out.push({ok:!x,msg:x?`Hariç tutulan kurum geçiyor: ${x}`:"Hariç tutulan kurum geçmiyor"});
   out.push({ok:/\{hitap\}/.test(text),msg:"Kişiye adıyla hitap ediliyor"});
-  const bad=[...text.matchAll(/\{([a-z_]+)\}/g)].map(m=>m[1]).filter(k=>!["hitap","kurum"].includes(k));
-  out.push({ok:!bad.length,msg:bad.length?`Tanımsız değişken: {${bad[0]}}`:"Değişkenler tanımlı"});
+  const vars=[...text.matchAll(/\{([a-z_]+)(\?)?\}/g)];
+  const bad=vars.filter(m=>!["hitap","kurum","ilk_cumle","takvim_linki"].includes(m[1])||(["ilk_cumle","takvim_linki"].includes(m[1])&&!m[2]));
+  out.push({ok:!bad.length,msg:bad.length?`Tanımsız değişken: ${bad[0][0]}`:"Değişkenler tanımlı"});
   out.push({ok:!/\d+\s*(dk|dakika)/i.test(text),msg:"Görüşme için süre yazılmamış"});
-  if(kind==="invite"){const n=fill(text,{hitap:"Elif Demirtaş"}).length;out.push({ok:n<=300,msg:`Davet notu ${n}/300 karakter`})}
+  if(kind==="invite"){const c=camp(),v=sampleVals(c,S.lang);const n=fill(text,{hitap:v.hitap}).length;const r=fitInvite(text,v,300);
+    out.push({ok:n<=300,msg:`Davet notu ${n}/300 karakter`+(r.drop.length?" · bu kişide ilk cümle sığmadığı için çıkarılır":"")})}
   else out.push({ok:text.includes(LINK),msg:"Web sitesi linki var"});
   return out;
 }
@@ -355,9 +430,10 @@ function aiSuggest(action,text){
 
 /* ===== üst çubuk ===== */
 function topbar(){
-  const names={overview:"Genel bakış",campaigns:"Kampanyalar",campaign:"Kampanyalar",wizard:"Kampanyalar",discover:"Kişi bulma",queue:"Onay kuyruğu",inbox:"Gelen kutusu",pipeline:"Fırsatlar",files:"Belgeler",accounts:"LinkedIn hesapları",settings:"Ayarlar"};
+  const names={person:"Kişi",overview:"Genel bakış",campaigns:"Kampanyalar",campaign:"Kampanyalar",wizard:"Kampanyalar",discover:"Kişi bulma",queue:"Onay kuyruğu",inbox:"Gelen kutusu",pipeline:"Fırsatlar",files:"Belgeler",accounts:"LinkedIn hesapları",settings:"Ayarlar"};
   let crumbs=`<b>${names[S.view]||""}</b>`;
   if(S.view==="campaign")crumbs=`<button data-go="campaigns">Kampanyalar</button><span>/</span><b>${esc(camp().name)}</b>`;
+  if(S.view==="person"){const p=people[S.pid];crumbs=`<button data-go="campaigns">Kampanyalar</button><span>/</span><button data-camp="${p.c}" data-ctab="people">${esc(campaigns.find(c=>c.id===p.c).name)}</button><span>/</span><b>${esc(p.n)}</b>`}
   if(S.view==="wizard")crumbs=`<button data-go="campaigns">Kampanyalar</button><span>/</span><b>Yeni kampanya</b>`;
   return `<div class="crumbs">${crumbs}</div><span class="spacer"></span><span class="sample">Örnek verilerle prototip</span>`;
 }
@@ -377,6 +453,7 @@ V.overview=()=>{
   const days=["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"],quota=plan(),sent=quota.map((q,i)=>i<4?q:i===4?Math.round(q*.7):0);
   return `<div class="head"><div><h1>Genel bakış</h1><p class="lede" style="margin:0">Bu hafta · 6–12 Ekim. Davetler seçtiğiniz gün ve saatlere yayılıyor; kabul edilen bağlantıya detay mesajı ortalama 4 dakikada gidiyor.</p></div>
   <button class="btn primary" data-go="wizard">Yeni kampanya</button></div>
+  ${onbCard()}
   <div class="grid g4">
     <div class="card kpi"><div class="k">Gönderilen davet</div><div class="v">${sent.reduce((a,b)=>a+b,0)} <span class="sub">/ ${quota.reduce((a,b)=>a+b,0)}</span></div><div class="bar"><i style="width:${Math.round(sent.reduce((a,b)=>a+b,0)/Math.max(1,quota.reduce((a,b)=>a+b,0))*100)}%"></i></div></div>
     <div class="card kpi"><div class="k">Kabul oranı</div><div class="v">%22</div><div class="s">27 kabul</div></div>
@@ -409,18 +486,23 @@ V.overview=()=>{
   </div>`;
 };
 
+function onbCard(){
+  if(onb.hidden)return "";const n=onb.done.length;if(n===ONB.length)return "";
+  return `<div class="card" style="margin-bottom:16px"><div class="card-h"><div><h2>Kurulum · ${n}/${ONB.length}</h2><span class="sub">Sıradaki: ${ONB.find(x=>!onb.done.includes(x[0]))[1]}</span></div><button class="btn sm quiet" data-onbhide="1">Gizle</button></div>
+  <div class="onb">${ONB.map(([k,t,h,go],i)=>`<button class="${onb.done.includes(k)?"done":""}" data-go="${go==="campaign"?"campaigns":go}" data-onb="${k}"><span class="n">${onb.done.includes(k)?"✓":i+1}</span><span><b>${t}</b><span class="sub">${h}</span></span></button>`).join("")}</div></div>`;
+}
 V.campaigns=()=>`<div class="head"><div><h1>Kampanyalar</h1><p class="lede" style="margin:0">Her kampanyanın kendi hedeflemesi, akışı ve mesajları var. Hepsi bağlı LinkedIn hesabının haftalık davet bütçesini paylaşır.</p></div><button class="btn primary" data-go="wizard">Yeni kampanya</button></div>
   <div class="card scroll"><table><thead><tr><th>Kampanya</th><th>Durum</th><th class="num">Bütçe payı</th><th class="num">Bulunan</th><th class="num">Davet</th><th class="num">Kabul</th><th class="num">Cevap</th><th></th></tr></thead><tbody>
   ${campaigns.map(c=>`<tr><td><button class="link" data-camp="${c.id}">${c.name}</button><div class="sub">${Object.keys(c.segments).map(k=>SEG_NAME[k]).join(" · ")}</div></td><td><span class="tag ${c.status==="Aktif"?"t-good":c.status==="Duraklatıldı"?"t-mute":"t-warn"}">${c.status}</span></td><td class="num">%${c.share}</td><td class="num">${c.stats.found}</td><td class="num">${c.stats.invited}</td><td class="num">%${Math.round(c.stats.accepted/c.stats.invited*100)}</td><td class="num">${c.stats.replied}</td><td style="text-align:right"><button class="btn sm" data-pause="${c.id}">${c.status==="Duraklatıldı"?"Devam ettir":"Duraklat"}</button></td></tr>`).join("")}
   </tbody></table></div>`;
 
 V.campaign=()=>{
-  const c=camp();const tabs=[["flow","Akış"],["targeting","Hedefleme"],["people","Kişiler"],["messages","Mesajlar"],["results","Sonuçlar"]];
+  const c=camp();const on=Object.entries(c.opts).filter(([k,v])=>v===true).length;const tabs=[["flow","Akış"],["targeting","Hedefleme"],["people","Kişiler"],["messages","Mesajlar"],["options","Seçenekler"+(on?` <span class="badge">${on}</span>`:"")],["results","Sonuçlar"]];
   return `<div class="head"><div><div class="row"><h1>${esc(c.name)}</h1><span class="tag ${c.status==="Aktif"?"t-good":"t-warn"}">${c.status}</span></div>
   <p class="lede" style="margin:0">${c.stats.found} kişi bulundu · ${c.stats.invited} davet · ${c.stats.accepted} kabul · ${c.stats.replied} cevap</p></div>
   <div class="row"><button class="btn" data-pause="${c.id}">${c.status==="Duraklatıldı"?"Devam ettir":"Duraklat"}</button><button class="btn primary" data-toast="Kampanya kaydedildi">Kaydet</button></div></div>
   <div class="tabs" role="tablist">${tabs.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${S.ctab===k}" data-ctab="${k}">${l}</button>`).join("")}</div>
-  ${({flow:cFlow,targeting:cTarget,people:cPeople,messages:cMessages,results:cResults})[S.ctab]()}`;
+  ${({flow:cFlow,targeting:cTarget,people:cPeople,messages:cMessages,options:cOptions,results:cResults})[S.ctab]()}`;
 };
 
 function stepCard(id,n,key){
@@ -430,6 +512,7 @@ function stepCard(id,n,key){
   <div class="row" style="justify-content:flex-end"><button class="btn sm" data-msg="${id}">Metin</button>${STEP_KIND[id]==="message"?`<button class="btn sm quiet" data-attach="${id}">${f?"Belgeyi değiştir":"Belge ekle"}</button>`:""}</div></div>`;
 }
 const waitRow=(d,id)=>`<div class="wait">Cevap yoksa <input type="number" min="1" value="${d}" id="w-${id}" style="width:56px;padding:2px 6px" aria-label="Bekleme günü"> gün bekle</div>`;
+function optStep(k,title,desc){const on=camp().opts[k];return `<div class="optstep ${on?"on":""}"><span style="flex:1"><b>${title}</b><span class="sub" style="display:block">${desc}</span></span>${on?`<span class="tag t-good">Açık</span>`:`<span class="tag t-mute">Kapalı</span>`}<button class="btn sm quiet" data-ctab="options">Seçenekler</button></div>`}
 function cFlow(){
   const c=camp();
   return `<div class="flow">
@@ -444,7 +527,10 @@ function cFlow(){
         ${stepCard("fu1",3)}
         ${waitRow(c.steps.fu2.delay,"fu2")}
         ${stepCard("fu2",4)}
-      </div></div>
+      </div>
+      ${optStep("inmail","Davet 21 günde kabul edilmezse","Geri çekilir, puanı "+c.opts.inmailMin+" ve üstüyse InMail gider")}
+      ${optStep("openProfile","Açık profili olanlar","Davet yerine doğrudan kabulde mesaj metni gider")}
+      </div>
     <div class="lane"><h3>Mevcut bağlantılar <span class="tag t-acc">1. derece</span></h3><p class="sub">Davet gönderilmez, doğrudan mesajla başlar. Davet bütçesini harcamaz.</p>
       <div class="stack" style="gap:0">
         ${stepCard("conn",1,true)}
@@ -490,31 +576,36 @@ function cTarget(){
     </div></div>`;
 }
 function peopleTable(rows){
-  return `<div class="card scroll"><table><thead><tr><th>Kişi</th><th>Kurum</th><th>Bağlantı</th><th class="num">Puan</th><th>Durum</th><th>Sıradaki adım</th><th></th></tr></thead><tbody>
-  ${rows.map(p=>{const i=people.indexOf(p);return `<tr><td><button class="link" data-person="${i}">${p.n}</button><div class="sub">${p.t}</div></td><td>${p.o}<div class="sub">${SEG_NAME[p.seg]}</div></td><td>${degTag(p.deg)}${p.mut?`<div class="sub">${p.mut} ortak bağlantı</div>`:""}</td><td class="num">${p.score}</td><td><span class="tag ${stageTag(p.stage)}">${p.stage}</span></td><td class="sub" style="min-width:180px">${p.next}</td>
+  const ids=rows.map(p=>people.indexOf(p));const all=ids.length&&ids.every(i=>S.sel.includes(i));
+  return `${S.sel.length?`<div class="bulk" role="region" aria-label="Toplu işlem"><b>${S.sel.length} kişi seçildi</b><span style="flex:1"></span><button class="btn sm" data-bulk="ok">Uygun say</button><button class="btn sm" data-bulk="skip">Atla</button><button class="btn sm" data-bulk="exclude">Kurumu hariç tut</button><button class="btn sm" data-bulk="csv">CSV indir</button><button class="btn sm" data-bulk="clear">Seçimi temizle</button></div>`:""}
+  <div class="card scroll"><table><thead><tr><th class="sel"><input type="checkbox" data-selall="${ids.join(",")}" ${all?"checked":""} aria-label="Tümünü seç"></th><th>Kişi</th><th>Kurum</th><th>Bağlantı</th><th class="num">Puan</th><th>Durum</th><th>Sıradaki adım</th><th></th></tr></thead><tbody>
+  ${rows.map(p=>{const i=people.indexOf(p);return `<tr><td class="sel"><input type="checkbox" data-sel="${i}" ${S.sel.includes(i)?"checked":""} aria-label="${esc(p.n)} seç"></td><td><button class="link" data-person="${i}">${p.n}</button><div class="sub">${p.t}</div></td><td>${p.o}<div class="sub">${SEG_NAME[p.seg]}</div></td><td>${degTag(p.deg)}${p.mut?`<div class="sub">${p.mut} ortak bağlantı</div>`:""}</td><td class="num">${p.score}</td><td><span class="tag ${stageTag(p.stage)}">${p.stage}</span></td><td class="sub" style="min-width:180px">${p.next}</td>
   <td style="white-space:nowrap;text-align:right">${p.stage==="Belirsiz"?`<button class="btn sm" data-pok="${i}">Uygun</button> `:""}${["Elendi","Atlandı"].includes(p.stage)?"":`<button class="btn sm quiet" data-pskip="${i}">Atla</button>`}</td></tr>
-  ${S.prv===i+1?`<tr><td colspan="7" style="background:var(--sunk)"><b>Neden bu kişi?</b><ul style="margin:6px 0 0;padding-left:18px">${p.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul><div class="sub" style="margin-top:6px">Kaynak: ${p.src}</div></td></tr>`:""}`}).join("")||`<tr><td colspan="7" class="empty">Bu filtrede kimse yok.</td></tr>`}</tbody></table></div>`;
+  ${S.prv===i+1?`<tr><td colspan="8" style="background:var(--sunk)"><b>Neden bu kişi?</b><ul style="margin:6px 0 0;padding-left:18px">${p.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul><div class="sub" style="margin-top:6px">Kaynak: ${p.src}</div></td></tr>`:""}`}).join("")||`<tr><td colspan="8" class="empty">Bu filtrede kimse yok.</td></tr>`}</tbody></table></div>`;
 }
 function cPeople(){
   const f=["Tümü","1. derece","Belirsiz","Onay bekliyor","Bağlandı","Cevap verdi","Elendi"];
   const rows=people.filter(p=>p.c===S.camp&&(S.pf==="Tümü"||(S.pf==="1. derece"?p.deg===1:p.stage===S.pf)));
-  return `<div class="row between" style="margin-bottom:12px"><div class="seg" role="group" aria-label="Filtre">${f.map(x=>`<button aria-pressed="${S.pf===x}" data-pf="${x}">${x}</button>`).join("")}</div><button class="btn sm" data-go="discover">Kişi bul</button></div>${peopleTable(rows)}`;
+  return `<div class="row between" style="margin-bottom:12px"><div class="seg" role="group" aria-label="Filtre">${f.map(x=>`<button aria-pressed="${S.pf===x}" data-pf="${x}">${x}</button>`).join("")}</div><div class="row"><button class="btn sm" data-csvall="1">Listeyi CSV indir</button><button class="btn sm" data-go="discover">Kişi bul</button></div></div>${peopleTable(rows)}`;
 }
 function cMessages(){
   const c=camp();if(!c.segments[S.seg])S.seg=Object.keys(c.segments)[0];
-  const text=c.segments[S.seg][S.step];const kind=STEP_KIND[S.step];const vl=vlist();const st=c.steps[S.step];const f=st.file&&files.find(x=>x.id===st.file);
-  const sample={hitap:"Elif Demirtaş",kurum:"Özel Örnek Hastanesi"};
+  if(!c.opts.english)S.lang="tr";if(S.step==="inmail"&&!c.opts.inmail)S.step="invite";
+  const text=curText();const kind=STEP_KIND[S.step];const vl=vlist();const st=c.steps[S.step];const f=st.file&&files.find(x=>x.id===st.file);
+  const sample=sampleVals(c,S.lang);
   return `<div class="row between" style="margin-bottom:14px"><div class="row"><span class="lbl">Segment</span><div class="seg" role="group" aria-label="Segment">${Object.keys(c.segments).map(k=>`<button aria-pressed="${S.seg===k}" data-seg="${k}">${SEG_NAME[k]}</button>`).join("")}</div></div>
-  <span class="help">Her adımın her segment için ayrı metni vardır. Gönderilen, onaylı sürümdür.</span></div>
+  ${c.opts.english?`<div class="row"><span class="lbl">Dil</span><div class="seg" role="group" aria-label="Dil"><button aria-pressed="${S.lang==="tr"}" data-lang="tr">Türkçe</button><button aria-pressed="${S.lang==="en"}" data-lang="en">İngilizce</button></div></div>`:`<span class="help">Her adımın her segment için ayrı metni vardır. Gönderilen, onaylı sürümdür.</span>`}</div>
   <div class="editor">
     <div class="card"><div class="card-b" style="padding:8px"><div class="steplist">
       <div class="grp">Yeni kişiler</div>${["invite","accepted","fu1","fu2"].map(id=>`<button aria-current="${S.step===id}" data-step="${id}"><b>${STEP_LABEL[id]}</b><span>${id==="invite"?"Bağlantı daveti ile":id==="accepted"?"Kabulden hemen sonra":`${c.steps[id].delay} gün sonra`}</span></button>`).join("")}
       <div class="grp">Mevcut bağlantılar</div>${["conn","cfu1"].map(id=>`<button aria-current="${S.step===id}" data-step="${id}"><b>${STEP_LABEL[id]}</b><span>${id==="conn"?"Davet yok":`${c.steps[id].delay} gün sonra`}</span></button>`).join("")}
+      ${c.opts.inmail?`<div class="grp">Seçenekli</div><button aria-current="${S.step==="inmail"}" data-step="inmail"><b>InMail</b><span>Geri çekilen davetten sonra</span></button>`:""}
     </div></div></div>
-    <div class="card"><div class="card-h"><div><h2>${STEP_LABEL[S.step]}</h2><span class="sub">${SEG_NAME[S.seg]} · sürüm ${vl[0].v}</span></div><span class="tag ${vl[0].st==="Onaylı"?"t-good":"t-warn"}" id="vstat">${vl[0].st}</span></div>
+    <div class="card"><div class="card-h"><div><h2>${STEP_LABEL[S.step]}</h2><span class="sub">${SEG_NAME[S.seg]}${S.lang==="en"?" · İngilizce":""} · sürüm ${vl[0].v}</span></div><span class="tag ${vl[0].st==="Onaylı"?"t-good":"t-warn"}" id="vstat">${vl[0].st}</span></div>
       <div class="card-b stack">
-        <textarea id="tpl" spellcheck="false" aria-label="Mesaj metni">${esc(text)}</textarea>
-        <div class="meta"><span id="len"></span><span class="tools"><span class="sub">Değişken:</span><button class="var" data-var="{hitap}">{hitap}</button><button class="var" data-var="{kurum}">{kurum}</button></span></div>
+        ${S.lang==="en"&&!text?`<p class="help" style="margin:0">Bu adımın İngilizce metni yok; İngilizce profillere Türkçe metin gider. Aşağıya yazıp onaylayın.</p>`:""}
+        <textarea id="tpl" spellcheck="false" aria-label="Mesaj metni" ${S.lang==="en"?'lang="en"':""}>${esc(text)}</textarea>
+        <div class="meta"><span id="len"></span><span class="tools"><span class="sub">Değişken:</span><button class="var" data-var="{hitap}">{hitap}</button><button class="var" data-var="{kurum}">{kurum}</button>${c.opts.firstLine?`<button class="var" data-var="{ilk_cumle?}" title="Kişiye özel ilk cümle; bilgi yoksa görünmez">{ilk_cumle?}</button>`:""}${c.opts.calendar?`<button class="var" data-var="{takvim_linki?}" title="Randevu cümlesi">{takvim_linki?}</button>`:""}</span></div>
         ${kind==="message"?`<div class="row between" style="border:1px solid var(--line);border-radius:6px;padding:8px 10px"><span>${f?`<span class="file" style="margin:0">PDF · ${esc(f.name)} · ${f.size}</span>`:`<span class="sub">Belge eklenmedi</span>`}</span><button class="btn sm" data-attach="${S.step}">${f?"Değiştir":"Belge ekle"}</button></div>`:`<p class="help" style="margin:0">LinkedIn davet notuna belge eklenemez. Belgeyi kabulde giden mesaja ekleyin.</p>`}
         <div><span class="lbl">Düzenleme yardımı</span><p class="help" style="margin:2px 0 8px">İsteğe bağlı; Ayarlar'da Gemini anahtarı tanımlıysa çalışır. Öneriler kural denetiminden geçmeden gösterilmez.</p>
         <div class="tools"><button class="btn sm" data-ai="better">Netleştir</button><button class="btn sm" data-ai="shorter">Kısalt</button><button class="btn sm" data-ai="alts">3 alternatif</button></div>
@@ -525,13 +616,36 @@ function cMessages(){
     <div class="stack side-col">
       <div class="card"><div class="card-h"><h2>Önizleme</h2><div class="seg"><button aria-pressed="true">Masaüstü</button><button data-toast="Mobil önizlemede ilk 2 satır görünür">Mobil</button></div></div><div class="card-b">
         <div class="preview-h"><span class="avatar">ED</span><div><b>Elif Demirtaş</b><div class="sub">Hasta Hizmetleri Müdürü · Özel Örnek Hastanesi</div></div></div>
-        <div class="bubble" id="prev">${esc(fill(text,sample))}</div>${f?`<div class="file">PDF · ${esc(f.name)}</div>`:""}
+        <div class="bubble" id="prev">${esc(kind==="invite"?fitInvite(text,sample,300).text:fill(text,sample))}</div>${f?`<div class="file">PDF · ${esc(f.name)}</div>`:""}
         <div class="row" style="margin-top:10px"><button class="btn sm quiet" data-toast="Önizleme sıradaki kişiyle güncellendi">Başka kişiyle göster</button></div></div></div>
       <div class="card"><div class="card-h"><h2>Kural denetimi</h2></div><div class="card-b"><ul class="checks" id="checks"></ul></div></div>
       <div class="card"><div class="card-h"><h2>Sürümler</h2></div><div class="card-b tight scroll"><table><thead><tr><th>Sürüm</th><th>Durum</th><th class="num">Gönderim</th><th class="num">${kind==="invite"?"Kabul":"Cevap"}</th></tr></thead><tbody>
         ${vl.map(x=>`<tr><td>v${x.v}<div class="sub">${esc(x.note)}</div></td><td><span class="tag ${x.st==="Onaylı"?"t-good":x.st==="Taslak"?"t-warn":"t-mute"}">${x.st}</span></td><td class="num">${x.sent??"—"}</td><td class="num">${x.rate!=null?"%"+x.rate:"—"}</td></tr>`).join("")}
       </tbody></table><p class="help" style="padding:10px 12px;margin:0">v2, v1'den 6 puan önde; her sürüm 40 gönderime ulaşınca fark kesinleşir.</p></div></div>
     </div>
+  </div>`;
+}
+const sw=(k,label)=>`<label class="switch"><input type="checkbox" data-opt="${k}" ${camp().opts[k]?"checked":""} aria-label="${label}"><span></span></label>`;
+function optCard(k,title,desc,body){const on=camp().opts[k];return `<div class="opt"><div class="opt-h">${sw(k,title)}<div class="txt"><b>${title}</b> ${on?`<span class="tag t-good">Açık</span>`:`<span class="tag t-mute">Kapalı</span>`}<p>${desc}</p></div></div>${on?`<div class="opt-b">${body}</div>`:""}</div>`}
+function cOptions(){
+  const c=camp(),o=c.opts,ex=optVals(c,"tr",people[0]);
+  const SRC=[["mutual","Ortak bağlantı","\"ortak bağlantımız Ahmet Yılmaz üzerinden profilinize denk geldim.\""],["post","Konuyla ilgili son paylaşımı","\"geçenlerde sağlık sigortası üzerine paylaşımınızı okudum.\" Yalnızca kampanyayla ilgili konularda; paylaşım metni saklanmaz."],["school","Ortak okul","\"ikimiz de Boğaziçi Üniversitesi mezunuyuz.\""],["city","Aynı şehir","\"ben de İstanbul'dayım.\""]];
+  return `<p class="lede">Her seçenek yalnızca bu kampanyada geçerlidir ve varsayılan olarak kapalıdır. Kapalı seçenek hiçbir mesajı değiştirmez.</p>
+  <div class="stack">
+  <h3 style="margin-top:4px">Mesaj içeriği</h3>
+  ${optCard("firstLine","Kişiye özel ilk cümle","Davet notu ve bağlantıya ilk mesaj, kişinin profilinden bulunan bir bilgiyle açılır. Bilgi bulunamayan kişide cümle hiç görünmez; davet notu sınırı aşılırsa önce bu cümle çıkarılır.",
+    `<div><span class="lbl">Kaynaklar</span><p class="help" style="margin:2px 0 6px">İşaretli kaynaklar sırayla denenir; ilk bulunan kullanılır.</p>${SRC.map(([k,l,h])=>`<label class="check"><input type="checkbox" data-src="${k}" ${o.sources.includes(k)?"checked":""}><span><b>${l}</b><div class="sub">${h}</div></span></label>`).join("")}</div>
+     <div><span class="lbl">Örnek</span><div class="bubble" style="margin-top:6px">${esc(fill(c.segments[Object.keys(c.segments)[0]].invite.replace("Merhaba {hitap},","Merhaba {hitap}, {ilk_cumle?}"),{hitap:"Elif Demirtaş",...ex}))}</div></div>`)}
+  ${optCard("calendar","Takvim linki","Kabulde giden mesajın ve ilk takibin sonuna randevu cümlesi eklenir; kişi uygun saati kendisi seçer. Google Takvim'in randevu sayfası ücretsizdir.",
+    `<div class="field"><label for="calurl">Randevu sayfası adresi</label><input type="text" id="calurl" value="${esc(o.calUrl)}" placeholder="https://calendar.app.google/..."><span class="help">${ex.takvim_linki?`Mesaja eklenecek cümle: "${esc(ex.takvim_linki)}"`:"Adres girilene kadar cümle eklenmez."}</span></div>`)}
+  ${optCard("english","İngilizce varyant","Unvanı ve özeti İngilizce olan kişilere İngilizce metin gider. Metinler Mesajlar sekmesinde dil seçilerek yazılır; İngilizcesi onaylanmamış adımda kişiye Türkçe metin gider.",
+    `<ul class="checks">${Object.keys(c.segments).map(sg=>{const n=Object.values(c.en[sg]||{}).filter(Boolean).length;return `<li><span class="dot ${n?"ok":"warn"}"></span>${SEG_NAME[sg]}: ${n?`${n} adımın İngilizce metni var`:"İngilizce metin yok"}</li>`}).join("")}</ul><button class="btn sm" style="align-self:flex-start" data-enedit="1">İngilizce metinleri düzenle</button>`)}
+  <h3 style="margin-top:8px">Ek adımlar</h3>
+  ${optCard("openProfile","Açık profile davetsiz mesaj","Profilini herkese mesaja açmış kişilere davet harcamadan doğrudan mesaj gider. Kabulde giden mesajın metni kullanılır; haftalık davet bütçesinden düşmez, günlük mesaj sınırından düşer.",
+    `<p class="help" style="margin:0">Bu kampanyada açık profili olan 9 kişi bulundu.</p>`)}
+  ${optCard("inmail","Kabul edilmeyen davetten sonra InMail",`Daveti ${21} gün içinde kabul etmeyen kişiye, davet geri çekildikten sonra bir InMail gönderilir. Premium InMail kredisi harcar; yalnızca puanı yüksek kişiler için.`,
+    `<div class="row" style="gap:16px;align-items:flex-end"><div class="field"><label for="imin">En düşük uygunluk puanı</label><input type="number" id="imin" min="50" max="100" value="${o.inmailMin}" style="width:110px"></div><div class="field"><label for="iwk">Haftada en fazla</label><input type="number" id="iwk" min="1" max="30" value="${o.inmailWeekly}" style="width:110px"></div><div><div class="sub">Kalan kredi</div><div style="font:500 18px var(--mono)">12</div></div></div>
+     <p class="help" style="margin:0">Kredi bitince adım atlanır, kişi için akış biter. Metni Mesajlar sekmesindeki "InMail" adımından düzenleyin.</p><button class="btn sm" style="align-self:flex-start" data-msg="inmail">InMail metnini aç</button>`)}
   </div>`;
 }
 function cResults(){
@@ -602,6 +716,37 @@ V.discover=()=>{
   <div class="tabs" role="tablist">${t.map(([k,l])=>`<button class="tab" role="tab" aria-selected="${S.disc===k}" data-dtab="${k}">${l}${k==="review"?` <span class="badge">${people.filter(p=>p.stage==="Belirsiz").length}</span>`:""}</button>`).join("")}</div>${body}`;
 };
 
+function timeline(p,i){
+  const ev=[];const add=(when,k,t,b)=>ev.push({when,k,t,b});
+  add("8 Eki 09:40","found",`${campaigns.find(c=>c.id===p.c).name} kampanyasına eklendi · ${p.src}`);
+  if(p.stage==="Elendi"){add("8 Eki 09:40","stage","Elendi: "+p.why[0]);return ev.reverse()}
+  if(p.deg>1&&p.stage!=="Belirsiz"&&p.stage!=="Sırada"&&p.stage!=="Onay bekliyor"){add("8 Eki 21:10","visited","Profili ziyaret edildi");add("9 Eki 10:22","invite_sent","Bağlantı daveti gönderildi",fill(campaigns.find(c=>c.id===p.c).segments[p.seg].invite,{hitap:p.n}))}
+  if(["Bağlandı","Cevap verdi"].includes(p.stage))add("10 Eki 14:28","connected","Daveti kabul etti");
+  if(p.stage==="Cevap verdi"){add("10 Eki 14:32","message_sent","Kabulde mesaj gönderildi · PDF ekli",fill(campaigns.find(c=>c.id===p.c).segments[p.seg].accepted,{hitap:p.n}).slice(0,220)+"…");add("Bugün 14:05","reply","Cevap geldi",(convs.find(c=>c.name===p.n)||{msgs:[[0,"—"]]}).msgs.at(-1)[1])}
+  for(const n of notes[i]||[])add(n.at,"note",`${n.a} not ekledi`,n.b);
+  return ev.reverse();
+}
+V.person=()=>{
+  const i=S.pid,p=people[i],c=campaigns.find(x=>x.id===p.c),o=opps[i],ns=notes[i]||[];
+  const lang=p.lang||(/[A-Z][a-z]+ (Manager|Director|Officer)/.test(p.t)?"en":"tr");
+  return `<div class="head"><div class="row" style="align-items:flex-start;gap:12px"><span class="avatar" style="width:44px;height:44px;font-size:15px">${initials(p.n)}</span><div><h1>${esc(p.n)}</h1><p class="lede" style="margin:0">${esc(p.t)} · ${esc(p.o)}</p>
+    <div class="row" style="margin-top:8px">${degTag(p.deg)}<span class="tag ${stageTag(p.stage)}">${p.stage}</span><span class="tag t-mute">Puan ${p.score}</span><span class="tag t-mute">${SEG_NAME[p.seg]}</span>${c.opts.english?`<span class="tag t-mute">${lang==="en"?"İngilizce":"Türkçe"} metin</span>`:""}</div></div></div>
+    <div class="row"><button class="btn" data-toast="LinkedIn profili yeni sekmede açılır">LinkedIn'de aç</button>${["Elendi","Atlandı"].includes(p.stage)?"":`<button class="btn" data-pskip="${i}">Atla</button>`}<button class="btn" data-pexcl="${i}">Kurumu hariç tut</button></div></div>
+  <div class="grid g-main">
+    <div class="card"><div class="card-h"><h2>Geçmiş</h2><span class="sub">Sıradaki: ${esc(p.next)}</span></div><ul class="tl">
+      ${timeline(p,i).map(e=>`<li class="k-${e.k}"><span class="when">${e.when}</span><span class="rail"></span><div class="what"><b>${esc(e.t)}</b>${e.b?`<div class="body">${esc(e.b)}</div>`:""}</div></li>`).join("")}
+    </ul></div>
+    <div class="stack">
+      <div class="card"><div class="card-h"><h2>Fırsat</h2>${o?"":`<button class="btn sm" data-oppnew="${i}">Fırsat oluştur</button>`}</div><div class="card-b stack">
+        ${o?`<div class="field"><label for="ostage">Aşama</label><select id="ostage" data-oi="${i}">${Object.keys(deals).concat(["Kazanıldı","Kaybedildi"]).map(s=>`<option ${s===o.stage?"selected":""}>${s}</option>`).join("")}</select></div>
+        <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="onext">Sıradaki adım</label><input type="text" id="onext" data-oi="${i}" value="${esc(o.next)}"></div><div class="field"><label for="odate">Tarih</label><input type="text" id="odate" data-oi="${i}" value="${o.date}" style="width:120px" inputmode="numeric"></div></div>`:`<p class="help" style="margin:0">Cevap veren kişiyi fırsata taşıyınca aşamasını ve sıradaki adımı buradan izlersiniz.</p>`}
+      </div></div>
+      <div class="card"><div class="card-h"><h2>Notlar</h2><span class="sub">${ns.length}</span></div><div class="card-b stack">
+        ${ns.map(n=>`<div><div class="sub">${n.a} · ${n.at}</div><div style="white-space:pre-wrap">${esc(n.b)}</div></div>`).join("")||`<p class="help" style="margin:0">Henüz not yok. Notlar yalnızca ekibinize görünür, kişiye gönderilmez.</p>`}
+        <form data-note="${i}" class="stack" style="gap:6px"><textarea id="note" style="min-height:70px" placeholder="Görüşme notu, hatırlatma…" aria-label="Not"></textarea><button class="btn sm" style="align-self:flex-start">Not ekle</button></form></div></div>
+      <div class="card"><div class="card-h"><h2>Neden bu kişi?</h2></div><div class="card-b"><ul style="margin:0;padding-left:18px">${p.why.map(w=>`<li>${esc(w)}</li>`).join("")}</ul><div class="sub" style="margin-top:6px">Kaynak: ${p.src}${p.mut?` · ${p.mut} ortak bağlantı`:""}</div></div></div>
+    </div></div>`;
+};
 V.queue=()=>`<div class="head"><div><h1>Onay kuyruğu</h1><p class="lede" style="margin:0">Onaylanan mesaj, günlük bütçe ve mesai saatleri içinde gönderilir. Metni burada son kez düzenleyebilirsiniz.</p></div>${queue.length?`<button class="btn primary" data-approveall="1">Tümünü onayla (${queue.length})</button>`:""}</div>
   <div class="stack">${queue.length?queue.map(q=>{const c=campaigns.find(x=>x.id===q.c);const p=people.find(x=>x.n===q.p);const t=c.segments[q.seg][q.step];const ok=rules(t,STEP_KIND[q.step]).every(x=>x.ok);const f=c.steps[q.step].file&&files.find(x=>x.id===c.steps[q.step].file);
   return `<div class="card"><div class="card-h"><div class="row"><span class="avatar">${initials(q.p)}</span><div><b>${q.p}</b><div class="sub">${p.t} · ${p.o}</div></div></div><div class="row"><span class="tag t-info">${STEP_LABEL[q.step]}</span><span class="tag t-mute">${c.name} · ${SEG_NAME[q.seg]}</span>${ok?`<span class="tag t-good">Kurallar tamam</span>`:`<span class="tag t-bad">Kural hatası</span>`}</div></div>
@@ -628,6 +773,7 @@ V.accounts=()=>`<h1>LinkedIn hesapları</h1><p class="lede">Her hesap, sahibinin
   ${scheduleCard()}
   <div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><div><h2>Furkan Kurtoğlu</h2><span class="sub">Premium · bağlandı 10 Eki</span></div><span class="tag t-good">Bağlı</span></div><div class="card-b stack">
     <div class="grid g3"><div><div class="sub">Bu hafta davet</div><div style="font:500 18px var(--mono)">122/${plan().reduce((a,b)=>a+b,0)}</div></div><div><div class="sub">Bugün mesaj</div><div style="font:500 18px var(--mono)">18/80</div></div><div><div class="sub">Bekleyen davet</div><div style="font:500 18px var(--mono)">95</div></div></div>
+    <p class="help" style="margin:0">LinkedIn'den elle gönderdiğiniz 6 davet bu haftanın bütçesinden düşüldü. Kalan InMail kredisi: 12.</p>
     <div class="field"><label for="dm">Günlük mesaj sınırı</label><input type="number" id="dm" value="80" min="10" max="150" style="max-width:140px"><span class="help">Kabulde giden mesajlar, takipler ve mevcut bağlantılara mesajlar. Davet hedefinden ayrıdır.</span></div>
     <div class="row"><button class="btn" data-toast="Hesap 24 saat duraklatıldı">24 saat duraklat</button></div></div></div>
   <div class="stack"><div class="card"><div class="card-h"><h2>Yerel çalışan</h2><span class="tag t-good">Çalışıyor</span></div><div class="card-b"><ul class="checks"><li><span class="dot ok"></span>Windows · son sinyal 1 dakika önce</li><li><span class="dot ok"></span>LinkedIn oturumu açık</li><li><span class="dot ok"></span>Sürüm 0.1.0 · güncel</li></ul>
@@ -714,24 +860,27 @@ function render(){
   const login=S.view==="login";
   $("#side").hidden=login;$("#top").hidden=login;$("#app").style.gridTemplateColumns=login?"1fr":"";
   document.querySelectorAll(".nav").forEach(b=>b.removeAttribute("aria-current"));
-  const nv={campaign:"campaigns",wizard:"campaigns"}[S.view]||S.view;
+  const nv={campaign:"campaigns",wizard:"campaigns",person:"campaigns"}[S.view]||S.view;
   const cur=document.querySelector(`.nav[data-go="${nv}"]`);if(cur)cur.setAttribute("aria-current","page");
   $("#top").innerHTML=topbar();
-  $("#main").innerHTML=V[S.view]();
+  const ban=login?"":alerts.map(a=>`<div class="banner ${a.sev}" role="alert"><span class="dot ${a.sev==="error"?"no":"warn"}" style="margin-top:6px"></span><div class="txt"><b>${esc(a.title)}</b><p>${esc(a.text)}</p></div><div class="row"><button class="btn sm" data-go="${a.go}">${a.cta}</button><button class="btn sm quiet" data-alertx="${a.id}">Gizle</button></div></div>`).join("");
+  $("#main").innerHTML=ban+V[S.view]();
   const bq=$("#b-queue");bq.textContent=queue.length||"";bq.hidden=!queue.length;
   if(S.view==="campaign"&&S.ctab==="messages")updEditor();
   save();
 }
 function updEditor(){
   const ta=$("#tpl");if(!ta)return;const text=ta.value;const kind=STEP_KIND[S.step];
-  const filled=fill(text,{hitap:"Elif Demirtaş",kurum:"Özel Örnek Hastanesi"});const lim=kind==="invite"?300:8000;
+  const lim=kind==="invite"?300:8000;const v=sampleVals(camp(),S.lang);const filled=kind==="invite"?fitInvite(text,v,lim).text:fill(text,v);
   $("#len").innerHTML=`<span class="${filled.length>lim?"over":""}">${filled.length} / ${lim} karakter</span>`;
   $("#checks").innerHTML=rules(text,kind).map(c=>`<li><span class="dot ${c.ok?"ok":"no"}"></span>${esc(c.msg)}</li>`).join("");
   $("#prev").textContent=filled;
   $("#sugg").innerHTML=S.sugg?S.sugg.map((s,i)=>`<div class="sugg"><div class="row between"><span class="help">${esc(s.w)}</span><span class="tag t-mute">Örnek öneri</span></div><div class="diff" style="margin-top:8px">${wordDiff(text,s.t)}</div><div class="row" style="margin-top:10px"><button class="btn sm primary" data-use="${i}">Kullan</button>${i===S.sugg.length-1?`<button class="btn sm quiet" id="rej">Kapat</button>`:""}</div></div>`).join(""):"";
 }
-function setText(t,note){const c=camp();c.segments[S.seg][S.step]=t;const vl=vlist();if(vl[0].st!=="Taslak")vl.unshift({v:vl[0].v+1,st:"Taslak",note,sent:null,rate:null});else vl[0].note=note}
+function setText(t,note){const c=camp();if(S.lang==="en"){(c.en[S.seg]||(c.en[S.seg]={}))[S.step]=t}else c.segments[S.seg][S.step]=t;const vl=vlist();if(vl[0].st!=="Taslak")vl.unshift({v:vl[0].v+1,st:"Taslak",note,sent:null,rate:null});else vl[0].note=note}
 
+/* Değişken düğmesi, imlecin en son bulunduğu yere ekler; editöre hiç girilmediyse metnin sonuna */
+document.addEventListener("selectionchange",()=>{const ta=document.getElementById("tpl");if(ta&&document.activeElement===ta)ta.dataset.caret=ta.selectionStart});
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;const d=t.dataset;
   if(d.go){S.view=d.go;S.sugg=null;if(d.dtab)S.disc=d.dtab;if(d.go==="wizard")S.wiz=1;render();if(d.toast)toast(d.toast);return}
@@ -745,12 +894,30 @@ document.addEventListener("click",e=>{
   if(d.attach){const st=camp().steps[d.attach];const i=files.findIndex(f=>f.id===st.file);st.file=files[(i+1)%files.length].id;render();toast(`Belge: ${files.find(f=>f.id===st.file).name}`);return}
   if(d.pause){const c=campaigns.find(x=>x.id===d.pause);c.status=c.status==="Duraklatıldı"?"Aktif":"Duraklatıldı";render();toast(`${c.name}: ${c.status.toLocaleLowerCase("tr-TR")}`);return}
   if(d.pf){S.pf=d.pf;render();return}
-  if(d.person){S.prv=S.prv===+d.person+1?0:+d.person+1;render();return}
+  if(t.id==="undo"){const u=toast.undo;$("#toast").hidden=true;toast.undo=null;if(u){u();render();toast("Geri alındı")}return}
+  if(d.person){S.pid=+d.person;S.view="person";render();window.scrollTo(0,0);return}
+  if(d.alertx){alerts.splice(alerts.findIndex(a=>a.id===d.alertx),1);render();return}
+  if(d.onbhide){onb.hidden=true;render();toast("Kurulum listesi gizlendi; Ayarlar'dan yeniden açılabilir");return}
+  if(d.lang){S.lang=d.lang;S.sugg=null;render();return}
+  if(d.enedit){S.ctab="messages";S.lang="en";S.sugg=null;render();return}
+  if(d.oppnew){opps[+d.oppnew]={stage:"Görüşme istedi",next:"",date:""};render();toast("Fırsat oluşturuldu");return}
+  if(d.pexcl){const p=people[+d.pexcl];const before=snap([+d.pexcl]);settings.excluded.push(p.o);people.forEach(x=>{if(x.o===p.o){x.stage="Elendi";x.next="—"}});render();toast(`${p.o} hariç tutuldu; bu kurumdaki kimseye yazılmayacak`,()=>{restore(before);settings.excluded.pop()});return}
+  if(d.bulk){const ids=[...S.sel];
+    if(d.bulk==="clear"){S.sel=[];render();return}
+    if(d.bulk==="csv"){downloadCsv(ids.map(i=>people[i]),"secili-kisiler.csv");return}
+    const before=snap(ids);
+    if(d.bulk==="ok")ids.forEach(i=>{if(people[i].stage==="Belirsiz"||people[i].stage==="Atlandı"){people[i].stage="Sırada";people[i].next="Profil ziyareti · yarın"}});
+    if(d.bulk==="skip")ids.forEach(i=>{if(people[i].stage!=="Elendi"){people[i].stage="Atlandı";people[i].next="—"}});
+    let added=[];if(d.bulk==="exclude"){added=[...new Set(ids.map(i=>people[i].o))].filter(o=>!settings.excluded.includes(o));settings.excluded.push(...added);people.forEach(x=>{if(added.includes(x.o)){x.stage="Elendi";x.next="—"}})}
+    S.sel=[];render();
+    const msg={ok:`${ids.length} kişi uygun sayıldı`,skip:`${ids.length} kişi atlandı`,exclude:`${added.length} kurum hariç tutuldu`}[d.bulk];
+    toast(msg,()=>{restore(before);settings.excluded.splice(settings.excluded.length-added.length,added.length)});return}
+  if(d.csvall){downloadCsv(people.filter(p=>p.c===S.camp),`${S.camp}-kisiler.csv`);return}
   if(d.pok){people[+d.pok].stage="Sırada";people[+d.pok].next="Profil ziyareti · yarın";render();toast("Uygun işaretlendi; benzer kurumlar için de hatırlanacak");return}
-  if(d.pskip){people[+d.pskip].stage="Atlandı";people[+d.pskip].next="—";render();toast("Atlandı; bu kişiye bir şey gönderilmeyecek");return}
+  if(d.pskip){const before=snap([+d.pskip]);people[+d.pskip].stage="Atlandı";people[+d.pskip].next="—";render();toast("Atlandı; bu kişiye bir şey gönderilmeyecek",()=>restore(before));return}
   if(d.rmacc){campaigns[0].accounts.splice(+d.rmacc,1);render();return}
   if(d.rm){const arr=d.rm in settings?settings[d.rm]:camp()[d.rm];arr.splice(+d.i,1);render();return}
-  if(d.var){const ta=$("#tpl");const p=ta.selectionStart;ta.value=ta.value.slice(0,p)+d.var+ta.value.slice(ta.selectionEnd);setText(ta.value,"Elle düzenlendi");ta.focus();updEditor();return}
+  if(d.var){const ta=$("#tpl");const p=ta.dataset.caret!=null&&ta.dataset.caret!==""?+ta.dataset.caret:ta.value.length;ta.value=ta.value.slice(0,p)+d.var+ta.value.slice(ta.selectionEnd);setText(ta.value,"Elle düzenlendi");ta.focus();updEditor();return}
   if(d.ai){S.sugg=aiSuggest(d.ai,$("#tpl").value);updEditor();return}
   if(d.use){setText(S.sugg[+d.use].t,"Öneriden");S.sugg=null;render();toast("Taslak sürüm oluştu; onaylayınca gönderimde kullanılır");return}
   if(t.id==="rej"){S.sugg=null;updEditor();return}
@@ -770,8 +937,36 @@ document.addEventListener("click",e=>{
   if(t.id==="saveSched"){toast("Davet zamanlaması kaydedildi");return}
   if(d.toast)toast(d.toast);
 });
+/* Seçenek açılınca ilgili değişken mevcut metinlere eklenir (packages/core/generate.ts ile aynı yerler) */
+function addSlots(c,k){
+  const sets=[...Object.values(c.segments),...Object.values(c.en)];
+  for(const t of sets){
+    if(k==="firstLine")for(const st of ["invite","conn"]){if(t[st]&&!t[st].includes("{ilk_cumle?}")){t[st]=st==="invite"?t[st].replace(/^(Merhaba|Hi) \{hitap\},/,"$1 {hitap}, {ilk_cumle?}"):t[st].replace("olmadı. ","olmadı. {ilk_cumle?} ")}}
+    if(k==="calendar")for(const st of ["accepted","conn","fu1"]){if(t[st]&&!t[st].includes("{takvim_linki?}")){t[st]=st==="fu1"?t[st].replace(/(anlatmak isterim\.|meeting\.)/,"$1 {takvim_linki?}"):t[st].replace(/(olur\?|you\?)$/,"$1 {takvim_linki?}")}}
+  }
+}
+/* geri alma için önceki durum (packages/core/panel.ts: 10 dakika içinde geri alınabilir) */
+function snap(ids){return ids.map(i=>({i,stage:people[i].stage,next:people[i].next})).concat(people.map((p,i)=>({i,stage:p.stage,next:p.next,all:1})))}
+function restore(s){s.forEach(x=>{people[x.i].stage=x.stage;people[x.i].next=x.next})}
+/* packages/core/panel.ts toCsv ile aynı biçim: Excel için BOM ve noktalı virgül */
+function downloadCsv(rows,name){
+  const cols=[["n","Ad Soyad"],["t","Unvan"],["o","Kurum"],["seg","Segment"],["deg","Derece"],["score","Puan"],["stage","Durum"],["next","Sıradaki adım"]];
+  const cell=v=>{let s=v==null?"":String(v);if(/^[=+\-@]/.test(s))s="'"+s;return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
+  const csv="\uFEFF"+[cols.map(c=>c[1]).join(";"),...rows.map(r=>cols.map(([k])=>cell(k==="seg"?SEG_NAME[r[k]]:r[k])).join(";"))].join("\r\n");
+  try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast(`${rows.length} kişi CSV olarak indirildi`)}catch(err){toast("CSV oluşturulamadı")}
+}
 document.addEventListener("change",e=>{
   const x=e.target,d=x.dataset;
+  if(d.opt){const c=camp();c.opts[d.opt]=x.checked;if(x.checked)addSlots(c,d.opt);if(d.opt==="english"&&!x.checked)S.lang="tr";render();toast(`${{firstLine:"Kişiye özel ilk cümle",calendar:"Takvim linki",english:"İngilizce varyant",openProfile:"Açık profile mesaj",inmail:"InMail"}[d.opt]} ${x.checked?"açıldı":"kapatıldı"}`);return}
+  if(d.src){const o=camp().opts;o.sources=x.checked?[...o.sources,d.src]:o.sources.filter(s=>s!==d.src);render();return}
+  if(d.sel!==undefined){const i=+d.sel;S.sel=x.checked?[...S.sel,i]:S.sel.filter(v=>v!==i);render();return}
+  if(d.selall!==undefined){const ids=d.selall?d.selall.split(",").map(Number):[];S.sel=x.checked?[...new Set([...S.sel,...ids])]:S.sel.filter(v=>!ids.includes(v));render();return}
+  if(x.id==="calurl"){camp().opts.calUrl=x.value.trim();render();return}
+  if(x.id==="imin"){camp().opts.inmailMin=Math.min(100,Math.max(50,+x.value||80));render();return}
+  if(x.id==="iwk"){camp().opts.inmailWeekly=Math.max(1,+x.value||5);return}
+  if(x.id==="ostage"){opps[+d.oi].stage=x.value;toast("Aşama güncellendi");return}
+  if(x.id==="onext"){opps[+d.oi].next=x.value;return}
+  if(x.id==="odate"){opps[+d.oi].date=x.value;return}
   if(d.don){sched.days[+d.don].on=x.checked;render();return}
   if(d.wa||d.wb){const [i,k]=(d.wa||d.wb).split("-").map(Number);sched.days[i].w[k][d.wa?"a":"b"]=x.value.trim();render();return}
   if(d.dinv!==undefined){const v=x.value.trim();if(v==="")delete sched.days[+d.dinv].inv;else sched.days[+d.dinv].inv=Math.max(0,+v);render();return}
@@ -787,6 +982,7 @@ document.addEventListener("change",e=>{if(e.target.name==="rv"){camp().review=e.
 document.addEventListener("submit",e=>{e.preventDefault();const f=e.target;
   if(f.id==="ask"){const q=$("#askq").value.trim();if(!q)return;S.sugg=aiSuggest("better",$("#tpl").value).map(s=>({...s,w:`İsteğiniz: "${q}". ${s.w}`}));updEditor();return}
   if(f.dataset.add){const v=f.querySelector("input").value.trim();if(!v)return;const k=f.dataset.add;(k in settings?settings[k]:camp()[k]).push(v);render();return}
+  if(f.dataset.note){const v=$("#note").value.trim();if(!v)return;const i=+f.dataset.note;(notes[i]||(notes[i]=[])).push({at:"Şimdi",a:"Furkan Kurtoğlu",b:v});render();toast("Not eklendi");return}
   if(f.dataset.invite){const v=$("#inv").value.trim();if(v)toast(`${v} adresine davet gönderildi`)}
 });
 render();
