@@ -1,0 +1,350 @@
+// HeAlthFintel Outreach veri modeli.
+// Her kayıt bir çalışma alanına (workspace) bağlıdır: her kullanıcı yalnızca kendi verisini görür.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum AccountStatus {
+  CONNECTED
+  NEEDS_LOGIN
+  PAUSED // LinkedIn uyarısı sonrası 24 saat
+  DISCONNECTED
+}
+
+enum AgentStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum ReviewMode {
+  REVIEW_ALL // her mesajı onayla
+  REVIEW_FIRST // ilk mesajı onayla
+  AUTONOMOUS // tam otomatik
+}
+
+enum StepType {
+  INVITE // davet notu
+  MESSAGE_ON_ACCEPT // kabulde detay mesajı (bekleme 0)
+  FOLLOW_UP // cevap gelmezse takip
+}
+
+enum TemplateStatus {
+  DRAFT
+  APPROVED
+  ARCHIVED
+}
+
+enum ProspectStage {
+  QUEUED
+  NEEDS_REVIEW
+  INVITE_SENT
+  CONNECTED
+  MESSAGED
+  REPLIED
+  SKIPPED
+}
+
+enum Direction {
+  OUTBOUND
+  INBOUND
+}
+
+enum JobType {
+  SEND_INVITE
+  SEND_MESSAGE
+  CHECK_CONNECTIONS
+  CHECK_INBOX
+  DISCOVER
+}
+
+enum JobStatus {
+  PENDING
+  AWAITING_APPROVAL
+  RUNNING
+  DONE
+  FAILED
+  CANCELLED
+}
+
+enum ReplyLabel {
+  INTERESTED
+  LATER
+  NOT_INTERESTED
+  WRONG_PERSON
+  OTHER
+}
+
+model Workspace {
+  id               String   @id @default(cuid())
+  name             String
+  website          String?
+  /// KVKK aydınlatma metninin yayınlandığı adres
+  privacyNoticeUrl String?
+  /// Yanıt vermeyen kişilerin verisinin silineceği süre (ay)
+  retentionMonths  Int      @default(12)
+  createdAt        DateTime @default(now())
+
+  members          Membership[]
+  linkedinAccounts LinkedinAccount[]
+  agents           Agent[]
+  prospects        Prospect[]
+  suppressions     Suppression[]
+  auditLogs        AuditLog[]
+}
+
+model User {
+  id          String       @id // Supabase auth kullanıcı id'si
+  email       String       @unique
+  name        String?
+  createdAt   DateTime     @default(now())
+  memberships Membership[]
+}
+
+model Membership {
+  workspaceId String
+  userId      String
+  role        Role      @default(OWNER)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+}
+
+model LinkedinAccount {
+  id                String        @id @default(cuid())
+  workspaceId       String
+  displayName       String
+  profileUrl        String?
+  premium           Boolean       @default(false)
+  status            AccountStatus @default(NEEDS_LOGIN)
+  weeklyInvites     Int           @default(180)
+  /// Davet gönderilecek günler, 0=Pazar ... 6=Cumartesi
+  activeDays        Int[]         @default([0, 1, 2, 3, 4, 5, 6])
+  windowStartMin    Int           @default(540) // 09:00
+  windowEndMin      Int           @default(1110) // 18:30
+  dailyMessageLimit Int           @default(80)
+  warmupEnabled     Boolean       @default(true)
+  connectedAt       DateTime?
+  pausedUntil       DateTime?
+  /// Yerel çalışanın panele bağlanırken kullandığı anahtarın özeti (anahtarın kendisi saklanmaz)
+  runnerTokenHash   String?
+  runnerLastSeenAt  DateTime?
+  createdAt         DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agents    Agent[]
+  jobs      Job[]
+
+  @@index([workspaceId])
+}
+
+model Agent {
+  id                String      @id @default(cuid())
+  workspaceId       String
+  linkedinAccountId String
+  name              String
+  goal              String
+  offerContext      String // değer önerisi, kanıtlar
+  tone              String?
+  status            AgentStatus @default(DRAFT)
+  reviewMode        ReviewMode  @default(REVIEW_ALL)
+  /// Bu temsilcinin hesabın haftalık bütçesindeki payı (yüzde)
+  budgetSharePct    Int         @default(100)
+  /// Hedefleme: unvanlar, hariç unvanlar, sektörler, konumlar, anahtar kelimeler, şirket listeleri
+  targeting         Json
+  /// Serbest metin uygunluk kuralı, ör. "sadece özel hastaneler, kamu hariç"
+  fitRule           String?
+  /// Yasak ifadeler (her mesajda denetlenir)
+  bannedPhrases     String[]    @default([])
+  requiredLink      String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  linkedinAccount LinkedinAccount @relation(fields: [linkedinAccountId], references: [id])
+  segments        Segment[]
+  steps           SequenceStep[]
+  prospects       AgentProspect[]
+
+  @@index([workspaceId])
+}
+
+/// Aynı temsilcide farklı kitleler: hastane, klinik, sigorta...
+model Segment {
+  id          String  @id @default(cuid())
+  agentId     String
+  name        String
+  /// Kişinin bu segmente girme kuralı (kurum adında "klinik", "tıp merkezi" vb.)
+  matchRule   String?
+  agent       Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  templates   Template[]
+}
+
+model SequenceStep {
+  id         String   @id @default(cuid())
+  agentId    String
+  order      Int
+  type       StepType
+  /// Önceki adımdan sonra bekleme (saat). Kabulde mesaj için 0.
+  delayHours Int      @default(0)
+  agent      Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  templates  Template[]
+
+  @@unique([agentId, order])
+}
+
+/// Şablonlar sürümlüdür: yalnızca APPROVED sürüm gönderilir.
+model Template {
+  id         String         @id @default(cuid())
+  stepId     String
+  segmentId  String?
+  version    Int            @default(1)
+  status     TemplateStatus @default(DRAFT)
+  body       String
+  /// A/B testinde aynı adım ve segment için birden fazla onaylı varyant olabilir
+  variant    String         @default("A")
+  approvedAt DateTime?
+  approvedBy String?
+  createdAt  DateTime       @default(now())
+
+  step        SequenceStep        @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  segment     Segment?            @relation(fields: [segmentId], references: [id])
+  messages    Message[]
+  suggestions TemplateSuggestion[]
+
+  @@index([stepId, segmentId, status])
+}
+
+/// Şablon stüdyosunda yapay zekânın önerdiği değişiklikler
+model TemplateSuggestion {
+  id         String   @id @default(cuid())
+  templateId String
+  instruction String // "Daha iyi yap", "Kısalt" ya da serbest istek
+  proposed   String
+  rationale  String?
+  accepted   Boolean?
+  createdAt  DateTime @default(now())
+  template   Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model Prospect {
+  id          String   @id @default(cuid())
+  workspaceId String
+  linkedinUrl String
+  fullName    String
+  title       String?
+  company     String?
+  location    String?
+  source      String? // arama, liste, manuel
+  /// KVKK: bu tarihten sonra cevap yoksa veri silinir
+  retainUntil DateTime
+  createdAt   DateTime @default(now())
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agents    AgentProspect[]
+  messages  Message[]
+
+  @@unique([workspaceId, linkedinUrl])
+}
+
+model AgentProspect {
+  id          String        @id @default(cuid())
+  agentId     String
+  prospectId  String
+  segmentId   String?
+  stage       ProspectStage @default(QUEUED)
+  fitScore    Int?
+  fitReason   String?
+  inviteSentAt DateTime?
+  connectedAt DateTime?
+  lastMessageAt DateTime?
+  repliedAt   DateTime?
+  replyLabel  ReplyLabel?
+  skipReason  String?
+  createdAt   DateTime      @default(now())
+
+  agent    Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  prospect Prospect @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  /// Bir kişi aynı temsilcide bir kez yer alır
+  @@unique([agentId, prospectId])
+  @@index([stage])
+}
+
+model Message {
+  id                String    @id @default(cuid())
+  prospectId        String
+  templateId        String?
+  direction         Direction
+  body              String
+  sentAt            DateTime  @default(now())
+  providerMessageId String?
+
+  prospect Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+  template Template? @relation(fields: [templateId], references: [id])
+
+  @@index([prospectId, sentAt])
+}
+
+/// Gönderim kuyruğu (pg-boss işleri ayrıca tutulur; bu tablo panelde görünen durum içindir)
+model Job {
+  id                String    @id @default(cuid())
+  linkedinAccountId String
+  type              JobType
+  status            JobStatus @default(PENDING)
+  priority          Int       @default(10)
+  runAfter          DateTime
+  payload           Json
+  /// Onay modunda kullanıcıya gösterilen, düzenlenebilir metin
+  draftText         String?
+  attempts          Int       @default(0)
+  lastError         String?
+  createdAt         DateTime  @default(now())
+  finishedAt        DateTime?
+
+  linkedinAccount LinkedinAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
+
+  @@index([linkedinAccountId, status, runAfter, priority])
+}
+
+/// Asla ulaşılmayacak kişi ve kurumlar
+model Suppression {
+  id          String   @id @default(cuid())
+  workspaceId String
+  /// "company" ya da "person"
+  kind        String
+  /// Kurum adı ya da LinkedIn URL'sinin SHA-256 özeti (KVKK silme sonrası)
+  value       String
+  reason      String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, kind, value])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  workspaceId String
+  actor       String // kullanıcı id'si ya da "system"
+  action      String
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}

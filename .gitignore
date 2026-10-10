@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.next/
+coverage/
+*.log
+
+# Gizli ayarlar: asla repoya girmez
+.env
+.env.*
+!.env.example
+
+# Yerel çalışanın LinkedIn tarayıcı profilleri (oturum çerezleri burada)
+apps/runner/profiles/
+.runner-profiles/
