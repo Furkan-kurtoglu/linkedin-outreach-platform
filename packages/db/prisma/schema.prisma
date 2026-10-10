@@ -41,6 +41,8 @@ enum StepType {
   ACCEPTED_MESSAGE // kabulde detay mesajı (bekleme 0)
   CONNECTED_MESSAGE // zaten bağlantıda olunan kişiye davetsiz ilk mesaj
   FOLLOW_UP // cevap gelmezse takip
+  OPEN_MESSAGE // seçenek: açık profile davetsiz mesaj
+  INMAIL // seçenek: geri çekilen davet sonrası InMail
 }
 
 enum Branch {
@@ -68,7 +70,10 @@ enum ProspectStage {
   INVITE_SENT
   CONNECTED
   MESSAGED
+  INMAIL_SENT
   REPLIED
+  WITHDRAWN // davet kabul edilmedi, geri çekildi
+  FINISHED // akış bitti, cevap yok
   SKIPPED
 }
 
@@ -82,6 +87,8 @@ enum JobType {
   WITHDRAW_INVITE
   SEND_INVITE
   SEND_MESSAGE
+  SEND_INMAIL
+  SYNC_SENT_INVITES // LinkedIn'den elle gönderilen davetleri sayar
   CHECK_CONNECTIONS
   CHECK_INBOX
   DISCOVER
@@ -104,6 +111,22 @@ enum ReplyLabel {
   OTHER
 }
 
+enum OpportunityStage {
+  NEW // ilgileniyor
+  MEETING_SET
+  PROPOSAL
+  WON
+  LOST
+}
+
+enum AlertKind {
+  RUNNER_OFFLINE // yerel çalışan bir süredir bağlanmadı
+  SESSION_EXPIRED // LinkedIn oturumu düştü, yeniden giriş gerekli
+  LINKEDIN_WARNING // LinkedIn uyarı/doğrulama gösterdi; hesap 24 saat duraklatıldı
+  LIMIT_REACHED // haftalık davet sınırı doldu
+  TEMPLATE_BLOCKED // onaylı şablon kural denetiminden geçmiyor
+}
+
 model Workspace {
   id               String   @id @default(cuid())
   name             String
@@ -114,6 +137,8 @@ model Workspace {
   retentionMonths  Int      @default(12)
   /// Gönderim yapılmayacak ek günler (YYYY-AA-GG), ör. dinî bayramlar
   quietDays        String[] @default([])
+  /// İlk giriş kontrol listesi: tamamlanan adımların anahtarları
+  onboardingDone   String[] @default([])
   createdAt        DateTime @default(now())
 
   members          Membership[]
@@ -123,6 +148,9 @@ model Workspace {
   suppressions     Suppression[]
   auditLogs        AuditLog[]
   files            FileAsset[]
+  opportunities    Opportunity[]
+  notes            Note[]
+  alerts           Alert[]
 }
 
 model User {
@@ -159,6 +187,10 @@ model LinkedinAccount {
   /// Doluysa activeDays/windowStart/windowEnd yerine bu kullanılır.
   schedule          Json?
   dailyMessageLimit Int           @default(80)
+  /// Kalan InMail kredisi (Premium); çalışan her gün okur. null = bilinmiyor
+  inmailCredits     Int?
+  /// Son 7 günde panel dışından (LinkedIn'den elle) gönderilen davet sayısı; haftalık bütçeden düşülür
+  externalInvites7d Int           @default(0)
   warmupEnabled     Boolean       @default(true)
   connectedAt       DateTime?
   pausedUntil       DateTime?
@@ -170,6 +202,7 @@ model LinkedinAccount {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   agents    Agent[]
   jobs      Job[]
+  alerts    Alert[]
 
   @@index([workspaceId])
 }
@@ -201,6 +234,23 @@ model Agent {
   maxPerCompany     Int         @default(2)
   /// Mevcut bağlantılar da hedeflensin mi (davetsiz akış)
   includeConnections Boolean    @default(true)
+
+  // ---- Seçenekler (hepsi varsayılan kapalı; kampanya ayarlarından açılır) ----
+  /// Kişiye özel ilk cümle ({ilk_cumle?}); kaynaklar öncelik sırasıyla: mutual, post, school, city
+  firstLineEnabled  Boolean     @default(false)
+  firstLineSources  String[]    @default(["mutual", "post", "school"])
+  /// Randevu linki cümlesi ({takvim_linki?})
+  calendarEnabled   Boolean     @default(false)
+  calendarUrl       String?
+  /// Profili İngilizce olan kişilere İngilizce şablon
+  englishEnabled    Boolean     @default(false)
+  /// Açık profile (Open Profile) davet atmadan mesaj
+  openProfileEnabled Boolean    @default(false)
+  /// Geri çekilen davetten sonra InMail
+  inmailEnabled     Boolean     @default(false)
+  inmailMinFitScore Int         @default(80)
+  /// Kampanyanın haftada harcayabileceği en fazla InMail kredisi
+  inmailWeeklyMax   Int         @default(5)
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -281,6 +331,8 @@ model Template {
   body       String
   /// A/B testinde aynı adım ve segment için birden fazla onaylı varyant olabilir
   variant    String         @default("A")
+  /// "tr" ya da "en" (İngilizce varyant seçeneği açıksa)
+  lang       String         @default("tr")
   approvedAt DateTime?
   approvedBy String?
   createdAt  DateTime       @default(now())
@@ -290,7 +342,7 @@ model Template {
   messages    Message[]
   suggestions TemplateSuggestion[]
 
-  @@index([stepId, segmentId, status])
+  @@index([stepId, segmentId, status, lang])
 }
 
 /// Şablon stüdyosunda yapay zekânın önerdiği değişiklikler
@@ -319,6 +371,17 @@ model Prospect {
   degree      Int?
   mutualConnections Int?
   recentlyActive Boolean @default(false)
+  /// Açık profil: davetsiz mesaj alabilir
+  openProfile Boolean  @default(false)
+  /// Profil dili ("tr" | "en"), çalışanın gördüğü unvan/özet metninden
+  lang        String?
+  // Kişiye özel ilk cümle için yalnızca gereken özet bilgiler (paylaşım metni saklanmaz)
+  mutualName  String?
+  sharedSchool String?
+  /// Son paylaşımın tanınan konusu (POST_TOPICS anahtarı), metnin kendisi değil
+  postTopic   String?
+  /// Bu tarihe kadar hiçbir kampanyaya alınmaz (90 gün tekrar yazmama, 21 gün yeniden davet)
+  cooldownUntil DateTime?
   source      SourceKind @default(SEARCH)
   /// KVKK: bu tarihten sonra cevap yoksa veri silinir
   retainUntil DateTime
@@ -327,6 +390,8 @@ model Prospect {
   workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   agents    AgentProspect[]
   messages  Message[]
+  opportunities Opportunity[]
+  notes     Note[]
 
   @@unique([workspaceId, linkedinUrl])
 }
@@ -346,7 +411,10 @@ model AgentProspect {
   inviteSentAt DateTime?
   connectedAt DateTime?
   lastMessageAt DateTime?
+  inmailSentAt DateTime?
   repliedAt   DateTime?
+  /// Bu kişiye gönderilen dil
+  lang        String        @default("tr")
   replyLabel  ReplyLabel?
   skipReason  String?
   createdAt   DateTime      @default(now())
@@ -411,12 +479,66 @@ model Suppression {
   @@unique([workspaceId, kind, value])
 }
 
+/// Cevap veren ve ilgilenen kişiden doğan fırsat (satış hattı)
+model Opportunity {
+  id          String           @id @default(cuid())
+  workspaceId String
+  prospectId  String
+  agentId     String?
+  stage       OpportunityStage @default(NEW)
+  /// Bir sonraki adım ve tarihi, ör. "Demo" / 2026-10-20
+  nextStep    String?
+  nextStepAt  DateTime?
+  lostReason  String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  prospect  Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, stage])
+}
+
+/// Kişi kartındaki notlar
+model Note {
+  id          String   @id @default(cuid())
+  workspaceId String
+  prospectId  String
+  authorId    String
+  body        String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  prospect  Prospect  @relation(fields: [prospectId], references: [id], onDelete: Cascade)
+
+  @@index([prospectId, createdAt])
+}
+
+/// Panelin üstünde gösterilen uyarılar; çözülünce resolvedAt dolar
+model Alert {
+  id                String    @id @default(cuid())
+  workspaceId       String
+  linkedinAccountId String?
+  kind              AlertKind
+  message           String
+  createdAt         DateTime  @default(now())
+  resolvedAt        DateTime?
+
+  workspace       Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  linkedinAccount LinkedinAccount? @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, resolvedAt])
+}
+
 model AuditLog {
   id          String   @id @default(cuid())
   workspaceId String
   actor       String // kullanıcı id'si ya da "system"
   action      String
   details     Json?
+  /// Geri alınabilir işlemler (atla, hariç tut, toplu işlem) için önceki durum
+  undoData    Json?
+  undoneAt    DateTime?
   createdAt   DateTime @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
