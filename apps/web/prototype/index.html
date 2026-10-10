@@ -953,7 +953,8 @@ function downloadCsv(rows,name){
   const cols=[["n","Ad Soyad"],["t","Unvan"],["o","Kurum"],["seg","Segment"],["deg","Derece"],["score","Puan"],["stage","Durum"],["next","Sıradaki adım"]];
   const cell=v=>{let s=v==null?"":String(v);if(/^[=+\-@]/.test(s))s="'"+s;return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s};
   const csv="\uFEFF"+[cols.map(c=>c[1]).join(";"),...rows.map(r=>cols.map(([k])=>cell(k==="seg"?SEG_NAME[r[k]]:r[k])).join(";"))].join("\r\n");
-  try{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));a.download=name;document.body.appendChild(a);a.click();a.remove();toast(`${rows.length} kişi CSV olarak indirildi`)}catch(err){toast("CSV oluşturulamadı")}
+  /* Prototip görüntüleyicisi dosya indirmeye izin vermez; gerçek panelde bu dosya iner. */
+  void csv;toast(`Gerçek panelde ${rows.length} kişi Excel'de açılan bir CSV dosyası olarak iner`)
 }
 document.addEventListener("change",e=>{
   const x=e.target,d=x.dataset;
