@@ -189,6 +189,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .col h3{display:flex;justify-content:space-between;font-size:13px;padding:2px 4px}
 .deal{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px}
 .deal p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+.win{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line-strong);border-radius:6px;padding:2px 4px 2px 6px;background:var(--surface)}
+.win input{width:54px;border:0;padding:3px 2px;background:none;font-family:var(--mono);font-size:13px;text-align:center}
+.win input:focus{outline:2px solid var(--accent-soft)}
+.win button{border:0;background:none;color:var(--faint);padding:0 4px;font-size:15px}
+.win button:hover{color:var(--bad)}
+table.sched td{vertical-align:middle}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:9px 16px;border-radius:6px;font-weight:500;max-width:calc(100% - 32px);z-index:20}
 .login{max-width:380px;margin:10vh auto;padding-inline:16px}
 .empty{padding:28px 16px;text-align:center;color:var(--muted)}
@@ -368,11 +374,11 @@ V.login=()=>`<div class="login"><div class="card"><div class="card-b stack">
 </div></div></div>`;
 
 V.overview=()=>{
-  const days=["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"],sent=[26,26,25,26,19,0,0],quota=[26,26,26,26,26,25,25];
-  return `<div class="head"><div><h1>Genel bakış</h1><p class="lede" style="margin:0">Bu hafta · 6–12 Ekim. Davetler haftanın 7 gününe yayılıyor; kabul edilen bağlantıya detay mesajı ortalama 4 dakikada gidiyor.</p></div>
+  const days=["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"],quota=plan(),sent=quota.map((q,i)=>i<4?q:i===4?Math.round(q*.7):0);
+  return `<div class="head"><div><h1>Genel bakış</h1><p class="lede" style="margin:0">Bu hafta · 6–12 Ekim. Davetler seçtiğiniz gün ve saatlere yayılıyor; kabul edilen bağlantıya detay mesajı ortalama 4 dakikada gidiyor.</p></div>
   <button class="btn primary" data-go="wizard">Yeni kampanya</button></div>
   <div class="grid g4">
-    <div class="card kpi"><div class="k">Gönderilen davet</div><div class="v">122 <span class="sub">/ 180</span></div><div class="bar"><i style="width:68%"></i></div></div>
+    <div class="card kpi"><div class="k">Gönderilen davet</div><div class="v">${sent.reduce((a,b)=>a+b,0)} <span class="sub">/ ${quota.reduce((a,b)=>a+b,0)}</span></div><div class="bar"><i style="width:${Math.round(sent.reduce((a,b)=>a+b,0)/Math.max(1,quota.reduce((a,b)=>a+b,0))*100)}%"></i></div></div>
     <div class="card kpi"><div class="k">Kabul oranı</div><div class="v">%22</div><div class="s">27 kabul</div></div>
     <div class="card kpi"><div class="k">Mevcut bağlantılara mesaj</div><div class="v">14</div><div class="s">Davet gerekmedi</div></div>
     <div class="card kpi"><div class="k">Cevap</div><div class="v">5</div><div class="s">2 görüşme isteği</div></div>
@@ -384,11 +390,11 @@ V.overview=()=>{
       <div class="attn"><span class="stripe" style="background:var(--warn)"></span><div style="flex:1"><b>1 kişi için kararınız gerekiyor</b><p>Burak Çelik'in şirketi broker olabilir; sigorta kampanyası aracı kurumları hariç tutuyor.</p></div><button class="btn sm" data-go="discover" data-dtab="review">İncele</button></div>
       <div class="attn"><span class="stripe" style="background:var(--warn)"></span><div style="flex:1"><b>Klinik notlarının kabul oranı %14</b><p>Hastane notlarının yarısı kadar. Klinik varyantında görünürlük vurgusunu öne almayı deneyin.</p></div><button class="btn sm" data-camp="hastane" data-ctab="messages" data-seg="klinik">Mesajı aç</button></div>
     </div>
-    <div class="card"><div class="card-h"><h2>Günlük davetler</h2><span class="sub">Bugün 19 / 26</span></div><div class="card-b">
+    <div class="card"><div class="card-h"><h2>Günlük davetler</h2><button class="link" data-go="accounts">Zamanlamayı düzenle</button></div><div class="card-b">
       <svg viewBox="0 0 280 130" role="img" aria-label="Günlük gönderilen davetler ve kotalar" style="width:100%;height:auto">
-        ${days.map((d,i)=>{const x=10+i*39,hq=quota[i]*3.6,hs=sent[i]*3.6;return `<rect x="${x}" y="${108-hq}" width="26" height="${hq}" rx="3" fill="var(--sunk)"/><rect x="${x}" y="${108-hs}" width="26" height="${hs}" rx="3" fill="${i===4?"var(--accent)":"var(--accent)"}" opacity="${i===4?1:.75}"/><text x="${x+13}" y="124" text-anchor="middle" font-size="10" fill="var(--muted)">${d}</text>${sent[i]?`<text x="${x+13}" y="${102-hs}" text-anchor="middle" font-size="10" font-family="IBM Plex Mono, monospace" fill="var(--fg)">${sent[i]}</text>`:""}`}).join("")}
+        ${days.map((d,i)=>{const sc=90/Math.max(1,...quota),x=10+i*39,hq=quota[i]*sc,hs=sent[i]*sc;return `<rect x="${x}" y="${108-hq}" width="26" height="${hq}" rx="3" fill="var(--sunk)"/><rect x="${x}" y="${108-hs}" width="26" height="${hs}" rx="3" fill="${i===4?"var(--accent)":"var(--accent)"}" opacity="${i===4?1:.75}"/><text x="${x+13}" y="124" text-anchor="middle" font-size="10" fill="var(--muted)">${d}</text>${sent[i]?`<text x="${x+13}" y="${102-hs}" text-anchor="middle" font-size="10" font-family="IBM Plex Mono, monospace" fill="var(--fg)">${sent[i]}</text>`:""}`}).join("")}
       </svg>
-      <p class="help" style="margin:8px 0 0">Koyu: gönderilen. Açık: o günün kotası. Kalan 7 davet 18:30'a kadar gidecek.</p></div></div>
+      <p class="help" style="margin:8px 0 0">Koyu: gönderilen. Açık: o günün hedefi. Bugün Cuma.</p></div></div>
   </div>
   <div class="grid g2" style="margin-top:16px">
     <div class="card"><div class="card-h"><h2>Kampanyalar</h2><button class="link" data-go="campaigns">Tümü</button></div><div class="scroll"><table>
@@ -619,15 +625,69 @@ V.files=()=>`<div class="head"><div><h1>Belgeler</h1><p class="lede" style="marg
   <p class="help" style="margin:0">Öneri: tek sayfalık, kuruma özel bir özet. Belge ekli mesajlarda cevap oranı Sonuçlar sekmesinde ayrıca gösterilir.</p></div></div></div>`;
 
 V.accounts=()=>`<h1>LinkedIn hesapları</h1><p class="lede">Her hesap, sahibinin bilgisayarındaki yerel çalışanla bağlanır. Şifre saklanmaz; bilgisayar kapalıyken bekleyen işler açılınca gönderilir.</p>
-  <div class="grid g2"><div class="card"><div class="card-h"><div><h2>Furkan Kurtoğlu</h2><span class="sub">Premium · bağlandı 10 Eki</span></div><span class="tag t-good">Bağlı</span></div><div class="card-b stack">
-    <div class="grid g3"><div><div class="sub">Bu hafta davet</div><div style="font:500 18px var(--mono)">122/180</div></div><div><div class="sub">Bugün mesaj</div><div style="font:500 18px var(--mono)">18/80</div></div><div><div class="sub">Bekleyen davet</div><div style="font:500 18px var(--mono)">95</div></div></div>
-    <div class="grid g2"><div class="field"><label for="wk">Haftalık davet</label><input type="number" id="wk" value="180" min="10" max="200"><span class="help">LinkedIn sınırı yaklaşık 200; 180 güvenli pay bırakır.</span></div><div class="field"><label for="dm">Günlük mesaj sınırı</label><input type="number" id="dm" value="80" min="10" max="150"></div></div>
-    <div class="field"><span class="lbl">Gönderim saatleri</span><div class="grid g2"><input type="text" id="ws" value="09:00" aria-label="Başlangıç"><input type="text" id="we" value="18:30" aria-label="Bitiş"></div><span class="help">Haftanın 7 günü. Resmî tatiller hariç.</span></div>
-    <div class="row"><button class="btn primary" data-toast="Hesap ayarları kaydedildi">Kaydet</button><button class="btn" data-toast="Hesap 24 saat duraklatıldı">24 saat duraklat</button></div></div></div>
+  ${scheduleCard()}
+  <div class="grid g2" style="margin-top:16px"><div class="card"><div class="card-h"><div><h2>Furkan Kurtoğlu</h2><span class="sub">Premium · bağlandı 10 Eki</span></div><span class="tag t-good">Bağlı</span></div><div class="card-b stack">
+    <div class="grid g3"><div><div class="sub">Bu hafta davet</div><div style="font:500 18px var(--mono)">122/${plan().reduce((a,b)=>a+b,0)}</div></div><div><div class="sub">Bugün mesaj</div><div style="font:500 18px var(--mono)">18/80</div></div><div><div class="sub">Bekleyen davet</div><div style="font:500 18px var(--mono)">95</div></div></div>
+    <div class="field"><label for="dm">Günlük mesaj sınırı</label><input type="number" id="dm" value="80" min="10" max="150" style="max-width:140px"><span class="help">Kabulde giden mesajlar, takipler ve mevcut bağlantılara mesajlar. Davet hedefinden ayrıdır.</span></div>
+    <div class="row"><button class="btn" data-toast="Hesap 24 saat duraklatıldı">24 saat duraklat</button></div></div></div>
   <div class="stack"><div class="card"><div class="card-h"><h2>Yerel çalışan</h2><span class="tag t-good">Çalışıyor</span></div><div class="card-b"><ul class="checks"><li><span class="dot ok"></span>Windows · son sinyal 1 dakika önce</li><li><span class="dot ok"></span>LinkedIn oturumu açık</li><li><span class="dot ok"></span>Sürüm 0.1.0 · güncel</li></ul>
     <div class="row" style="margin-top:12px"><button class="btn" data-toast="Windows ve Mac kurulum dosyaları">Çalışanı indir</button><button class="btn quiet" data-toast="Yeni bağlantı anahtarı oluşturuldu">Anahtarı yenile</button></div></div></div>
     <div class="card"><div class="card-h"><h2>Hesap sağlığı</h2></div><div class="card-b"><ul class="checks"><li><span class="dot ok"></span>LinkedIn uyarısı yok</li><li><span class="dot ok"></span>Kabul oranı %22 (sağlıklı aralık %15 üstü)</li><li><span class="dot warn"></span>95 bekleyen davet; 21 günü geçenler otomatik geri çekilir</li></ul></div></div>
     <div class="card"><div class="card-b stack"><h3>Başka hesap ekle</h3><p class="help" style="margin:0">Ekipten biri kendi LinkedIn hesabını kendi bilgisayarından bağlar; davet kapasitesi hesap başına eklenir.</p><button class="btn" style="align-self:flex-start" data-toast="Bağlantı kodu oluşturuldu">Bağlantı kodu oluştur</button></div></div></div></div>`;
+
+/* ===== davet zamanlaması (packages/core/schedule.ts ile aynı kurallar) ===== */
+const DAYS=["Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi","Pazar"]; // ekranda Pazartesi başlar
+const W=(a,b)=>({a,b});
+const sched={weekly:180,mode:"auto",gapMin:4,gapMax:20,days:[
+  {on:true,w:[W("09:00","12:00"),W("13:30","18:30")]},{on:true,w:[W("09:00","12:00"),W("13:30","18:30")]},{on:true,w:[W("09:00","12:00"),W("13:30","18:30")]},
+  {on:true,w:[W("09:00","12:00"),W("13:30","18:30")]},{on:true,w:[W("09:00","12:00"),W("13:30","17:00")]},{on:true,w:[W("10:00","14:00")],inv:15},{on:false,w:[W("10:00","14:00")]}]};
+const tmin=s=>{const m=String(s).trim().match(/^(\d{1,2})[:.](\d{2})$/);if(!m)return null;const h=+m[1],n=+m[2];return h<24&&n<60?h*60+n:null};
+const SAFE={weekly:200,warn:40,max:60};
+function plan(){
+  const out=new Array(7).fill(0);let fixed=0;const auto=[];
+  sched.days.forEach((d,i)=>{if(!d.on||!d.w.length)return;if(sched.mode==="manual"||d.inv!=null){const v=Math.max(0,Math.min(SAFE.max,Math.round(d.inv??0)));out[i]=v;fixed+=v}else auto.push(i)});
+  const rest=Math.max(0,sched.weekly-fixed);const base=auto.length?Math.floor(rest/auto.length):0;let extra=rest-base*auto.length;
+  auto.forEach(i=>{out[i]=base+(extra>0?1:0);if(extra>0)extra--});return out;
+}
+function schedIssues(){
+  const iss=[];const p=plan();const avg=(sched.gapMin+sched.gapMax)/2;
+  if(sched.mode==="auto"&&sched.weekly>SAFE.weekly)iss.push(["error",`Haftalık hedef ${SAFE.weekly}'ü geçemez; LinkedIn hesabı kısıtlayabilir.`]);
+  sched.days.forEach((d,i)=>{if(!d.on)return;const n=DAYS[i];
+    if(!d.w.length)iss.push(["error",`${n}: açık ama saat aralığı yok.`]);
+    const ws=d.w.map(x=>({s:tmin(x.a),e:tmin(x.b)}));
+    if(ws.some(x=>x.s==null||x.e==null))iss.push(["error",`${n}: saatleri SS:DD biçiminde yazın.`]);
+    else{ws.sort((x,y)=>x.s-y.s);ws.forEach((x,k)=>{if(x.e<=x.s)iss.push(["error",`${n}: bitiş saati başlangıçtan sonra olmalı.`]);if(k&&x.s<ws[k-1].e)iss.push(["error",`${n}: saat aralıkları çakışıyor.`])});
+      const mins=ws.reduce((t,x)=>t+Math.max(0,x.e-x.s),0);const fits=Math.floor(mins/avg);if(p[i]>fits)iss.push(["warning",`${n}: ${p[i]} davet bu saatlere sığmaz (en fazla ~${fits}).`])}
+    if((d.inv??0)>SAFE.max)iss.push(["error",`${n}: günlük en fazla ${SAFE.max} davet.`]);else if(p[i]>SAFE.warn)iss.push(["warning",`${n}: ${p[i]} davet; günde ${SAFE.warn}'ın üstü hesabı riske atabilir.`]);
+  });
+  const tot=p.reduce((a,b)=>a+b,0);
+  if(tot>SAFE.weekly)iss.push(["error",`Haftalık toplam ${tot}; ${SAFE.weekly}'ü geçemez.`]);
+  else if(sched.mode==="auto"&&tot<sched.weekly)iss.push(["warning",`Günlük hedeflerin toplamı ${tot}; haftalık hedef ${sched.weekly}'e ulaşılmaz.`]);
+  return iss;
+}
+function scheduleCard(){
+  const p=plan(),tot=p.reduce((a,b)=>a+b,0),iss=schedIssues(),err=iss.some(x=>x[0]==="error");
+  return `<div class="card"><div class="card-h"><div><h2>Davet zamanlaması · Furkan Kurtoğlu</h2><span class="sub">Hangi gün, hangi saatlerde, kaç davet gideceğini belirleyin. Mesajlar da aynı saatlerde gönderilir.</span></div>
+    <div class="row"><button class="btn sm" data-preset="weekdays">Hafta içi</button><button class="btn sm" data-preset="all">Her gün</button><button class="btn sm" data-preset="copy">Pazartesiyi tüm açık günlere uygula</button></div></div>
+  <div class="card-b stack">
+    <div class="row" style="gap:20px;align-items:flex-end">
+      <div class="field"><span class="lbl">Hedef</span><div class="seg" role="group" aria-label="Hedef türü"><button aria-pressed="${sched.mode==="auto"}" data-smode="auto">Haftalık hedef</button><button aria-pressed="${sched.mode==="manual"}" data-smode="manual">Gün gün hedef</button></div></div>
+      ${sched.mode==="auto"?`<div class="field"><label for="wk">Haftalık davet</label><input type="number" id="wk" min="0" max="200" value="${sched.weekly}" style="width:110px"></div><p class="help" style="margin:0 0 6px;max-width:44ch">Gün hedefi boş bırakılan açık günler haftalık hedeften eşit pay alır. LinkedIn sınırı haftada yaklaşık 200.</p>`:`<p class="help" style="margin:0 0 6px;max-width:52ch">Her günün davet sayısını siz belirlersiniz. Haftalık toplam 200'ü geçemez.</p>`}
+      <div style="margin-left:auto;text-align:right"><div class="sub">Haftalık toplam</div><div style="font:500 22px var(--mono)">${tot}</div></div>
+    </div>
+    <div class="scroll"><table class="sched"><thead><tr><th>Gün</th><th>Açık</th><th class="num">Davet</th><th>Saat aralıkları</th></tr></thead><tbody>
+    ${sched.days.map((d,i)=>`<tr><td><b>${DAYS[i]}</b></td><td><input type="checkbox" id="on${i}" data-don="${i}" ${d.on?"checked":""} aria-label="${DAYS[i]} açık" style="accent-color:var(--accent);width:16px;height:16px"></td>
+      <td class="num">${d.on?`<input type="number" min="0" max="60" data-dinv="${i}" value="${sched.mode==="manual"||d.inv!=null?(d.inv??0):""}" placeholder="${p[i]}" style="width:76px;text-align:right" aria-label="${DAYS[i]} davet hedefi">${sched.mode==="auto"&&d.inv==null?`<div class="sub">otomatik</div>`:sched.mode==="auto"?`<div class="sub"><button class="link" style="font-size:12px" data-dauto="${i}">otomatiğe al</button></div>`:""}`:`<span class="sub">0</span>`}</td>
+      <td>${d.on?`<div class="row" style="gap:6px">${d.w.map((w,k)=>`<span class="win"><input type="text" value="${w.a}" data-wa="${i}-${k}" aria-label="${DAYS[i]} başlangıç ${k+1}" inputmode="numeric"><span>–</span><input type="text" value="${w.b}" data-wb="${i}-${k}" aria-label="${DAYS[i]} bitiş ${k+1}" inputmode="numeric"><button aria-label="Aralığı sil" data-wdel="${i}-${k}">×</button></span>`).join("")}${d.w.length<3?`<button class="btn sm quiet" data-wadd="${i}">Aralık ekle</button>`:""}</div>`:`<span class="sub">Gönderim yok</span>`}</td></tr>`).join("")}
+    </tbody></table></div>
+    ${iss.length?`<ul class="checks">${iss.map(x=>`<li><span class="dot ${x[0]==="error"?"no":"warn"}"></span>${esc(x[1])}</li>`).join("")}</ul>`:`<ul class="checks"><li><span class="dot ok"></span>Ayarlar güvenli aralıkta.</li></ul>`}
+    <div class="row"><button class="btn primary" id="saveSched" ${err?"disabled":""}>Kaydet</button>${err?`<span class="help">Kaydetmek için kırmızı işaretli sorunları düzeltin.</span>`:`<span class="help">Resmî tatillerde ve Ayarlar'daki özel günlerde gönderim yapılmaz.</span>`}</div>
+  </div></div>`;
+}
+function rerenderSchedule(focusSel){
+  const pos=document.activeElement&&document.activeElement.selectionStart;render();
+  if(focusSel){const el=document.querySelector(focusSel);if(el){el.focus();try{if(pos!=null&&el.setSelectionRange)el.setSelectionRange(pos,pos)}catch(e){}}}
+}
 
 V.settings=()=>`<h1>Ayarlar</h1><p class="lede">Tüm kampanyalar için geçerli kurallar, KVKK, yardımcı araçlar ve bildirimler.</p>
   <div class="grid g2"><div class="stack">
@@ -698,7 +758,24 @@ document.addEventListener("click",e=>{
   if(d.approve||d.skip){const i=queue.findIndex(q=>q.id===+(d.approve||d.skip));const q=queue.splice(i,1)[0];render();toast(d.approve?`${q.p}: gönderim sırasına alındı`:`${q.p} atlandı`);return}
   if(d.approveall){const n=queue.length;queue.length=0;render();toast(`${n} mesaj gönderim sırasına alındı`);return}
   if(d.conv){S.conv=+d.conv;render();return}
+  if(d.smode){if(d.smode==="manual"&&sched.mode!=="manual"){const p=plan();sched.days.forEach((x,i)=>{if(x.on)x.inv=p[i]})}if(d.smode==="auto"){sched.weekly=Math.min(200,plan().reduce((a,b)=>a+b,0)||180);sched.days.forEach(x=>{delete x.inv})}sched.mode=d.smode;render();return}
+  if(d.preset){
+    if(d.preset==="weekdays")sched.days.forEach((x,i)=>{x.on=i<5});
+    if(d.preset==="all")sched.days.forEach(x=>{x.on=true;if(!x.w.length)x.w=[W("09:00","18:30")]});
+    if(d.preset==="copy"){const m=sched.days[0];sched.days.forEach((x,i)=>{if(i&&x.on){x.w=m.w.map(w=>({...w}));if(sched.mode==="manual")x.inv=m.inv}})}
+    render();toast("Zamanlama güncellendi; kaydetmeyi unutmayın");return}
+  if(d.wadd){const day=sched.days[+d.wadd];const last=day.w.at(-1);const s=last?Math.min(23*60,(tmin(last.b)??600)+60):540;const f=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;day.w.push(W(f(s),f(Math.min(23*60+59,s+120))));render();return}
+  if(d.wdel){const [i,k]=d.wdel.split("-").map(Number);sched.days[i].w.splice(k,1);render();return}
+  if(d.dauto){delete sched.days[+d.dauto].inv;render();return}
+  if(t.id==="saveSched"){toast("Davet zamanlaması kaydedildi");return}
   if(d.toast)toast(d.toast);
+});
+document.addEventListener("change",e=>{
+  const x=e.target,d=x.dataset;
+  if(d.don){sched.days[+d.don].on=x.checked;render();return}
+  if(d.wa||d.wb){const [i,k]=(d.wa||d.wb).split("-").map(Number);sched.days[i].w[k][d.wa?"a":"b"]=x.value.trim();render();return}
+  if(d.dinv!==undefined){const v=x.value.trim();if(v==="")delete sched.days[+d.dinv].inv;else sched.days[+d.dinv].inv=Math.max(0,+v);render();return}
+  if(x.id==="wk"){sched.weekly=Math.max(0,+x.value||0);render();return}
 });
 document.addEventListener("input",e=>{
   const id=e.target.id;

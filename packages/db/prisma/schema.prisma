@@ -155,6 +155,9 @@ model LinkedinAccount {
   activeDays        Int[]         @default([0, 1, 2, 3, 4, 5, 6])
   windowStartMin    Int           @default(540) // 09:00
   windowEndMin      Int           @default(1110) // 18:30
+  /// Gün gün ayar: [{enabled, windows:[{startMin,endMin}], invites?}] x 7 (0=Pazar).
+  /// Doluysa activeDays/windowStart/windowEnd yerine bu kullanılır.
+  schedule          Json?
   dailyMessageLimit Int           @default(80)
   warmupEnabled     Boolean       @default(true)
   connectedAt       DateTime?
