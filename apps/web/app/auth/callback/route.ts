@@ -8,7 +8,8 @@ export async function GET(req: Request) {
   if (code) {
     const supabase = await supabaseServer();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(new URL("/", url.origin));
+    const next = url.searchParams.get("sonra") ?? "/";
+    if (!error) return NextResponse.redirect(new URL(next.startsWith("/") && !next.startsWith("//") ? next : "/", url.origin));
   }
   return NextResponse.redirect(new URL("/giris?hata=dogrulama", url.origin));
 }

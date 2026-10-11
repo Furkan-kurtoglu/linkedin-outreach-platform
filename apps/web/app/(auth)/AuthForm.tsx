@@ -28,6 +28,7 @@ export function AuthForm({ mode, next, notice }: { mode: "in" | "up"; next?: str
             <label htmlFor="password">Şifre</label>
             <input type="password" id="password" name="password" autoComplete={mode === "in" ? "current-password" : "new-password"} minLength={mode === "up" ? 10 : undefined} required />
             {mode === "up" && <span className="help">En az 10 karakter. LinkedIn şifrenizi kullanmayın.</span>}
+            {mode === "in" && <Link className="link" href="/sifremi-unuttum" style={{ fontSize: 12, alignSelf: "flex-start" }}>Şifremi unuttum</Link>}
           </div>
           {next && <input type="hidden" name="sonra" value={next} />}
           {state.error && <p className="form-error" role="alert">{state.error}</p>}

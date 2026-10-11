@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireContext } from "@/lib/context";
 import { inviteMember, removeInvite, saveExcluded, saveGeneral } from "./actions";
+import { PasswordForm } from "./PasswordForm";
 
 export const metadata: Metadata = { title: "Ayarlar" };
 
@@ -87,6 +88,7 @@ export default async function Page() {
               <p className="help" style={{ padding: "0 16px 16px", margin: 0 }}>Ekip üyeleri bu çalışma alanının kampanyalarını ve konuşmalarını görür. Kendi LinkedIn hesabıyla ayrı çalışmak isteyen biri davetsiz kayıt olur ve kendi çalışma alanını kullanır.</p>
             </div>
           </div>
+          <PasswordForm />
           <div className="card">
             <div className="card-h"><h2>Düzenleme yardımı</h2><span className={`tag ${ai ? "t-good" : "t-mute"}`}>{ai ? "Açık" : "Kapalı"}</span></div>
             <div className="card-b stack">

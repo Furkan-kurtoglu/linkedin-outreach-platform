@@ -47,3 +47,14 @@ export async function signUp(_: AuthState, form: FormData): Promise<AuthState> {
   if (data.session) redirect("/");
   return { info: "Doğrulama bağlantısı e-posta adresinize gönderildi. Bağlantıya tıkladıktan sonra giriş yapabilirsiniz." };
 }
+
+export async function requestReset(_: AuthState, form: FormData): Promise<AuthState> {
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
+  if (!email) return { error: "E-posta gerekli." };
+  const h = await headers();
+  const origin = h.get("origin") ?? `https://${h.get("host")}`;
+  const supabase = await supabaseServer();
+  // Hesabın olup olmadığı belli edilmez; her durumda aynı mesaj gösterilir
+  await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${origin}/auth/callback?sonra=/ayarlar%23sifre` });
+  return { info: "Bu adresle bir hesap varsa şifre yenileme bağlantısı gönderildi. Bağlantıyla girip Ayarlar'dan yeni şifre belirleyin." };
+}
