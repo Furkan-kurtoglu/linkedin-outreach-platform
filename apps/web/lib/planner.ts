@@ -9,7 +9,6 @@ import "server-only";
 import {
   PRIORITY,
   allocateInvites,
-  canReinvite,
   chooseLanguage,
   fold,
   dispatchTime,
@@ -40,8 +39,8 @@ const DAY = 24 * HOUR;
 const PLAN_EVERY_MS = 2 * MIN;
 const CHECK_EVERY_MS = 10 * MIN;
 
-/** Akışın sürdüğü aşamalar */
-const ACTIVE_STAGES = ["QUEUED", "INVITE_SENT", "CONNECTED", "MESSAGED", "INMAIL_SENT", "WITHDRAWN"] as const;
+/** Akışın sürdüğü aşamalar (geri çekilen davetler yalnızca InMail seçeneği açıkken ayrıca bakılır) */
+const ACTIVE_STAGES = ["QUEUED", "INVITE_SENT", "CONNECTED", "MESSAGED", "INMAIL_SENT"] as const;
 const OPEN_JOB = ["PENDING", "AWAITING_APPROVAL", "RUNNING"] as const;
 
 interface LocalDay {
@@ -240,7 +239,14 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
     const stepById = new Map(agent.steps.map((s) => [s.id, s]));
     const templates = await prisma.template.findMany({ where: { step: { agentId: agent.id }, status: "APPROVED" } });
     const aps = await prisma.agentProspect.findMany({
-      where: { agentId: agent.id, stage: { in: [...ACTIVE_STAGES] } },
+      where: {
+        agentId: agent.id,
+        OR: [
+          { stage: { in: [...ACTIVE_STAGES] } },
+          // InMail seçeneği: geri çekilmiş ve henüz InMail gitmemiş, puanı yeterli kişiler
+          ...(agent.inmailEnabled ? [{ stage: "WITHDRAWN" as const, inmailSentAt: null, fitScore: { gte: agent.inmailMinFitScore } }] : []),
+        ],
+      },
       include: { prospect: { include: { messages: { where: { direction: "OUTBOUND", agentId: agent.id }, orderBy: { sentAt: "asc" } } } } },
     });
     if (!aps.length) continue;
@@ -278,11 +284,6 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
         fitScore: ap.fitScore ?? undefined,
         inmailCreditsLeft: Math.min(inmailCredits, inmailLeftForAgent),
       };
-      // Geri çekilmiş davet: kişi 21 gün dolmadan yeniden davet edilmez (InMail dışında akış biter)
-      if (ap.withdrawnAt && !canReinvite(ap.withdrawnAt, now) && !sequence.inmail?.enabled) {
-        await finish(ap, p, "WITHDRAWN");
-        continue;
-      }
       const action = nextAction(sequence, state, now);
       const priority = ap.priority ?? ap.fitScore ?? 50;
 
@@ -360,7 +361,8 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
           break;
         }
         case "done":
-          await finish(ap, p, ap.withdrawnAt ? "WITHDRAWN" : "FINISHED");
+          // Geri çekilmiş kişi zaten son aşamada; yalnızca aşama değişiyorsa yazılır
+          if (ap.stage !== "WITHDRAWN") await finish(ap, p, "FINISHED");
           break;
         case "wait":
           break;
@@ -394,10 +396,12 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
 
   const inviteTimes = planInviteTimes({ now, count: inviteJobs.length, config });
   inviteJobs.slice(0, inviteTimes.length).forEach(({ cand, agent }, i) => {
+    // Onaylı notu olmayan kampanyanın davetleri atlanır
     // Davet notu: onaylı metin yoksa notsuz davet gider (LinkedIn notsuz daveti de kabul eder);
     // metin kural denetiminden geçmezse davet onaya düşer.
     const r = cand.note?.();
     const hasNote = !!r?.templateId;
+    if (!hasNote) return; // onaylı davet notu yoksa davet gönderilmez; Mesajlar sekmesinde "onay bekliyor" görünür
     newJobs.push(
       job({
         linkedinAccountId: account.id,
@@ -532,4 +536,30 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
     );
   }
   return out;
+}
+
+/**
+ * Son kapı: çalışana verilmeden hemen önce işin bugünkü sınırlara sığdığı denetlenir.
+ * (Örneğin onay kuyruğunda bekleyen eski davetler aynı gün topluca onaylanırsa günlük sınır aşılmaz.)
+ * Sığmıyorsa bir sonraki uygun güne ertelenecek zaman döner; sığıyorsa null.
+ */
+export async function gateJob(account: LinkedinAccount, jobRow: { type: JobType }, quietDays: string[], now = new Date()): Promise<Date | null> {
+  if (jobRow.type !== "SEND_INVITE" && jobRow.type !== "SEND_MESSAGE" && jobRow.type !== "SEND_INMAIL") return null;
+  const config = toScheduleConfig(account);
+  const today = localDay(now, config.utcOffsetMin);
+  const tomorrow = () => nextOpenSlot(today.endUtc, config, quietDays) ?? new Date(today.endUtc.getTime() + 9 * HOUR);
+  if (jobRow.type === "SEND_INVITE") {
+    const [doneToday, done7d] = await Promise.all([
+      prisma.job.count({ where: { linkedinAccountId: account.id, type: "SEND_INVITE", status: { in: ["DONE", "RUNNING"] }, OR: [{ finishedAt: { gte: today.startUtc } }, { status: "RUNNING" }] } }),
+      prisma.job.count({ where: { linkedinAccountId: account.id, type: "SEND_INVITE", status: "DONE", finishedAt: { gte: new Date(now.getTime() - 7 * DAY) } } }),
+    ]);
+    const weeksConnected = account.connectedAt ? Math.floor((now.getTime() - account.connectedAt.getTime()) / (7 * DAY)) : 0;
+    const weekly = account.warmupEnabled ? warmupBudget(account.weeklyInvites, weeksConnected) : account.weeklyInvites;
+    const left = invitesRemainingToday({ config, weeklyBudget: weekly, localDay: today.weekday, sentToday: doneToday, sentLast7Days: done7d + account.externalInvites7d });
+    return left > 0 ? null : tomorrow();
+  }
+  const msgsToday = await prisma.job.count({
+    where: { linkedinAccountId: account.id, type: { in: ["SEND_MESSAGE", "SEND_INMAIL"] }, OR: [{ status: "DONE", finishedAt: { gte: today.startUtc } }, { status: "RUNNING" }] },
+  });
+  return msgsToday < account.dailyMessageLimit ? null : tomorrow();
 }

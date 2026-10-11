@@ -1,6 +1,6 @@
 import type { PollResponse, RunnerJob, JobPayload } from "@hfo/core";
 import { prisma } from "@hfo/db";
-import { planAccount } from "@/lib/planner";
+import { gateJob, planAccount } from "@/lib/planner";
 import { purgeExpired } from "@/lib/retention";
 import { runnerAccount, unauthorized } from "@/lib/runner-auth";
 
@@ -41,12 +41,18 @@ export async function POST(req: Request) {
     console.error("Planlama hatası", e);
   }
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const ws = await prisma.workspace.findUnique({ where: { id: account.workspaceId }, select: { quietDays: true } });
+  for (let attempt = 0; attempt < 5; attempt++) {
     const next = await prisma.job.findFirst({
       where: { linkedinAccountId: account.id, status: "PENDING", runAfter: { lte: now } },
       orderBy: [{ priority: "asc" }, { runAfter: "asc" }],
     });
     if (!next) break;
+    const postpone = await gateJob(account, next, ws?.quietDays ?? [], now);
+    if (postpone) {
+      await prisma.job.update({ where: { id: next.id }, data: { runAfter: postpone } });
+      continue;
+    }
     const claimed = await prisma.job.updateMany({
       where: { id: next.id, status: "PENDING" },
       data: { status: "RUNNING", lockedUntil: new Date(now.getTime() + LOCK_MS) },

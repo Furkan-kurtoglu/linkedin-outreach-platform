@@ -43,6 +43,8 @@ const REPLY_DB: Record<ReplyLabel, "INTERESTED" | "LATER" | "NOT_INTERESTED" | "
   diger: "OTHER",
 };
 
+const norm = (t: string) => t.replace(/\s+/g, " ").trim();
+
 export const urlHash = (url: string) => createHash("sha256").update(canonicalProfileUrl(url) ?? url).digest("hex");
 
 export async function handleResult(account: LinkedinAccount, job: Job, result: JobResult): Promise<void> {
@@ -243,7 +245,14 @@ async function ingestInbox(account: LinkedinAccount, data: InboxData, now: Date)
     if (!prospect) continue;
     const known = await prisma.message.findMany({ where: { prospectId: prospect.id }, select: { body: true, direction: true } });
     const seen = new Set(known.map((m) => `${m.direction}:${m.body.trim()}`));
-    const fresh = th.messages.filter((m) => !m.fromMe && !seen.has(`INBOUND:${m.text.trim()}`) && m.text.trim());
+    // Yalnızca bizim gönderdiğimiz bir mesajdan SONRA gelenler cevap sayılır; mevcut bağlantılarla
+    // yıllar önceki eski yazışmalar cevap gibi algılanıp akışı durdurmaz.
+    const ours = known.filter((m) => m.direction === "OUTBOUND").map((m) => norm(m.body).slice(0, 60));
+    // Gönderen adı okunamasa bile metin eşleşmesiyle kendi mesajlarımız tanınır
+    const isOurs = (t: string) => ours.some((o) => o.length >= 10 && norm(t).startsWith(o.slice(0, 40)));
+    const lastOurIdx = th.messages.reduce((idx, m, i) => (isOurs(m.text) ? i : idx), -1);
+    if (lastOurIdx < 0) continue;
+    const fresh = th.messages.slice(lastOurIdx + 1).filter((m) => !m.fromMe && !isOurs(m.text) && m.text.trim() && !seen.has(`INBOUND:${m.text.trim()}`));
     if (!fresh.length) continue;
 
     await prisma.message.createMany({
