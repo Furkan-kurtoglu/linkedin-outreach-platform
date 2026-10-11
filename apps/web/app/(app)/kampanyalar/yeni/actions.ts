@@ -45,9 +45,11 @@ export async function createCampaign(_: WizardState, form: FormData): Promise<Wi
   if (!g("name")) errors.name = "Kampanyaya bir ad verin.";
   const titles = lines(g("titles"));
   if (!titles.length) errors.titles = "En az bir unvan yazın.";
+  const company = await prisma.company.findFirst({ where: { id: g("companyId"), workspaceId: ctx.workspace.id } });
+  if (!company) errors.companyId = "Önce Şirketler sayfasından bir şirket ekleyin.";
   const account = await prisma.linkedinAccount.findFirst({ where: { id: g("accountId"), workspaceId: ctx.workspace.id } });
   if (!account) errors.accountId = "Önce LinkedIn hesapları sayfasından bir hesap ekleyin.";
-  if (Object.keys(errors).length || !account) return { errors, values: v };
+  if (Object.keys(errors).length || !account || !company) return { errors, values: v };
 
   const targeting: TargetingJson = {
     titles,
@@ -67,6 +69,7 @@ export async function createCampaign(_: WizardState, form: FormData): Promise<Wi
       data: {
         workspaceId: ctx.workspace.id,
         linkedinAccountId: account.id,
+        companyId: company.id,
         name: g("name"),
         goal: answers.goal,
         offerContext: answers.productPhrase,

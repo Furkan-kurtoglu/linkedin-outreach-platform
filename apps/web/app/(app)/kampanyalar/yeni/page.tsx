@@ -7,10 +7,12 @@ import { PRESETS } from "./presets";
 
 export const metadata: Metadata = { title: "Yeni kampanya" };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ hazir?: string }> }) {
-  const { hazir } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ hazir?: string; sirket?: string }> }) {
+  const { hazir, sirket } = await searchParams;
   const preset = PRESETS.find((p) => p.id === hazir);
   const ctx = await requireContext();
+  const companies = await prisma.company.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
+  const company = companies.find((c) => c.id === sirket) ?? companies[0];
   const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId: ctx.workspace.id }, select: { id: true, displayName: true } });
   return (
     <>
@@ -24,11 +26,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ h
       <div className="row" style={{ gap: 8, flexWrap: "wrap", margin: "12px 0" }}>
         <span className="sub">Hazır başlangıç:</span>
         {PRESETS.map((p) => (
-          <Link key={p.id} className={`btn${preset?.id === p.id ? " primary" : ""}`} href={`/kampanyalar/yeni?hazir=${p.id}`} title={p.hint}>{p.label}</Link>
+          <Link key={p.id} className={`btn${preset?.id === p.id ? " primary" : ""}`} href={`/kampanyalar/yeni?hazir=${p.id}${company ? `&sirket=${company.id}` : ""}`} title={p.hint}>{p.label}</Link>
         ))}
-        {preset && <Link className="link" href="/kampanyalar/yeni">Temizle</Link>}
+        {preset && <Link className="link" href={`/kampanyalar/yeni${company ? `?sirket=${company.id}` : ""}`}>Temizle</Link>}
       </div>
-      <WizardForm key={preset?.id ?? "bos"} initial={preset?.values} accounts={accounts.map((a) => ({ id: a.id, name: a.displayName }))} />
+      <WizardForm key={`${preset?.id ?? "bos"}-${company?.id ?? ""}`} initial={{ ...(preset?.values ?? {}), ...(company ? { companyId: company.id, companyName: company.name } : {}) }} companies={companies} accounts={accounts.map((a) => ({ id: a.id, name: a.displayName }))} />
     </>
   );
 }

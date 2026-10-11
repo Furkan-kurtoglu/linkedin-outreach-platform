@@ -75,7 +75,7 @@ function Radios({ name, options, state, def }: { name: string; options: [string,
   );
 }
 
-export function WizardForm({ accounts, initial }: { accounts: { id: string; name: string }[]; initial?: Record<string, string> }) {
+export function WizardForm({ accounts, companies, initial }: { accounts: { id: string; name: string }[]; companies: { id: string; name: string }[]; initial?: Record<string, string> }) {
   const [state, action, pending] = useActionState<WizardState, FormData>(createCampaign, { values: initial });
   const n = Object.keys(state.errors ?? {}).length;
   return (
@@ -90,6 +90,19 @@ export function WizardForm({ accounts, initial }: { accounts: { id: string; name
         <div className="card-h"><h2>Kampanya</h2></div>
         <div className="card-b stack">
           <Field q={{ name: "name", label: "Kampanya adı", placeholder: "Özel hastaneler", required: true }} state={state} />
+          <div className="field">
+            <label htmlFor="companyId">Şirket</label>
+            {companies.length ? (
+              <select id="companyId" name="companyId" defaultValue={state.values?.companyId}>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="form-error">Önce <Link className="link" href="/sirketler">Şirketler</Link> sayfasından bir şirket ekleyin.</p>
+            )}
+            {state.errors?.companyId && <span className="form-error">{state.errors.companyId}</span>}
+          </div>
           <div className="field">
             <label htmlFor="accountId">Gönderen LinkedIn hesabı</label>
             {accounts.length ? (
@@ -144,7 +157,7 @@ export function WizardForm({ accounts, initial }: { accounts: { id: string; name
         <div className="card-b stack">{S4.map((q) => <Field key={q.name} q={q} state={state} />)}</div>
       </div>
       <div className="row">
-        <button className="btn primary" disabled={pending || !accounts.length}>{pending ? "Taslaklar hazırlanıyor…" : "Kampanyayı oluştur"}</button>
+        <button className="btn primary" disabled={pending || !accounts.length || !companies.length}>{pending ? "Taslaklar hazırlanıyor…" : "Kampanyayı oluştur"}</button>
         <span className="help">Kampanya taslak olarak oluşur; mesajları onaylayıp başlatana kadar hiçbir şey gönderilmez.</span>
       </div>
     </form>

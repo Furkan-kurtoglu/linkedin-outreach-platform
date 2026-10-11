@@ -1,5 +1,5 @@
 "use server";
-import { GeminiProvider, assist, canUndo, checkMessage, type AssistAction, type AssistResult } from "@hfo/core";
+import { GeminiProvider, assist, canActivateAgent, canUndo, checkMessage, type AssistAction, type AssistResult } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -32,6 +32,10 @@ export async function setStatus(form: FormData) {
     // En az davet notu ya da bağlantıya ilk mesaj onaylı olmalı
     const approved = await prisma.template.count({ where: { status: "APPROVED", step: { agentId: agent.id, type: { in: ["INVITE", "ACCEPTED_MESSAGE", "CONNECTED_MESSAGE"] } } } });
     if (approved === 0) back(agent.id, "mesajlar", "&uyari=onay");
+    if (agent.status !== "ACTIVE") {
+      const active = await prisma.agent.count({ where: { workspaceId: ctx.workspace.id, status: "ACTIVE" } });
+      if (!canActivateAgent(active)) back(agent.id, "akis", "&uyari=sinir");
+    }
   }
   await prisma.agent.update({ where: { id: agent.id }, data: { status: to } });
   if (to === "PAUSED") {

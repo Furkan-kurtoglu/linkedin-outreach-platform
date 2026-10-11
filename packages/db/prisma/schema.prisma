@@ -160,6 +160,23 @@ model Workspace {
   notes            Note[]
   alerts           Alert[]
   invites          WorkspaceInvite[]
+  companies        Company[]
+}
+
+/// Bir çalışma alanında birden fazla şirket olabilir; her şirketin kendi temsilcileri (kampanyaları) vardır.
+model Company {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  website     String?
+  /// Şirketin tek cümlelik tanımı; yeni kampanya sihirbazını doldurmak için kullanılır
+  description String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agents    Agent[]
+
+  @@unique([workspaceId, name])
 }
 
 /// Ekibe e-posta ile davet: bu adresle kayıt olan kişi çalışma alanına katılır
@@ -239,6 +256,7 @@ model LinkedinAccount {
 model Agent {
   id                String      @id @default(cuid())
   workspaceId       String
+  companyId         String?
   linkedinAccountId String
   name              String
   goal              String
@@ -286,6 +304,7 @@ model Agent {
   updatedAt         DateTime    @updatedAt
 
   workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company         Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
   linkedinAccount LinkedinAccount @relation(fields: [linkedinAccountId], references: [id])
   segments        Segment[]
   steps           SequenceStep[]
@@ -293,6 +312,7 @@ model Agent {
   targetAccounts  TargetAccount[]
 
   @@index([workspaceId])
+  @@index([companyId])
 }
 
 /// Aynı temsilcide farklı kitleler: hastane, klinik, sigorta...

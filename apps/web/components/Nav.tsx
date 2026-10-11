@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 const ITEMS: ({ href: string; label: string; badge?: "queue" | "inbox" } | { group: string })[] = [
   { href: "/", label: "Genel bakış" },
   { group: "Çalışma" },
+  { href: "/sirketler", label: "Şirketler" },
   { href: "/kampanyalar", label: "Kampanyalar" },
   { href: "/kisi-bulma", label: "Kişi bulma" },
   { href: "/onay", label: "Onay kuyruğu", badge: "queue" },

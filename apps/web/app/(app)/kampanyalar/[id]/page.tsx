@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { loadCampaign } from "@/lib/campaign";
 import { requireContext } from "@/lib/context";
+import { MAX_ACTIVE_AGENTS } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import { setStatus } from "./actions";
 import { FlowTab } from "./tabs/Flow";
@@ -30,6 +31,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const c = await loadCampaign(ctx, id);
   const tab: Tab = (TABS.find(([k]) => k === sp.sekme)?.[0] ?? "akis") as Tab;
   const optionsOn = [c.firstLineEnabled, c.calendarEnabled, c.englishEnabled, c.openProfileEnabled, c.inmailEnabled].filter(Boolean).length;
+  const company = c.companyId ? await prisma.company.findUnique({ where: { id: c.companyId }, select: { name: true } }) : null;
   const reviewCount = await prisma.agentProspect.count({ where: { agentId: c.id, stage: "NEEDS_REVIEW" } });
   const [statusLabel, tone] = ({ ACTIVE: ["Aktif", "t-good"], PAUSED: ["Duraklatıldı", "t-mute"], DRAFT: ["Taslak", "t-warn"] } as const)[c.status];
 
@@ -46,7 +48,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             <h1>{c.name}</h1>
             <span className={`tag ${tone}`}>{statusLabel}</span>
           </div>
-          <p className="lede" style={{ margin: 0 }}>Gönderen: {c.linkedinAccount.displayName} · haftalık bütçenin %{c.budgetSharePct}&apos;i</p>
+          <p className="lede" style={{ margin: 0 }}>{company ? `${company.name} · ` : ""}Gönderen: {c.linkedinAccount.displayName} · haftalık bütçenin %{c.budgetSharePct}&apos;i</p>
         </div>
         <form action={setStatus} className="row">
           <input type="hidden" name="id" value={c.id} />
@@ -56,6 +58,12 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </SubmitButton>
         </form>
       </div>
+      {sp.uyari === "sinir" && (
+        <div className="banner warning" role="alert">
+          <span className="dot warn" style={{ marginTop: 6 }} />
+          <div className="txt"><b>Aynı anda en fazla {MAX_ACTIVE_AGENTS} temsilci aktif olabilir</b><p>Başlatmak için önce aktif temsilcilerden birini duraklatın.</p></div>
+        </div>
+      )}
       {sp.uyari === "onay" && (
         <div className="banner warning" role="alert">
           <span className="dot warn" style={{ marginTop: 6 }} />

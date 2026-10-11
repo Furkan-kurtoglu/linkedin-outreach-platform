@@ -178,3 +178,13 @@ export function toCsv(columns: { key: string; title: string }[], rows: Record<st
   const lines = [columns.map((c) => cell(c.title)).join(sep), ...rows.map((r) => columns.map((c) => cell(r[c.key])).join(sep))];
   return "﻿" + lines.join("\r\n");
 }
+
+/* ---------- Temsilci sınırı ---------- */
+
+/** Bir çalışma alanında aynı anda en fazla bu kadar temsilci (kampanya) aktif olabilir. */
+export const MAX_ACTIVE_AGENTS = 5;
+
+/** Yeni bir temsilciyi aktifleştirmek mümkün mü? */
+export function canActivateAgent(activeCount: number, max = MAX_ACTIVE_AGENTS): boolean {
+  return activeCount < max;
+}

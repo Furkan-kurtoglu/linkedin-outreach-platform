@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, canUndo, deriveAlerts, onboardingProgress, toCsv, UNDO_WINDOW_MS } from "./index";
+import { MAX_ACTIVE_AGENTS, buildTimeline, canActivateAgent, canUndo, deriveAlerts, onboardingProgress, toCsv, UNDO_WINDOW_MS } from "./index";
 
 const now = new Date("2026-10-12T08:00:00Z");
 const min = (n: number) => new Date(now.getTime() - n * 60_000);
@@ -58,5 +58,14 @@ describe("CSV", () => {
     );
     expect(csv.startsWith("﻿Ad Soyad;Kurum;Not\r\n")).toBe(true);
     expect(csv).toContain('Ayşe Çınar;"Şifa; Hastanesi";"\'=HYPERLINK(""x"")"');
+  });
+});
+
+describe("temsilci sınırı", () => {
+  it("en fazla beş aktif temsilci", () => {
+    expect(MAX_ACTIVE_AGENTS).toBe(5);
+    expect(canActivateAgent(4)).toBe(true);
+    expect(canActivateAgent(5)).toBe(false);
+    expect(canActivateAgent(0, 1)).toBe(true);
   });
 });
