@@ -7,7 +7,10 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // Vercel gibi sunucusuz ortamlarda havuzlu bağlantı (Supabase "Transaction pooler", 6543),
+  // şema değişiklikleri için doğrudan bağlantı (5432) kullanılır.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -137,6 +140,8 @@ model Workspace {
   retentionMonths  Int      @default(12)
   /// Gönderim yapılmayacak ek günler (YYYY-AA-GG), ör. dinî bayramlar
   quietDays        String[] @default([])
+  /// Tüm kampanyalarda geçmemesi gereken ifadeler
+  bannedPhrases    String[] @default([])
   /// İlk giriş kontrol listesi: tamamlanan adımların anahtarları
   onboardingDone   String[] @default([])
   createdAt        DateTime @default(now())
@@ -151,6 +156,21 @@ model Workspace {
   opportunities    Opportunity[]
   notes            Note[]
   alerts           Alert[]
+  invites          WorkspaceInvite[]
+}
+
+/// Ekibe e-posta ile davet: bu adresle kayıt olan kişi çalışma alanına katılır
+model WorkspaceInvite {
+  id          String    @id @default(cuid())
+  workspaceId String
+  email       String
+  invitedBy   String
+  createdAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
 }
 
 model User {
@@ -197,6 +217,12 @@ model LinkedinAccount {
   /// Yerel çalışanın panele bağlanırken kullandığı anahtarın özeti (anahtarın kendisi saklanmaz)
   runnerTokenHash   String?
   runnerLastSeenAt  DateTime?
+  runnerVersion     String?
+  runnerPlatform    String?
+  /// Planlayıcının bu hesap için en son çalıştığı an (çalışan her sorduğunda en fazla 2 dakikada bir)
+  lastPlannedAt     DateTime?
+  /// Son LinkedIn uyarısının metni (doğrulama, sınır vb.)
+  lastWarning       String?
   createdAt         DateTime      @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -234,6 +260,8 @@ model Agent {
   maxPerCompany     Int         @default(2)
   /// Mevcut bağlantılar da hedeflensin mi (davetsiz akış)
   includeConnections Boolean    @default(true)
+  /// Sihirbaz cevapları (WizardAnswers); şablonlar bunlardan üretilir
+  answers           Json?
 
   // ---- Seçenekler (hepsi varsayılan kapalı; kampanya ayarlarından açılır) ----
   /// Kişiye özel ilk cümle ({ilk_cumle?}); kaynaklar öncelik sırasıyla: mutual, post, school, city
@@ -430,6 +458,9 @@ model AgentProspect {
 model Message {
   id                String    @id @default(cuid())
   prospectId        String
+  /// Hangi kampanyanın hangi adımı (gelen mesajlarda boş)
+  agentId           String?
+  stepId            String?
   templateId        String?
   direction         Direction
   body              String
@@ -451,6 +482,12 @@ model Job {
   priority          Int       @default(10)
   runAfter          DateTime
   payload           Json
+  /// İşin ait olduğu kişi kaydı (kişisiz işlerde boş: tarama, gelen kutusu kontrolü)
+  agentProspectId   String?
+  /// Çalışan işi aldığında kilitlenir; süre dolarsa iş yeniden verilir
+  lockedUntil       DateTime?
+  approvedAt        DateTime?
+  approvedBy        String?
   /// Onay modunda kullanıcıya gösterilen, düzenlenebilir metin
   draftText         String?
   attempts          Int       @default(0)
@@ -461,6 +498,7 @@ model Job {
   linkedinAccount LinkedinAccount @relation(fields: [linkedinAccountId], references: [id], onDelete: Cascade)
 
   @@index([linkedinAccountId, status, runAfter, priority])
+  @@index([agentProspectId, status])
 }
 
 /// Asla ulaşılmayacak kişi ve kurumlar

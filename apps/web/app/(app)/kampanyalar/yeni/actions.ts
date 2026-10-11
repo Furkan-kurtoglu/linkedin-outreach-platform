@@ -1,0 +1,97 @@
+"use server";
+import { generateTemplates, validateAnswers, type Goal, type ProofKind, type Salutation, type Tone, type WizardAnswers } from "@hfo/core";
+import { prisma, Prisma } from "@hfo/db";
+import { redirect } from "next/navigation";
+import { audit, requireContext } from "@/lib/context";
+import { createStepsAndDrafts } from "@/lib/campaign";
+import type { TargetingJson } from "@/lib/convert";
+
+export interface WizardState {
+  errors?: Record<string, string>;
+  values?: Record<string, string>;
+}
+
+const lines = (v: string) =>
+  v
+    .split(/\n|·/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+export async function createCampaign(_: WizardState, form: FormData): Promise<WizardState> {
+  const ctx = await requireContext();
+  const v = Object.fromEntries([...form.entries()].map(([k, x]) => [k, String(x)])) as Record<string, string>;
+  const g = (k: string) => (v[k] ?? "").trim();
+
+  const answers: WizardAnswers = {
+    productPhrase: g("productPhrase"),
+    companyName: g("companyName"),
+    senderRole: g("senderRole"),
+    audience: g("audience"),
+    problem: g("problem"),
+    benefits: lines(g("benefits")),
+    proofs: lines(g("proofs")),
+    proofKind: (["sektor", "kendi", "yok"].includes(g("proofKind")) ? g("proofKind") : "yok") as ProofKind,
+    figures: lines(g("figures")),
+    goal: (["gorusme", "demo", "pilot"].includes(g("goal")) ? g("goal") : "gorusme") as Goal,
+    tone: (g("tone") === "samimi" ? "samimi" : "resmi") as Tone,
+    salutation: (g("salutation") === "bey_hanim" ? "bey_hanim" : "ad_soyad") as Salutation,
+    bannedPhrases: lines(g("bannedPhrases")),
+    excludedCompanies: lines(g("excludedCompanies")),
+    link: g("link") || undefined,
+    tractionLine: g("tractionLine") || undefined,
+  };
+  const errors: Record<string, string> = {};
+  for (const i of validateAnswers(answers)) errors[i.field] ??= i.message;
+  if (!g("name")) errors.name = "Kampanyaya bir ad verin.";
+  const titles = lines(g("titles"));
+  if (!titles.length) errors.titles = "En az bir unvan yazın.";
+  const account = await prisma.linkedinAccount.findFirst({ where: { id: g("accountId"), workspaceId: ctx.workspace.id } });
+  if (!account) errors.accountId = "Önce LinkedIn hesapları sayfasından bir hesap ekleyin.";
+  if (Object.keys(errors).length || !account) return { errors, values: v };
+
+  const targeting: TargetingJson = {
+    titles,
+    excludedTitles: lines(g("excludedTitles")),
+    locations: lines(g("locations")),
+    industries: lines(g("industries")),
+    requiredCompanyKeywords: lines(g("requiredCompanyKeywords")),
+    excludedCompanyKeywords: lines(g("excludedCompanyKeywords")),
+    geoUrns: [],
+    industryIds: [],
+    engagementPostUrls: [],
+  };
+  const set = generateTemplates(answers, { premium: account.premium });
+
+  const agent = await prisma.$transaction(async (tx) => {
+    const a = await tx.agent.create({
+      data: {
+        workspaceId: ctx.workspace.id,
+        linkedinAccountId: account.id,
+        name: g("name"),
+        goal: answers.goal,
+        offerContext: answers.productPhrase,
+        tone: answers.tone,
+        status: "DRAFT",
+        reviewMode: "REVIEW_ALL",
+        budgetSharePct: Math.min(100, Math.max(5, Math.round(+g("share") || 100))),
+        targeting: targeting as unknown as Prisma.InputJsonValue,
+        fitRule: g("fitRule") || null,
+        bannedPhrases: answers.bannedPhrases,
+        requiredLink: answers.link ?? null,
+        answers: answers as unknown as Prisma.InputJsonValue,
+      },
+    });
+    await createStepsAndDrafts(tx, a.id, answers, set);
+    // Hariç tutulan kurumlar tüm çalışma alanında geçerlidir
+    for (const c of answers.excludedCompanies) {
+      await tx.suppression.upsert({
+        where: { workspaceId_kind_value: { workspaceId: ctx.workspace.id, kind: "company", value: c } },
+        update: {},
+        create: { workspaceId: ctx.workspace.id, kind: "company", value: c, reason: `${g("name")} kampanyası kurulurken eklendi` },
+      });
+    }
+    return a;
+  });
+  await audit(ctx, "campaign.create", { agentId: agent.id, name: agent.name });
+  redirect(`/kampanyalar/${agent.id}?sekme=mesajlar`);
+}

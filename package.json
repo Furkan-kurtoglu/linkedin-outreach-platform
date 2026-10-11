@@ -8,10 +8,20 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "pnpm --filter @hfo/web dev",
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter @hfo/db generate",
-    "db:migrate": "pnpm --filter @hfo/db migrate"
+    "db:push": "pnpm --filter @hfo/db push",
+    "runner": "pnpm --filter @hfo/runner start"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "prisma",
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild"
+    ]
   }
 }

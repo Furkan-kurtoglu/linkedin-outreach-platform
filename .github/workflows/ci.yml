@@ -8,6 +8,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      DIRECT_URL: postgresql://user:pass@localhost:5432/db
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -15,11 +18,20 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
-      - name: Çekirdek testleri
-        run: pnpm --filter @hfo/core test
-      - name: Tip kontrolü
-        run: pnpm --filter @hfo/core typecheck
       - name: Veritabanı şemasını doğrula
         run: pnpm --filter @hfo/db validate
+      - name: Çekirdek testleri
+        run: pnpm --filter @hfo/core test
+      - name: Çekirdek tip kontrolü
+        run: pnpm --filter @hfo/core typecheck
+      - name: Panel tip kontrolü
+        run: pnpm --filter @hfo/web typecheck
+      - name: Panel derleme
+        run: pnpm --filter @hfo/web build
         env:
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          NEXT_PUBLIC_SUPABASE_URL: https://ornek.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci
+          NEXT_TELEMETRY_DISABLED: "1"
+      - name: Çalışan tip kontrolü
+        if: hashFiles('apps/runner/package.json') != ''
+        run: pnpm --filter @hfo/runner typecheck

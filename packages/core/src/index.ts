@@ -16,3 +16,4 @@ export * from "./enroll";
 export * from "./dispatch";
 export * from "./personalize";
 export * from "./panel";
+export * from "./protocol";
