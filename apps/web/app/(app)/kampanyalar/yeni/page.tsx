@@ -2,13 +2,15 @@ import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireContext } from "@/lib/context";
+import { SubmitButton } from "@/components/SubmitButton";
+import { createPresetAgents } from "./actions";
 import { WizardForm } from "./WizardForm";
 import { PRESETS } from "./presets";
 
 export const metadata: Metadata = { title: "Yeni kampanya" };
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ hazir?: string; sirket?: string }> }) {
-  const { hazir, sirket } = await searchParams;
+export default async function Page({ searchParams }: { searchParams: Promise<{ hazir?: string; sirket?: string; uyari?: string }> }) {
+  const { hazir, sirket, uyari } = await searchParams;
   const preset = PRESETS.find((p) => p.id === hazir);
   const ctx = await requireContext();
   const companies = await prisma.company.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
@@ -23,6 +25,24 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ h
       </div>
       <h1>Yeni kampanya</h1>
       <p className="lede">Sorulara verdiğiniz cevaplardan mesaj taslakları hazırlanır. Taslakları sonra düzenleyip onaylarsınız.</p>
+      {uyari === "hesap" && (
+        <div className="banner warning" role="alert">
+          <div className="txt">
+            <b>Önce bir LinkedIn hesabı ekleyin.</b>
+            <p>Temsilciler bir hesabın davet bütçesini kullanır. Hesaplar sayfasından ekleyip yerel çalışanı bağladıktan sonra tekrar deneyin.</p>
+          </div>
+          <Link className="btn sm" href="/hesaplar">Hesaplar</Link>
+        </div>
+      )}
+      <form action={createPresetAgents} className="card" style={{ marginBottom: 12 }}>
+        <div className="card-b row between">
+          <div className="txt" style={{ flex: "1 1 280px", minWidth: 0 }}>
+            <b>HeAlthFintel için üç temsilciyi tek adımda kur</b>
+            <p className="sub" style={{ margin: "2px 0 0" }}>Özel hastaneler, özel sağlık sigortası şirketleri ve butik klinikler taslak olarak oluşur; hiçbiri kendiliğinden başlamaz. Mesajları sonra inceleyip etkinleştirirsiniz.</p>
+          </div>
+          <SubmitButton className="btn primary" pendingText="Kuruluyor…">Üç temsilciyi kur</SubmitButton>
+        </div>
+      </form>
       <div className="row" style={{ gap: 8, flexWrap: "wrap", margin: "12px 0" }}>
         <span className="sub">Hazır başlangıç:</span>
         {PRESETS.map((p) => (

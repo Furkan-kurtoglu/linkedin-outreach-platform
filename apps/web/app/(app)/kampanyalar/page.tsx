@@ -9,9 +9,9 @@ export const metadata: Metadata = { title: "Kampanyalar" };
 const STATUS = { ACTIVE: ["Aktif", "t-good"], PAUSED: ["Duraklatıldı", "t-mute"], DRAFT: ["Taslak", "t-warn"] } as const;
 const pct = (a: number, b: number) => (b ? `%${Math.round((a / b) * 100)}` : "—");
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ sirket?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ sirket?: string; hazir?: string }> }) {
   const ctx = await requireContext();
-  const { sirket } = await searchParams;
+  const { sirket, hazir } = await searchParams;
   const companies = await prisma.company.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
   const filter = companies.find((c) => c.id === sirket);
   const agents = await prisma.agent.findMany({ where: { workspaceId: ctx.workspace.id, ...(filter ? { companyId: filter.id } : {}) }, orderBy: { createdAt: "asc" }, include: { segments: true } });
@@ -35,6 +35,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         </div>
         <Link className="btn primary" href="/kampanyalar/yeni">Yeni kampanya</Link>
       </div>
+      {hazir != null && (
+        <p className="form-ok" role="status">{+hazir > 0 ? `${hazir} temsilci taslak olarak kuruldu. Mesajlarını inceleyip etkinleştirin.` : "Hazır temsilciler zaten kurulu."}</p>
+      )}
       {companies.length > 1 && (
         <div className="row" style={{ marginBottom: 12 }}>
           <span className="sub">Şirket:</span>

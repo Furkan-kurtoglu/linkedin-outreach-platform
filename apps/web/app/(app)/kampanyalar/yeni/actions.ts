@@ -1,10 +1,12 @@
 "use server";
 import { generateTemplates, validateAnswers, type Goal, type ProofKind, type Salutation, type Tone, type WizardAnswers } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
 import { createStepsAndDrafts } from "@/lib/campaign";
 import type { TargetingJson } from "@/lib/convert";
+import { PRESETS } from "./presets";
 
 export interface WizardState {
   errors?: Record<string, string>;
@@ -17,9 +19,10 @@ const lines = (v: string) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
-export async function createCampaign(_: WizardState, form: FormData): Promise<WizardState> {
-  const ctx = await requireContext();
-  const v = Object.fromEntries([...form.entries()].map(([k, x]) => [k, String(x)])) as Record<string, string>;
+type Ctx = Awaited<ReturnType<typeof requireContext>>;
+
+/** Sihirbaz ve hazır temsilci kurulumu aynı yolu kullanır; başarıda kampanya, hatada alan hataları döner. */
+async function makeCampaign(ctx: Ctx, v: Record<string, string>): Promise<{ state: WizardState } | { agent: { id: string; name: string } }> {
   const g = (k: string) => (v[k] ?? "").trim();
 
   const answers: WizardAnswers = {
@@ -49,7 +52,7 @@ export async function createCampaign(_: WizardState, form: FormData): Promise<Wi
   if (!company) errors.companyId = "Önce Şirketler sayfasından bir şirket ekleyin.";
   const account = await prisma.linkedinAccount.findFirst({ where: { id: g("accountId"), workspaceId: ctx.workspace.id } });
   if (!account) errors.accountId = "Önce LinkedIn hesapları sayfasından bir hesap ekleyin.";
-  if (Object.keys(errors).length || !account || !company) return { errors, values: v };
+  if (Object.keys(errors).length || !account || !company) return { state: { errors, values: v } };
 
   const targeting: TargetingJson = {
     titles,
@@ -96,5 +99,37 @@ export async function createCampaign(_: WizardState, form: FormData): Promise<Wi
     return a;
   });
   await audit(ctx, "campaign.create", { agentId: agent.id, name: agent.name });
-  redirect(`/kampanyalar/${agent.id}?sekme=mesajlar`);
+  return { agent };
+}
+
+export async function createCampaign(_: WizardState, form: FormData): Promise<WizardState> {
+  const ctx = await requireContext();
+  const v = Object.fromEntries([...form.entries()].map(([k, x]) => [k, String(x)])) as Record<string, string>;
+  const r = await makeCampaign(ctx, v);
+  if ("state" in r) return r.state;
+  redirect(`/kampanyalar/${r.agent.id}?sekme=mesajlar`);
+}
+
+/**
+ * Üç hazır temsilciyi (özel hastaneler, özel sağlık sigortası şirketleri, butik klinikler) taslak olarak kurar.
+ * Şirket yoksa "HeAlthFintel" eklenir. Aynı adlı kampanya varsa atlanır; hiçbiri etkinleştirilmez.
+ */
+export async function createPresetAgents(): Promise<void> {
+  const ctx = await requireContext();
+  const account = await prisma.linkedinAccount.findFirst({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" } });
+  if (!account) redirect("/kampanyalar/yeni?uyari=hesap");
+  const company =
+    (await prisma.company.findFirst({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" } })) ??
+    (await prisma.company.create({
+      data: { workspaceId: ctx.workspace.id, name: "HeAlthFintel", website: "https://www.healthfintel.com.tr/", description: "Sağlık ve sigorta arasındaki dijital ve şeffaf köprü" },
+    }));
+  const existing = new Set((await prisma.agent.findMany({ where: { workspaceId: ctx.workspace.id }, select: { name: true } })).map((a) => a.name));
+  let created = 0;
+  for (const p of PRESETS) {
+    if (existing.has(p.values.name)) continue;
+    const r = await makeCampaign(ctx, { ...p.values, companyId: company.id, companyName: company.name, accountId: account.id });
+    if ("agent" in r) created++;
+  }
+  revalidatePath("/kampanyalar");
+  redirect(`/kampanyalar?hazir=${created}`);
 }
