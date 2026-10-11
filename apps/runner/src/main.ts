@@ -114,7 +114,13 @@ async function runJob(page: Page, api: PanelApi, self: SelfInfo, job: RunnerJob,
     case "DISCOVER":
       return { ok: true, data: await discover(page, p.steps, p.viewBudget) };
     case "DISCOVER_COMPANIES":
-      return { ok: true, data: await discoverCompanies(page, p.queries) };
+    {
+      const data = await discoverCompanies(page, p.queries);
+      log(`  ${data.companies.length} şirket okundu (${data.queries.map((q) => `${q.label}: ${q.found}`).join(", ")})`);
+      if (!data.companies.length) log("  Hiç şirket kartı okunamadı; 'kayitlar' klasörüne sayfa dökümü yazıldı.");
+      await writeFile(join(LOG_DIR, `${new Date().toISOString().replace(/[:.]/g, "-")}-sirket-arama-ozet.txt`), JSON.stringify({ queries: data.queries, sample: data.companies.slice(0, 5) }, null, 2)).catch(() => undefined);
+      return { ok: true, data };
+    }
     case "ENRICH_COMPANIES":
       return { ok: true, data: await enrichCompanies(page, p.companies) };
   }
