@@ -26,6 +26,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const bySource = await prisma.prospect.groupBy({ by: ["source"], where: { workspaceId: ws.id }, _count: true });
   const src = (s: string) => bySource.find((b) => b.source === s)?._count ?? 0;
   const runs = await prisma.auditLog.findMany({ where: { workspaceId: ws.id, action: "discover" }, orderBy: { createdAt: "desc" }, take: 30 });
+  const acc = await prisma.linkedinAccount.findFirst({ where: { workspaceId: ws.id }, orderBy: { createdAt: "asc" }, select: { runnerLastSeenAt: true } });
+  const seenMin = acc?.runnerLastSeenAt ? Math.round((Date.now() - acc.runnerLastSeenAt.getTime()) / 60_000) : null;
+  const runnerOn = seenMin !== null && seenMin < 3;
   const pending = await prisma.job.count({ where: { type: "DISCOVER", status: { in: ["PENDING", "RUNNING"] }, linkedinAccount: { workspaceId: ws.id } } });
 
   return (
@@ -37,6 +40,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         </div>
         <form action={discoverNow}><SubmitButton pendingText="Başlatılıyor…" disabled={!agents.length || pending > 0}>{pending ? "Tarama sırada" : "Şimdi tara"}</SubmitButton></form>
       </div>
+      {!runnerOn && (
+        <div className="banner warning" role="status" style={{ marginBottom: 16 }}>
+          <span className="dot warn" style={{ marginTop: 6 }} />
+          <div className="txt">
+            <b>{seenMin === null ? "Yerel çalışan henüz bağlanmadı." : `Yerel çalışan kapalı (son sinyal ${seenMin >= 120 ? `${Math.round(seenMin / 60)} saat` : `${seenMin} dk`} önce).`} Tarama bu yüzden başlamadı.</b>
+            <p>Arama LinkedIn'de sizin bilgisayarınızdaki Chrome oturumuyla yapılır, bu yüzden panel tek başına tarayamaz. Bilgisayarınızda <code>baslat.bat</code> dosyasını açık tutun; sırada bekleyen {pending} tarama o an başlar.</p>
+          </div>
+        </div>
+      )}
       {sp.baslatildi && <p className="form-ok" style={{ marginBottom: 12 }}>{sp.baslatildi === "0" ? "Taranacak kampanya bulunamadı (unvan ekleyin ya da tarama zaten sırada)." : `${sp.baslatildi} kampanya için tarama sıraya alındı; yerel çalışan sırayla kaynakları dolaşacak.`}</p>}
       <div className="tabs" role="tablist">
         {TABS.map(([k, l]) => (
