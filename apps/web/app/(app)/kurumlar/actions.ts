@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
 import { enqueueEnrichment } from "@/lib/discover-queue";
+import { applyCompanyExclusions } from "@/lib/institution-exclusions";
 import { institutionWhere, type InstSearch } from "@/lib/institution-filter";
 import { SEED } from "@/lib/institution-seed";
 
@@ -26,6 +27,8 @@ async function save(workspaceId: string, drafts: InstitutionDraft[]): Promise<nu
   for (let i = 0; i < list.length; i += 500) {
     added += (await prisma.institution.createMany({ data: list.slice(i, i + 500), skipDuplicates: true })).count;
   }
+  // Ayarlar'daki hariç tutulan kurumlar havuza girse bile "Hariç" olarak işaretlenir
+  await applyCompanyExclusions(workspaceId);
   return added;
 }
 
@@ -111,7 +114,7 @@ export async function bulkInstitutions(form: FormData) {
   const op = clean(form.get("op"));
   const sp: InstSearch = {};
   const base: Record<string, string> = {};
-  for (const k of ["q", "tur", "ilce", "durum", "kaynak", "il", "boyut"] as const) {
+  for (const k of ["q", "tur", "ilce", "durum", "kaynak", "il", "boyut", "sektor"] as const) {
     const v = clean(form.get(`f_${k}`));
     if (v) {
       sp[k] = v;
@@ -159,9 +162,9 @@ export async function findCompaniesOnLinkedIn(form: FormData) {
   if (!keywords.length) redirect("/kurumlar?hata=anahtar");
   const kind = clean(form.get("tur"));
   const pages = Math.min(Math.max(Math.floor(+clean(form.get("sayfa"))) || 3, 1), 5);
-  // Şehir seçimi: "tum" tüm 81 il; boşsa şehir eklenmez (ülke geneli tek arama)
-  const picked = form.getAll("sehir").map(String);
-  const cities = picked.includes("tum") ? TR_PROVINCES : picked.filter((c) => TR_PROVINCES.includes(c));
+  // Seçilen iller (onay kutuları); hiç seçilmezse şehir eklenmez (Türkiye geneli tek arama)
+  const picked = new Set(form.getAll("sehir").map(String));
+  const cities = TR_PROVINCES.filter((c) => picked.has(c));
   const account = await prisma.linkedinAccount.findFirst({ where: { workspaceId: ctx.workspace.id, status: { not: "DISCONNECTED" } }, orderBy: { createdAt: "asc" }, select: { id: true } });
   if (!account) redirect("/kurumlar?hata=hesap");
   const open = await prisma.job.count({ where: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", status: { in: ["PENDING", "RUNNING"] } } });

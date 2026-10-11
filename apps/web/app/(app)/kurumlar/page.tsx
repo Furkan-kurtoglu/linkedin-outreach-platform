@@ -1,11 +1,13 @@
-import { TR_PROVINCES } from "@hfo/core";
+import { TR_PROVINCES, fold } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireContext } from "@/lib/context";
+import { applyCompanyExclusions } from "@/lib/institution-exclusions";
 import { KIND_LABEL, SIZE_LABEL, STATUS_LABEL, institutionWhere, type InstSearch } from "@/lib/institution-filter";
 import { bulkInstitutions, enrichInstitutions, findCompaniesOnLinkedIn, importMoh, importOsm, importPaste, importSeed } from "./actions";
+import { ProvincePicker } from "./ProvincePicker";
 import { SelectAll } from "./SelectAll";
 
 export const metadata: Metadata = { title: "Kurum Ar-Ge" };
@@ -26,11 +28,13 @@ const ERR: Record<string, string> = {
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const ctx = await requireContext();
   const sp = await searchParams;
-  const f: InstSearch = { q: sp.q, tur: sp.tur, ilce: sp.ilce, durum: sp.durum, kaynak: sp.kaynak, il: sp.il, boyut: sp.boyut };
+  const f: InstSearch = { q: sp.q, tur: sp.tur, ilce: sp.ilce, durum: sp.durum, kaynak: sp.kaynak, il: sp.il, boyut: sp.boyut, sektor: sp.sektor };
   const where = institutionWhere(ctx.workspace.id, f);
   const page = Math.max(1, Math.floor(+(sp.sayfa ?? 1)) || 1);
   const ws = ctx.workspace.id;
-  const [total, matching, rows, byKind, byStatus, agents, extraCities, account, liJobs, pendingEnrich] = await Promise.all([
+  // Hariç tutulan kurum kuralları havuza her zaman uygulanır (kural sonradan eklenmiş olsa bile)
+  await applyCompanyExclusions(ws);
+  const [total, matching, rows, byKind, byStatus, agents, extraCities, account, liJobs, pendingEnrich, byCity, bySector] = await Promise.all([
     prisma.institution.count({ where: { workspaceId: ws } }),
     prisma.institution.count({ where }),
     prisma.institution.findMany({ where, orderBy: [{ city: "asc" }, { district: "asc" }, { name: "asc" }], skip: (page - 1) * PAGE, take: PAGE }),
@@ -41,7 +45,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     prisma.linkedinAccount.findFirst({ where: { workspaceId: ws }, orderBy: { createdAt: "asc" }, select: { runnerLastSeenAt: true } }),
     prisma.job.findMany({ where: { linkedinAccount: { workspaceId: ws }, type: { in: ["DISCOVER_COMPANIES", "ENRICH_COMPANIES"] } }, orderBy: { createdAt: "desc" }, take: 300, select: { type: true, status: true, lastError: true, finishedAt: true } }),
     prisma.institution.count({ where: { workspaceId: ws, linkedinUrl: { not: null }, enrichedAt: null } }),
+    prisma.institution.groupBy({ by: ["city"], where: { workspaceId: ws, city: { not: null } }, _count: true }),
+    prisma.institution.groupBy({ by: ["orgType"], where: { workspaceId: ws, orgType: { not: null } }, _count: true, orderBy: { _count: { orgType: "desc" } }, take: 60 }),
   ]);
+  // İl başına kurum sayısı (yazım farklarını birleştirir)
+  const cityCount = new Map<string, number>();
+  for (const c of byCity) cityCount.set(fold(c.city ?? ""), (cityCount.get(fold(c.city ?? "")) ?? 0) + c._count);
   // Tüm 81 il her zaman seçilebilir; veride listede olmayan yazımlar da eklenir
   const cities = [...TR_PROVINCES, ...extraCities.map((c) => c.city ?? "").filter((c) => c && !TR_PROVINCES.some((p) => p.toLocaleLowerCase("tr-TR") === c.toLocaleLowerCase("tr-TR")))].map((city) => ({ city }));
   const seenMin = account?.runnerLastSeenAt ? Math.round((Date.now() - account.runnerLastSeenAt.getTime()) / 60_000) : null;
@@ -93,15 +102,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <p className="sub" style={{ margin: 0 }}>Web listeleri eskiyebilir; LinkedIn'de şirketin sayfası varsa ve hâlâ aktifse burada görünür. Her satıra bir arama sözcüğü yazın (Türkçe ve İngilizce olabilir). Bulunan şirketler havuza eklenir; sonra kampanyaya ekleyince o şirketlerdeki kurucu, müdür ve yöneticiler aranır.</p>
           <div className="field"><label htmlFor="li-anahtar">Arama sözcükleri</label><textarea id="li-anahtar" name="anahtar" style={{ minHeight: 96 }} defaultValue={sp.anahtar ?? "özel klinik\nestetik klinik\ndiş kliniği\ntıp merkezi\nağız ve diş sağlığı\nsağlık grubu"} /></div>
           <div className="field">
-            <label htmlFor="li-sehir">İller</label>
-            <select id="li-sehir" name="sehir" multiple size={6} defaultValue={["tum"]}>
-              <option value="tum">Tüm 81 il (her sözcük için il il arar)</option>
-              {TR_PROVINCES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <span className="sub">Birden çok il için Ctrl (Mac: Cmd) ile seçin. LinkedIn bir aramada en fazla birkaç yüz sonuç verdiği için il il aramak daha çok kurum bulur. Tüm illerde sözcük sayısı 3 ile sınırlanır.</span>
+            <label>İller</label>
+            <ProvincePicker provinces={[...TR_PROVINCES]} name="sehir" initial={["İstanbul"]} />
+            <span className="sub">Her arama sözcüğü seçilen illerin her biri için ayrı aranır (LinkedIn bir aramada en fazla birkaç yüz sonuç verdiği için il il aramak daha çok kurum bulur). 20'den fazla il seçilirse sözcük sayısı 3 ile sınırlanır.</span>
           </div>
           <div className="grid g2">
-            <div className="field"><label htmlFor="li-tur">Tür belli değilse</label><select id="li-tur" name="tur" defaultValue="CLINIC">{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+            <div className="field"><label htmlFor="li-tur">Türü anlaşılamayan şirketlere atanacak tür</label><select id="li-tur" name="tur" defaultValue="CLINIC">{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><span className="sub">Tür, şirket adından ve LinkedIn sektöründen çıkarılır (hastane, klinik, diş, sigorta…). Çıkarılamazsa bu tür verilir. Sağlık dışı sektör arıyorsanız "Diğer" seçin; sektör bilgisi her şirketin kaydında ve "Sektör" filtresinde ayrıca tutulur.</span></div>
             <div className="field"><label htmlFor="li-sayfa">Sözcük başına sayfa</label><select id="li-sayfa" name="sayfa" defaultValue="3">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} sayfa (~{n * 10} şirket)</option>)}</select></div>
           </div>
           <div className="row"><SubmitButton className="btn primary" pendingText="Sıraya alınıyor…">LinkedIn'de ara</SubmitButton><span className="sub">Yalnızca şirket sayfalarını okur; kimseye davet ya da mesaj gitmez.</span></div>
@@ -154,10 +160,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <div className="card-b row">
           <input type="search" name="q" defaultValue={f.q} placeholder="Kurum adı ara" aria-label="Kurum adı ara" style={{ maxWidth: 240 }} />
           <select name="tur" defaultValue={f.tur ?? ""} aria-label="Tür" style={{ width: "auto" }}><option value="">Tüm türler</option>{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-          <select name="il" defaultValue={f.il ?? ""} aria-label="İl" style={{ width: "auto" }}><option value="">Tüm iller</option>{cities.map((c) => <option key={c.city} value={c.city ?? ""}>{c.city}</option>)}</select>
+          <select name="il" defaultValue={f.il ?? ""} aria-label="İl" style={{ width: "auto" }}><option value="">Tüm iller</option>{cities.map((c) => <option key={c.city} value={c.city ?? ""}>{c.city} ({cityCount.get(fold(c.city ?? "")) ?? 0})</option>)}</select>
           <input type="search" name="ilce" defaultValue={f.ilce} placeholder="İlçe" aria-label="İlçe" style={{ maxWidth: 140 }} />
           <select name="durum" defaultValue={f.durum ?? ""} aria-label="Durum" style={{ width: "auto" }}><option value="">Tüm durumlar</option>{Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           <select name="kaynak" defaultValue={f.kaynak ?? ""} aria-label="Kaynak" style={{ width: "auto" }}><option value="">Tüm kaynaklar</option><option value="moh">Sağlık Bakanlığı</option><option value="linkedin">LinkedIn</option><option value="osm">Harita</option><option value="paste">Yapıştırılan</option><option value="seed">Hazır liste</option></select>
+          <select name="sektor" defaultValue={f.sektor ?? ""} aria-label="Sektör" style={{ width: "auto", maxWidth: 220 }}><option value="">Tüm sektörler</option>{bySector.map((b) => <option key={b.orgType} value={b.orgType ?? ""}>{b.orgType} ({b._count})</option>)}</select>
           <select name="boyut" defaultValue={f.boyut ?? ""} aria-label="Boyut" style={{ width: "auto" }}><option value="">Her boyut</option>{Object.entries(SIZE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           <button className="btn">Süz</button>
           {filtered && <Link className="link" href="/kurumlar">Temizle</Link>}
@@ -169,7 +176,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       ) : (
         <form action={bulkInstitutions} id="kurum-form">
           {Object.entries(f).map(([key, v]) => v && <input key={key} type="hidden" name={`f_${key}`} value={v} />)}
-          <div className="bulk">
+          <div className="bulk" style={{ position: "sticky", top: 8, zIndex: 5 }}>
             <span><b>{matching}</b> kurum{filtered ? " bu süzgeçte" : ""}</span>
             <label className="row" style={{ gap: 6 }}><input type="checkbox" name="scope" value="filtre" /> Filtredeki tümüne uygula ({Math.min(matching, 3000)})</label>
             <select name="agentId" aria-label="Kampanya" style={{ width: "auto", color: "var(--fg)" }} defaultValue="">

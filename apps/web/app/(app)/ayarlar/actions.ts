@@ -2,6 +2,7 @@
 import { prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { audit, requireContext } from "@/lib/context";
+import { applyCompanyExclusions } from "@/lib/institution-exclusions";
 
 const lines = (v: FormDataEntryValue | null) =>
   [...new Set(String(v ?? "").split("\n").map((x) => x.trim()).filter(Boolean))];
@@ -40,6 +41,7 @@ export async function saveExcluded(form: FormData) {
       data: { stage: "SKIPPED", skipReason: "Kurum hariç tutuldu." },
     });
   }
+  await applyCompanyExclusions(ctx.workspace.id);
   await audit(ctx, "settings.excluded", { count: wanted.length });
   revalidatePath("/ayarlar");
 }

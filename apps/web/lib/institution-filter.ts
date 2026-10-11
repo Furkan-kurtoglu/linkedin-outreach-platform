@@ -8,6 +8,7 @@ export interface InstSearch {
   kaynak?: string;
   il?: string;
   boyut?: string;
+  sektor?: string;
 }
 
 export const KIND_LABEL: Record<string, string> = { HOSPITAL: "Hastane", MEDICAL_CENTER: "Tıp merkezi", CLINIC: "Klinik", DENTAL: "Diş", INSURER: "Sigorta", OTHER: "Diğer" };
@@ -23,5 +24,6 @@ export function institutionWhere(workspaceId: string, sp: InstSearch): Prisma.In
   if (sp.durum && STATUS_LABEL[sp.durum]) w.status = sp.durum;
   if (sp.kaynak) w.source = sp.kaynak;
   if (sp.boyut && SIZE_LABEL[sp.boyut]) w.size = sp.boyut;
+  if (sp.sektor) w.orgType = { equals: sp.sektor, mode: "insensitive" };
   return w;
 }

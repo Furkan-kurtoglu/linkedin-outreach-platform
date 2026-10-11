@@ -42,6 +42,7 @@ import {
 import { prisma, Prisma, type Job, type LinkedinAccount } from "@hfo/db";
 import { toTargeting } from "./convert";
 import { enqueueDiscover, enqueueEnrichment } from "./discover-queue";
+import { applyCompanyExclusions } from "./institution-exclusions";
 import { pooledModel } from "./learning-model";
 import { planAccount } from "./planner";
 import { extendRetention } from "./retention";
@@ -284,6 +285,7 @@ async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, k
     if (Object.keys(patch).length) await prisma.institution.update({ where: { id: e.id }, data: patch });
   }
   if (fresh.length) await prisma.institution.createMany({ data: fresh, skipDuplicates: true });
+  await applyCompanyExclusions(workspaceId);
   await enqueueEnrichment(workspaceId);
   // Temsilci için aranmışsa bulunan şirketler hedef listeye de girer (hariç tutma kuralları uygulanır)
   if (agentId && (await prisma.agent.count({ where: { id: agentId, workspaceId } }))) {
