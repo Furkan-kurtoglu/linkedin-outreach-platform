@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { STEP_LABEL } from "@/lib/convert";
 import { saveFlow } from "../actions";
+import { FlowDiagram } from "./FlowDiagram";
 import type { TabProps } from "./types";
 
 export async function FlowTab({ campaign: c, sp }: TabProps) {
@@ -41,6 +42,8 @@ export async function FlowTab({ campaign: c, sp }: TabProps) {
   );
 
   return (
+    <>
+    <FlowDiagram c={c} />
     <form action={saveFlow}>
       <input type="hidden" name="id" value={c.id} />
       {sp.kaydedildi && <p className="form-ok" style={{ marginBottom: 12 }}>Akış kaydedildi.</p>}
@@ -113,5 +116,6 @@ export async function FlowTab({ campaign: c, sp }: TabProps) {
         <SubmitButton>Akışı kaydet</SubmitButton>
       </div>
     </form>
+    </>
   );
 }
