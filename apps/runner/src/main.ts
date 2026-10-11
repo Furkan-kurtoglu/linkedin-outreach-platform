@@ -29,13 +29,13 @@ const JOB_TIMEOUT_MS = 8 * 60_000;
 const log = (...a: unknown[]) => console.log(new Date().toLocaleTimeString("tr-TR"), ...a);
 
 async function launch(): Promise<BrowserContext> {
-  const opts = {
+  const opts: Parameters<typeof chromium.launchPersistentContext>[1] = {
     headless: false,
     viewport: { width: 1280, height: 860 },
     locale: "tr-TR",
     timezoneId: "Europe/Istanbul",
     args: ["--disable-blink-features=AutomationControlled"],
-  } as const;
+  };
   try {
     // Bilgisayardaki Google Chrome kullanılır (ayrıca tarayıcı indirmeye gerek yok)
     return await chromium.launchPersistentContext(PROFILE_DIR, { ...opts, channel: "chrome" });
