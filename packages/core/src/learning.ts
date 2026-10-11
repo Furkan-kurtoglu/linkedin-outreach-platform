@@ -69,6 +69,20 @@ export function insights(model: Model, minN = 8): FeatureStat[] {
     .slice(0, 5);
 }
 
+/** Unvanın ilk iki sözcüğü, küçük harfle: "Genel Müdür Yardımcısı" -> "genel müdür". Temsilciler arası ortak anahtar. */
+export function titleGroupOf(title: string | null | undefined): string | undefined {
+  const g = (title ?? "").toLocaleLowerCase("tr-TR").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 2).join(" ");
+  return g || undefined;
+}
+
+/**
+ * Temsilciler arası ortak öğrenme: kendi sonuçları iki kat ağırlıkla, diğer temsilcilerin sonuçları
+ * tek ağırlıkla sayılır. Yalnızca kişisel olmayan özellikler (unvan grubu, derece, kaynak) taşınır.
+ */
+export function pooledOutcomes(own: Outcome[], others: Outcome[]): Outcome[] {
+  return [...own, ...own, ...others];
+}
+
 /** Kişiden öğrenme özellikleri çıkarır. */
 export function featuresOf(p: { titleGroup?: string; segment?: string; degree?: number; source?: string }): string[] {
   return [

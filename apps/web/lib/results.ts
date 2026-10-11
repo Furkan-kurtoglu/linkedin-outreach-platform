@@ -13,7 +13,10 @@ import {
   containsFolded,
   countExternalInvites,
   detectLanguage,
+  featuresOf,
   isOpenToWork,
+  learnedBoost,
+  titleGroupOf,
   resolveUncertain,
   priorityScore,
   scoreProspect,
@@ -34,6 +37,7 @@ import {
 } from "@hfo/core";
 import { prisma, Prisma, type Job, type LinkedinAccount } from "@hfo/db";
 import { toTargeting } from "./convert";
+import { pooledModel } from "./learning-model";
 import { planAccount } from "./planner";
 import { extendRetention } from "./retention";
 import { fireWebhook } from "./webhook";
@@ -334,6 +338,8 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
   const blockedPeople = new Set(suppress.filter((s) => s.kind === "person").map((s) => s.value));
   const targeting = toTargeting(agent, agent.segments, excludedCompanies);
 
+  // Tüm temsilcilerin sonuçlarından öğrenilen katkı (30 sonuçtan azsa 0)
+  const { model } = await pooledModel(ws.id, agentId);
   let added = 0;
   let review = 0;
   let rejected = 0;
@@ -393,7 +399,8 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
     }
     const decision = chooseCampaign([{ campaignId: agentId, fitScore: score.score, verdict: score.verdict === "belirsiz" ? "uygun" : score.verdict }], { activeCampaignId: active?.agentId, withdrawnAt: withdrawn, lastEndedAt: lastEnded }, now);
     if (!decision.ok) continue;
-    const priority = priorityScore({ candidate: { ...c, profileUrl: url }, fitScore: score.score });
+    const boost = learnedBoost(model, featuresOf({ titleGroup: titleGroupOf(split.title), degree: c.degree, source: c.source }));
+    const priority = priorityScore({ candidate: { ...c, profileUrl: url }, fitScore: score.score, learnedBoost: boost });
     if (score.verdict === "belirsiz" && outcome === "review") review++;
     else added++;
     await prisma.agentProspect.create({

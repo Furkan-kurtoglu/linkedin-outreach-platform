@@ -71,7 +71,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <div className="card-h"><h2>LinkedIn'de şirket ara</h2><span className="sub">Güncel kaynak: LinkedIn şirket sayfaları</span></div>
         <div className="card-b stack">
           <p className="sub" style={{ margin: 0 }}>Web listeleri eskiyebilir; LinkedIn'de şirketin sayfası varsa ve hâlâ aktifse burada görünür. Her satıra bir arama sözcüğü yazın (Türkçe ve İngilizce olabilir). Bulunan şirketler havuza eklenir; sonra kampanyaya ekleyince o şirketlerdeki kurucu, müdür ve yöneticiler aranır.</p>
-          <div className="field"><label htmlFor="li-anahtar">Arama sözcükleri</label><textarea id="li-anahtar" name="anahtar" style={{ minHeight: 96 }} defaultValue={"özel klinik\nestetik klinik\ndiş kliniği\ntıp merkezi\nağız ve diş sağlığı\nsağlık grubu"} /></div>
+          <div className="field"><label htmlFor="li-anahtar">Arama sözcükleri</label><textarea id="li-anahtar" name="anahtar" style={{ minHeight: 96 }} defaultValue={sp.anahtar ?? "özel klinik\nestetik klinik\ndiş kliniği\ntıp merkezi\nağız ve diş sağlığı\nsağlık grubu"} /></div>
           <div className="grid g2">
             <div className="field"><label htmlFor="li-tur">Tür belli değilse</label><select id="li-tur" name="tur" defaultValue="CLINIC">{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
             <div className="field"><label htmlFor="li-sayfa">Sözcük başına sayfa</label><select id="li-sayfa" name="sayfa" defaultValue="3">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} sayfa (~{n * 10} şirket)</option>)}</select></div>

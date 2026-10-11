@@ -1,6 +1,7 @@
-import { compareVariants, featuresOf, insights, learn } from "@hfo/core";
+import { compareVariants, insights } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import { STEP_LABEL } from "@/lib/convert";
+import { pooledModel } from "@/lib/learning-model";
 import type { TabProps } from "../types";
 
 const FEATURE_TEXT = (f: string) => {
@@ -42,16 +43,9 @@ export async function LearningSection({ campaign: c }: TabProps) {
     bySource.set(k, v);
   }
 
-  // Sonuçlardan öğrenilenler
-  const segName = new Map(c.segments.map((s) => [s.id, s.name]));
-  const titleGroup = (t: string | null) => (t ? t.split(/\s+/).slice(0, 2).join(" ") : undefined);
-  const outcomes = aps
-    .filter((a) => a.inviteSentAt || (a.branch === "CONNECTED" && a.stage !== "QUEUED" && a.stage !== "SKIPPED" && a.stage !== "NEEDS_REVIEW"))
-    .map((a) => ({
-      features: featuresOf({ titleGroup: titleGroup(a.prospect.title), segment: a.segmentId ? segName.get(a.segmentId) : undefined, degree: a.prospect.degree ?? undefined, source: a.prospect.source.toLowerCase() }),
-      success: a.branch === "CONNECTED" ? !!a.repliedAt : !!a.connectedAt,
-    }));
-  const model = learn(outcomes);
+  // Sonuçlardan öğrenilenler: tüm temsilcilerin ortak verisi (kendi sonuçların iki kat ağırlıklı)
+  const pooled = await pooledModel(c.workspaceId, c.id);
+  const model = pooled.model;
   const top = insights(model);
 
   // A/B
@@ -121,7 +115,7 @@ export async function LearningSection({ campaign: c }: TabProps) {
         </div>
       </div>
       <div className="card">
-        <div className="card-h"><h2>Sonuçlardan öğrenilenler</h2><span className="sub">{outcomes.length} sonuç üzerinden</span></div>
+        <div className="card-h"><h2>Sonuçlardan öğrenilenler</h2><span className="sub">{pooled.own} kendi + {pooled.others} diğer temsilcilerin sonucu</span></div>
         <div className="card-b tight">
           <ul className="list">
             {top.map((s) => (
@@ -131,6 +125,7 @@ export async function LearningSection({ campaign: c }: TabProps) {
               </li>
             ))}
             {!top.length && <li className="sub">Anlamlı bir fark için daha fazla sonuç gerekiyor (her grupta en az 8 kişi).</li>}
+            <li className="sub">{model.total < 30 ? `Öğrenilen katkı sıralamaya 30 sonuçtan sonra girer (şu an ${model.total}).` : "Öğrenilen katkı yeni bulunan adayların sıralamasına ±15 puana kadar ekleniyor."} Bu bir istatistiktir, yapay zekâ modeli değildir; tüm temsilcilerin sonuçlarından beslenir.</li>
           </ul>
         </div>
       </div>
