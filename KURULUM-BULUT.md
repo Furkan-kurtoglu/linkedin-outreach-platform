@@ -10,11 +10,11 @@ Her gün 03:00, 06:00 ve 09:00'da (Türkiye saati) en çok 20 dakika çalışır
 
 ## Tek seferlik kurulum (3 gizli değişken)
 
-GitHub'da depoya girin: **Settings → Secrets and variables → Actions → New repository secret**. Üç tane ekleyin:
+GitHub'da depoya girin: **Settings → Secrets and variables → Actions → New repository secret**. İki tane ekleyin (HFO_TOKEN, LI_AT):
 
 | Ad | Değer |
 | --- | --- |
-| `HFO_PANEL` | `https://healthfintel-outreach.vercel.app` |
+| `HFO_PANEL` | (isteğe bağlı) Boş bırakılırsa `https://healthfintel-outreach.vercel.app` kullanılır. |
 | `HFO_TOKEN` | Panelde **LinkedIn hesapları → Yerel çalışan → Anahtarı yenile** ile çıkan `hfo_…` anahtarı. Yenileyince bilgisayardaki çalışanın anahtarı da değişir; onu da `baslat.bat --sifirla` ile yeniden girmeniz gerekir. |
 | `LI_AT` | LinkedIn oturum çerezi (aşağıya bakın) |
 

@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      HFO_PANEL: ${{ secrets.HFO_PANEL }}
+      HFO_PANEL: ${{ secrets.HFO_PANEL || 'https://healthfintel-outreach.vercel.app' }}
       HFO_TOKEN: ${{ secrets.HFO_TOKEN }}
       LI_AT: ${{ secrets.LI_AT }}
       HFO_BULUT_DAKIKA: "20"
