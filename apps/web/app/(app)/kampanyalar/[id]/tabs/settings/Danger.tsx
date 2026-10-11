@@ -4,7 +4,8 @@ import { cancelPending, deleteCampaign } from "../../actions";
 import type { TabProps } from "../types";
 
 export async function DangerSection({ campaign: c, sp }: TabProps) {
-  const pending = await prisma.job.count({ where: { status: { in: ["PENDING", "AWAITING_APPROVAL"] }, agentProspect: { agentId: c.id } } });
+  const ids = (await prisma.agentProspect.findMany({ where: { agentId: c.id }, select: { id: true } })).map((a) => a.id);
+  const pending = await prisma.job.count({ where: { status: { in: ["PENDING", "AWAITING_APPROVAL"] }, agentProspectId: { in: ids } } });
   return (
     <div className="stack" style={{ maxWidth: 720 }}>
       <div className="card">
