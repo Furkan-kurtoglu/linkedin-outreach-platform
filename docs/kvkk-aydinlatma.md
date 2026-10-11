@@ -3,7 +3,7 @@
 **LinkedIn üzerinden iş geliştirme iletişimi**
 
 > Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun ("KVKK") 10. maddesi ve Aydınlatma Yükümlülüğünün Yerine Getirilmesinde Uyulacak Usul ve Esaslar Hakkında Tebliğ uyarınca hazırlanmıştır.
-> Köşeli parantezli alanlar yayımlamadan önce doldurulmalıdır. Hukuki görüş yerine geçmez; yayımlamadan önce bir avukata kontrol ettirilmesi önerilir.
+> Köşeli parantezli alanlar şirkete özgü bilgilerdir (unvan, adres, MERSİS, KEP, e-posta) ve yayımlamadan önce doldurulmalıdır. Hukuki görüş yerine geçmez; yayımlamadan önce bir avukata kontrol ettirilmesi önerilir.
 
 ## 1. Veri sorumlusu
 
@@ -25,8 +25,15 @@ Yalnızca LinkedIn'de herkese açık ya da bağlantınız olarak bize görünen 
 | Ağ bilgisi | Bağlantı derecesi, ortak bağlantı sayısı; kişiye özel ilk cümle kullanılıyorsa bir ortak bağlantının adı, ortak okul ve son paylaşımınızın konusu (paylaşımın metni saklanmaz) |
 | İletişim kayıtları | Gönderdiğimiz bağlantı daveti ve mesajlar, verdiğiniz cevaplar, gönderim ve cevap tarihleri |
 | Değerlendirme | Kurumunuzun hedef kitlemize uygunluğuna ilişkin puan ve notlar |
+| Kurum bilgisi | Çalıştığınız kurumun adı, ili, sektörü ve (LinkedIn şirket sayfasında yazıyorsa) çalışan sayısı aralığı; bu bilgiler tüzel kişiye aittir, kişisel veri değildir |
 
 Özel nitelikli kişisel veri (ör. sağlık verisi) işlemiyoruz. Ürünümüz sağlık sektörüne yönelik olsa da bu iletişim sürecinde sizden sağlık verisi istenmez ve toplanmaz.
+
+### Verileri nasıl buluyoruz
+
+- **Kurum bulma:** Hedef sektörlerdeki kurumlar, Sağlık Bakanlığı'nın herkese açık resmî listelerinden ve LinkedIn şirket sayfalarından bulunur. Bu aşamada kişi verisi işlenmez.
+- **Kişi bulma:** Bulunan kurumlarda yalnızca yönetici düzeyindeki mesleki unvanlar (ör. kurucu, genel müdür, müdür) LinkedIn'in kendi arama sonuçlarından, üyenin kendi hesabıyla ve insan hızında okunur. Toplu kazıma, hesap satın alma ya da sahte profil kullanılmaz.
+- **Önceliklendirme:** Hangi unvan ve bağlantı derecesinin daha çok yanıt aldığı, kişi bilgisi içermeyen sayımlarla (ör. "genel müdür" unvanında kabul oranı) hesaplanır. Bu bir otomatik karar değildir; yalnızca aday sırasını etkiler ve hiçbir kişi hakkında aleyhe sonuç doğurmaz.
 
 ## 3. Hangi amaçlarla işliyoruz
 
@@ -67,8 +74,8 @@ Ayrıca yetkili kamu kurum ve kuruluşlarına, kanunen yetkili oldukları hâlle
 
 | Durum | Saklama süresi |
 | --- | --- |
-| Cevap vermediniz | Son iletişimden itibaren [12] ay; sonra silinir |
-| Cevap verdiniz, iş ilişkisi kurulmadı | Son yazışmadan itibaren [2] yıl |
+| Cevap vermediniz | Son iletişimden itibaren 12 ay; sonra silinir |
+| Cevap verdiniz, iş ilişkisi kurulmadı | Son yazışmadan itibaren 2 yıl |
 | İş ilişkisi kuruldu | İlişki süresince ve ilgili mevzuattaki zamanaşımı süreleri boyunca |
 | İletişim almak istemediğinizi bildirdiniz | Diğer veriler silinir; size tekrar yazılmaması için yalnızca profil bağlantınızın geri döndürülemez özeti (SHA-256) saklanır |
 
@@ -101,4 +108,4 @@ Haklarınıza ilişkin taleplerinizi, Veri Sorumlusuna Başvuru Usul ve Esaslar�
 
 iletebilirsiniz. Başvurunuz en geç 30 gün içinde ücretsiz olarak sonuçlandırılır; işlemin ayrıca bir maliyet gerektirmesi hâlinde Kurul'ca belirlenen tarife uygulanabilir.
 
-*Son güncelleme: [GG.AA.YYYY]*
+*Son güncelleme: 11.10.2026*

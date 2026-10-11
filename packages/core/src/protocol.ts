@@ -51,7 +51,7 @@ export type JobPayload =
   | { type: "CHECK_INBOX"; limit: number }
   | { type: "SYNC_SENT_INVITES" }
   | { type: "DISCOVER"; agentId: string; steps: DiscoverStepPayload[]; viewBudget: number }
-  | { type: "DISCOVER_COMPANIES"; queries: CompanyQueryPayload[]; /** Hangi türde kurum arandığı (panel kaydı için) */ kind?: string };
+  | { type: "DISCOVER_COMPANIES"; queries: CompanyQueryPayload[]; /** Hangi türde kurum arandığı (panel kaydı için) */ kind?: string; /** Doluysa bulunan şirketler bu temsilcinin hedef listesine de eklenir */ agentId?: string };
 
 export interface RunnerJob {
   id: string;

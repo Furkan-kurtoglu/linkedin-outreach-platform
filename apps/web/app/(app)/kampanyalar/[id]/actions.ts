@@ -1,5 +1,5 @@
 "use server";
-import { GeminiProvider, assist, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
+import { GeminiProvider, assist, companyQueryUrls, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -7,6 +7,7 @@ import { audit, requireContext, type Ctx } from "@/lib/context";
 import { readTargeting, toRules, toScheduleConfig, type TargetingJson } from "@/lib/convert";
 import { env } from "@/lib/env";
 import { applyBulk, type Snapshot } from "@/lib/bulk";
+import { enqueueDiscover } from "@/lib/discover-queue";
 import { fireWebhook } from "@/lib/webhook";
 import { randomBytes } from "node:crypto";
 
@@ -27,6 +28,24 @@ const back = (id: string, tab: string, extra = "") => redirect(`/kampanyalar/${i
 const settingsBack = (id: string, bolum: string, extra = "") => redirect(`/kampanyalar/${id}?sekme=ayarlar&bolum=${bolum}${extra}`);
 
 /* ---------- Durum ---------- */
+
+/**
+ * Temsilci etkinleşince arama kendiliğinden başlar: hedef şirketi azsa önce LinkedIn'de şirket aranır
+ * (bulunanlar hedef listeye girer ve kişi taraması o zaman başlar), değilse hemen unvanlar taranır.
+ */
+async function startSearch(agent: { id: string; linkedinAccountId: string; targeting: unknown }) {
+  const t = readTargeting(agent.targeting);
+  const count = await prisma.targetAccount.count({ where: { agentId: agent.id } });
+  if (count < 5) {
+    const queries = companyQueryUrls([...t.requiredCompanyKeywords, ...t.industries], { maxPages: 3 });
+    const open = await prisma.job.count({ where: { linkedinAccountId: agent.linkedinAccountId, type: "DISCOVER_COMPANIES", status: { in: ["PENDING", "RUNNING"] }, payload: { path: ["agentId"], equals: agent.id } } });
+    if (queries.length && !open) {
+      const payload: JobPayload = { type: "DISCOVER_COMPANIES", queries, agentId: agent.id };
+      await prisma.job.create({ data: { linkedinAccountId: agent.linkedinAccountId, type: "DISCOVER_COMPANIES", priority: 45, runAfter: new Date(), payload: payload as unknown as Prisma.InputJsonValue } });
+    }
+  }
+  await enqueueDiscover(agent.id);
+}
 
 export async function setStatus(form: FormData) {
   const { ctx, agent } = await own(String(form.get("id")));
@@ -50,6 +69,7 @@ export async function setStatus(form: FormData) {
       data: { status: "CANCELLED", lastError: "Kampanya duraklatıldı." },
     });
   }
+  if (to === "ACTIVE") await startSearch(agent);
   await prisma.linkedinAccount.update({ where: { id: agent.linkedinAccountId }, data: { lastPlannedAt: null } });
   await audit(ctx, to === "ACTIVE" ? "campaign.start" : "campaign.pause", { agentId: agent.id });
   revalidatePath("/", "layout");

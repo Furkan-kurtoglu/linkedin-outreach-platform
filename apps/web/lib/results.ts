@@ -15,6 +15,7 @@ import {
   detectLanguage,
   featuresOf,
   isOpenToWork,
+  matchesExcludedCompany,
   learnedBoost,
   titleGroupOf,
   resolveUncertain,
@@ -37,6 +38,7 @@ import {
 } from "@hfo/core";
 import { prisma, Prisma, type Job, type LinkedinAccount } from "@hfo/db";
 import { toTargeting } from "./convert";
+import { enqueueDiscover } from "./discover-queue";
 import { pooledModel } from "./learning-model";
 import { planAccount } from "./planner";
 import { extendRetention } from "./retention";
@@ -203,7 +205,7 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
     }
 
     case "DISCOVER_COMPANIES":
-      await ingestCompanies(account.workspaceId, (result.data ?? { companies: [], viewed: 0, queries: [] }) as CompanyDiscoverData, payload.kind);
+      await ingestCompanies(account.workspaceId, (result.data ?? { companies: [], viewed: 0, queries: [] }) as CompanyDiscoverData, payload.kind, payload.agentId);
       break;
 
     case "DISCOVER":
@@ -252,7 +254,7 @@ async function handleError(account: LinkedinAccount, job: Job, error: string, me
 }
 
 /** LinkedIn şirket aramasından gelen kurumlar havuza eklenir; var olanlara yalnızca eksik bilgi yazılır. */
-async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, kind?: string) {
+async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, kind?: string, agentId?: string) {
   const rows = companiesFromResult(data, kind as InstitutionKind | undefined);
   if (!rows.length) return;
   const existing = await prisma.institution.findMany({
@@ -275,6 +277,14 @@ async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, k
     if (Object.keys(patch).length) await prisma.institution.update({ where: { id: e.id }, data: patch });
   }
   if (fresh.length) await prisma.institution.createMany({ data: fresh, skipDuplicates: true });
+  // Temsilci için aranmışsa bulunan şirketler hedef listeye de girer (hariç tutma kuralları uygulanır)
+  if (agentId && (await prisma.agent.count({ where: { id: agentId, workspaceId } }))) {
+    const rules = (await prisma.suppression.findMany({ where: { workspaceId, kind: "company" }, select: { value: true } })).map((x) => x.value);
+    const ok = rows.filter((r) => !rules.some((rule) => matchesExcludedCompany(r.name, rule)));
+    if (ok.length) await prisma.targetAccount.createMany({ data: ok.map((r) => ({ agentId, name: r.name, origin: "linkedin" })), skipDuplicates: true });
+    // Yeni hedef şirketler bulununca kişi taraması beklemeden başlar
+    if (ok.length) await enqueueDiscover(agentId);
+  }
 }
 
 /** Gelen kutusu: bilinen kişilerden gelen yeni mesajlar konuşmaya eklenir, akış durur. */
