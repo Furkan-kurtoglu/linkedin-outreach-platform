@@ -1,0 +1,90 @@
+name: Veritabanı göçü üret
+
+# Şema (packages/db/prisma/schema.prisma) değiştiğinde elle çalıştırılır: yeni göç dosyasını
+# üretip depoya ekler. Vercel her yayında bekleyen göçleri veritabanına uygular.
+on:
+  workflow_dispatch:
+    inputs:
+      name:
+        description: Göç adı (ör. ilk_kurulum)
+        required: true
+        default: degisiklik
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: golge
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      POSTGRES_PRISMA_URL: postgresql://postgres:golge@localhost:5432/postgres
+      POSTGRES_URL_NON_POOLING: postgresql://postgres:golge@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+      - name: Göç SQL'ini üret
+        working-directory: packages/db
+        run: |
+          set -e
+          mkdir -p prisma/migrations
+          if [ -z "$(ls -A prisma/migrations | grep -v migration_lock.toml)" ]; then
+            npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > /tmp/m.sql
+          else
+            npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
+              --shadow-database-url postgresql://postgres:golge@localhost:5432/golge_db --script > /tmp/m.sql || {
+              psql postgresql://postgres:golge@localhost:5432/postgres -c "create database golge_db" && \
+              npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma \
+                --shadow-database-url postgresql://postgres:golge@localhost:5432/golge_db --script > /tmp/m.sql; }
+          fi
+          if ! grep -qiE "create|alter|drop" /tmp/m.sql; then echo "Şemada değişiklik yok."; exit 0; fi
+          dir="prisma/migrations/$(date -u +%Y%m%d%H%M%S)_${{ github.event.inputs.name }}"
+          mkdir -p "$dir"
+          cp /tmp/m.sql "$dir/migration.sql"
+          cat >> "$dir/migration.sql" <<'SQL'
+
+          -- Güvenlik: Supabase herkese açık API'si (anon/publishable anahtar) tablolara erişemesin.
+          -- Panel veritabanına doğrudan bağlanır ve bu kısıtlamadan etkilenmez.
+          DO $$
+          DECLARE t record;
+          BEGIN
+            FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+              EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t.tablename);
+            END LOOP;
+          END $$;
+
+          -- Belgeler için özel (herkese kapalı) depolama alanı; Supabase dışındaki veritabanlarında atlanır
+          DO $$
+          BEGIN
+            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'storage' AND table_name = 'buckets') THEN
+              INSERT INTO storage.buckets (id, name, public) VALUES ('belgeler', 'belgeler', false) ON CONFLICT (id) DO NOTHING;
+            END IF;
+          END $$;
+          SQL
+          sed -i 's/^          //' "$dir/migration.sql"
+          printf 'provider = "postgresql"\n' > prisma/migrations/migration_lock.toml
+          echo "Yeni göç: $dir"
+      - name: Göçü doğrula (boş veritabanına uygula)
+        working-directory: packages/db
+        run: |
+          psql postgresql://postgres:golge@localhost:5432/postgres -c "drop database if exists dogrulama" -c "create database dogrulama"
+          POSTGRES_URL_NON_POOLING=postgresql://postgres:golge@localhost:5432/dogrulama POSTGRES_PRISMA_URL=postgresql://postgres:golge@localhost:5432/dogrulama npx prisma migrate deploy
+      - name: Depoya ekle
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/db/prisma/migrations
+          git diff --cached --quiet && exit 0
+          git commit -m "Veritabanı göçü: ${{ github.event.inputs.name }}"
+          git push

@@ -7,9 +7,7 @@
   "scripts": {
     "generate": "prisma generate",
     "postinstall": "prisma generate",
-    "migrate": "prisma migrate dev",
-    "deploy": "prisma migrate deploy",
-    "push": "prisma db push",
+    "migrate:deploy": "prisma migrate deploy",
     "validate": "prisma validate"
   },
   "dependencies": {

@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "vercel-build": "pnpm --filter @hfo/db run migrate:deploy && next build"
   },
   "dependencies": {
     "@hfo/core": "workspace:*",

@@ -181,8 +181,9 @@ export async function sendInvite(page: Page, url: string, note?: string): Promis
     const box = await firstVisible(dialog.locator("textarea[name='message']"), dialog.locator("textarea"));
     if (!box) {
       await page.keyboard.press("Escape");
-      // Not ekleme hakkı dolmuş olabilir (ücretsiz hesaplarda aylık sınır): notsuz göndermek yerine dur
-      throw new JobError("cannot_message", "Davet notu eklenemedi (aylık not sınırı dolmuş olabilir).");
+      // Not ekleme hakkı dolmuş olabilir (ücretsiz hesaplarda aylık sınır): notsuz göndermek yerine dur;
+      // kişi atlanmaz, iş daha sonra yeniden denenir
+      throw new JobError("transient", "Davet notu eklenemedi (aylık not sınırı dolmuş olabilir).");
     }
     await typeText(page, box, note);
     await pause(800, 1600);

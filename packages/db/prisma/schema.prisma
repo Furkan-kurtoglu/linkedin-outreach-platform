@@ -9,8 +9,9 @@ datasource db {
   provider = "postgresql"
   // Vercel gibi sunucusuz ortamlarda havuzlu bağlantı (Supabase "Transaction pooler", 6543),
   // şema değişiklikleri için doğrudan bağlantı (5432) kullanılır.
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  // Adlar Vercel'in Supabase entegrasyonunun otomatik eklediği değişkenlerdir (elle kopyalamak gerekmez).
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 enum Role {

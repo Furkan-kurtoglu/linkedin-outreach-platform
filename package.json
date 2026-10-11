@@ -13,7 +13,6 @@
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter @hfo/db generate",
-    "db:push": "pnpm --filter @hfo/db push",
     "runner": "pnpm --filter @hfo/runner start"
   },
   "pnpm": {
