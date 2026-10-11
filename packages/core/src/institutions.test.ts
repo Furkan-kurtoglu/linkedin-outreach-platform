@@ -28,7 +28,7 @@ describe("kaynak ayrıştırma", () => {
     expect(r[0]).toMatchObject({ name: "Memorial Şişli Hastanesi", city: "İstanbul", district: "Şişli", kind: "HOSPITAL", source: "moh" });
   });
   it("Overpass çıktısında kamu ve diş kliniklerini ayıklar", () => {
-    const j = { elements: [{ tags: { name: "Örnek Hastanesi", amenity: "hospital", beds: "250" } }, { tags: { name: "Fatih Devlet Hastanesi", amenity: "hospital" } }, { tags: { name: "Gül Diş Kliniği", amenity: "dentist" } }, { tags: { name: "Aura Estetik Kliniği", amenity: "clinic" } }] };
+    const j: { elements: { tags: Record<string, string> }[] } = { elements: [{ tags: { name: "Örnek Hastanesi", amenity: "hospital", beds: "250" } }, { tags: { name: "Fatih Devlet Hastanesi", amenity: "hospital" } }, { tags: { name: "Gül Diş Kliniği", amenity: "dentist" } }, { tags: { name: "Aura Estetik Kliniği", amenity: "clinic" } }] };
     const r = parseOverpass(j, "İstanbul", { dental: false });
     expect(r.map((x) => x.name)).toEqual(["Örnek Hastanesi", "Aura Estetik Kliniği"]);
     expect(r[0]!.size).toBe("LARGE");
