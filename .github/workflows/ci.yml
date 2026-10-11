@@ -8,6 +8,14 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: golge
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       POSTGRES_PRISMA_URL: postgresql://user:pass@localhost:5432/db
       POSTGRES_URL_NON_POOLING: postgresql://user:pass@localhost:5432/db
@@ -20,6 +28,14 @@ jobs:
       - run: pnpm install --no-frozen-lockfile
       - name: Veritabanı şemasını doğrula
         run: pnpm --filter @hfo/db validate
+      - name: Göçler boş veritabanına uygulanır ve şemayla birebir uyar
+        working-directory: packages/db
+        env:
+          POSTGRES_PRISMA_URL: postgresql://postgres:golge@localhost:5432/postgres
+          POSTGRES_URL_NON_POOLING: postgresql://postgres:golge@localhost:5432/postgres
+        run: |
+          npx prisma migrate deploy
+          npx prisma migrate diff --from-url "$POSTGRES_URL_NON_POOLING" --to-schema-datamodel prisma/schema.prisma --exit-code
       - name: Çekirdek testleri
         run: pnpm --filter @hfo/core test
       - name: Çekirdek tip kontrolü
