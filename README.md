@@ -1,27 +1,42 @@
 # HeAlthFintel Outreach
 
-LinkedIn için kendi outreach platformumuz: panelden temsilci kurulur, haftalık 180 davet 7 güne yayılarak gönderilir, bağlantı kabul edildiği anda onaylı şablondaki detay mesajı gider.
+LinkedIn için kendi iletişim platformumuz. Panelden kampanya kurulur, davetler seçilen gün ve saatlere yayılır, bağlantı kabul edildiği anda onaylı detay mesajı gider; cevaplar gelen kutusunda etiketlenir.
 
-Hiçbir ücretli servis kullanılmaz. Kodun tamamı Claude tarafından yazılır. Ayrıntılı teknik plan proje dokümanındadır.
+Hiçbir ücretli servis kullanılmaz (Vercel Hobby, Supabase ücretsiz katman, isteğe bağlı Gemini ücretsiz katman). Kurulum: **[KURULUM.md](KURULUM.md)**.
 
 ## Yapı
 
 | Klasör | Ne |
 | --- | --- |
-| `apps/web` | Panel (Next.js): temsilciler, şablon stüdyosu, onay kuyruğu, gelen kutusu |
-| `apps/runner` | Yerel çalışan: kullanıcının bilgisayarında LinkedIn'i Playwright ile kullanır (Windows ve Mac) |
-| `packages/core` | Mesaj motoru (yapay zekâsız): sihirbaz soruları, şablon üretimi, kural denetimi, kişi puanlama, cevap etiketleme, A/B karşılaştırma, davet planlama; isteğe bağlı Gemini yardımcısı |
-| `packages/db` | Veritabanı şeması (Prisma, Supabase PostgreSQL) |
+| `apps/web` | Panel (Next.js): kampanyalar, mesaj düzenleyici, kişiler, onay kuyruğu, gelen kutusu, fırsatlar, belgeler, hesaplar, ayarlar; yerel çalışanın API'si ve planlayıcı |
+| `apps/runner` | Yerel çalışan: kullanıcının bilgisayarında LinkedIn işlemlerini Chrome ile yapar (Windows ve Mac) |
+| `packages/core` | Motor (yapay zekâsız): akış, zamanlama, bütçeler, kişi puanlama, şablon üretimi ve kural denetimi, kişiselleştirme, cevap etiketleme, A/B, öğrenme; panel–çalışan sözleşmesi |
+| `packages/db` | Veritabanı şeması ve göçler (Prisma, Supabase PostgreSQL) |
+| `apps/web/prototype` | Tıklanabilir tasarım prototipi |
+| `docs/kvkk-aydinlatma.md` | KVKK aydınlatma metni (yayınlamadan önce köşeli parantezli alanlar doldurulur) |
 
-## Durum
+## Nasıl çalışır
 
-- [x] Faz 0: proje iskeleti, mesaj motoru (35 test), veri modeli, tıklanabilir prototip (`apps/web/prototype`)
-- [ ] Faz 0: yerel çalışan prototipi, KVKK aydınlatma metni
-- [ ] Faz 1: kayıt + hesap bağlama, temsilci ve şablonlar, gönderim motoru, kabulde anında mesaj
-- [ ] Faz 2: kişi bulma, değerlendirme, şablon stüdyosu + yapay zekâ, gelen kutusu
-- [ ] Faz 3: çoklu hesap, takip mesajları, raporlar, KVKK silme akışı
+1. Yerel çalışan dakikada bir panele "sıradaki iş ne?" diye sorar. Panel o an planlama yapar (zamanlanmış görev gerekmez) ve zamanı gelmiş en öncelikli işi verir.
+2. Planlama motorda yapılır: haftalık/günlük davet bütçesi, kampanya payları, gönderim saatleri ve tatiller, kurum başına sınır, akış adımları ve seçenekler.
+3. Çalışan işi Chrome'da yapar ve sonucu bildirir. Kabul edilen bağlantılar 10 dakikada bir kontrol edilir; kabul edene detay mesajı 1–5 dakika içinde (gece ise ertesi sabah) gider.
+4. Her mesaj gönderilmeden önce kural denetiminden geçer (yasak ifade, hariç kurum, süre vaadi, karakter sınırı, zorunlu link). Geçmeyen mesaj gönderilmez, onaya düşer.
 
-## Güvenlik
+## Güvenlik ve KVKK
 
-- LinkedIn şifresi hiçbir yerde saklanmaz; oturum yalnızca kullanıcının bilgisayarındaki tarayıcı profilinde kalır.
-- `.env` dosyası ve tarayıcı profilleri `.gitignore` ile repoya girmez.
+- LinkedIn şifresi hiçbir yerde saklanmaz; oturum yalnızca kullanıcının bilgisayarındaki ayrı Chrome profilindedir.
+- Çalışan veritabanına bağlanmaz; yalnızca kendi bağlantı anahtarıyla paneldeki sınırlı uçlara erişir (anahtarın yalnızca özeti saklanır).
+- Tüm tablolarda Row Level Security açıktır; Supabase'in herkese açık API'si verilere erişemez.
+- Panele yalnızca `ALLOWED_EMAILS` listesindekiler ve ekibe davet edilenler kayıt olabilir.
+- Cevap vermeyenlerin verisi ayarlanan süre sonunda otomatik silinir; "bir daha yazma" ve KVKK silme taleplerinde yalnızca profil linkinin özeti tutulur.
+- `.env` ve tarayıcı profilleri repoya girmez.
+
+## Geliştirme
+
+```
+pnpm install
+pnpm --filter @hfo/core test      # motor testleri
+pnpm --filter @hfo/web typecheck
+pnpm dev                          # panel (POSTGRES_* ve Supabase değişkenleri gerekir)
+pnpm runner                       # yerel çalışan
+```

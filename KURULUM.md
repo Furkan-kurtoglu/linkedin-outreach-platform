@@ -4,16 +4,20 @@
 
 ## 1. Panel (bir kez, Furkan)
 
-Bu adımlar Claude ile birlikte yapılır; hesaplara girişleri siz yaparsınız.
+Hesaplara girişleri ve gizli anahtar gerektiren adımları siz yaparsınız; gizli anahtarlar hiçbir yere elle kopyalanmaz.
 
-1. **Supabase** (veritabanı ve giriş, ücretsiz): supabase.com → New project → bölge **Frankfurt (eu-central-1)**.
-   - Project Settings → API: `Project URL`, `anon public` ve `service_role` anahtarları.
-   - Project Settings → Database → Connection string: **Transaction pooler** (6543) ve **Session pooler / Direct** (5432) adresleri.
-   - Storage → New bucket → adı `belgeler`, **Public kapalı**.
-   - Authentication → URL Configuration → Site URL: panelin Vercel adresi.
-2. **Tabloları oluştur**: `.env` dosyasını doldurup `pnpm db:push`.
-3. **Vercel** (panel barındırma, ücretsiz): vercel.com → GitHub deposunu içe aktar → Root Directory `apps/web` → `.env.example`'daki değişkenleri ekle → Deploy.
-4. Panelde kayıt olun, **LinkedIn hesapları** sayfasından hesabı ekleyin ve **bağlantı anahtarı** oluşturun.
+1. **Vercel** (vercel.com, ücretsiz Hobby): GitHub ile giriş → **Add New → Project** → `healthfintel-outreach` deposunu içe aktar.
+   - **Root Directory:** `apps/web` · Framework: Next.js (otomatik).
+   - **Environment Variables:** yalnızca `ALLOWED_EMAILS` = panele girecek e-postalar (virgülle). İsteğe bağlı `GEMINI_API_KEY`.
+   - Henüz **Deploy etmeyin** (ya da ilk yayın veritabanı olmadığı için hata verirse sorun değil).
+2. **Supabase** (veritabanı, giriş ve belge deposu, ücretsiz): Vercel projesinde **Storage → Create Database → Supabase** → bölge **Frankfurt** → oluştur → projeye bağla.
+   - Veritabanı ve Supabase anahtarları Vercel'e **otomatik** eklenir.
+3. **Deployments → Redeploy.** Yayın sırasında tablolar, güvenlik kuralları (RLS) ve özel `belgeler` deposu otomatik kurulur.
+4. Supabase panelinde **Authentication → URL Configuration → Site URL** = Vercel adresi (ör. `https://healthfintel-outreach.vercel.app`).
+   - İsteğe bağlı: **Authentication → Providers → Email → Confirm email** kapatılırsa kayıt sonrası e-posta doğrulaması beklenmez (ücretsiz katmanda doğrulama e-postası saatte birkaç adetle sınırlıdır).
+5. Panelde kayıt olun → **LinkedIn hesapları** → hesabı ekleyin → **bağlantı anahtarı** oluşturun.
+
+Şema değiştiğinde: GitHub → Actions → **Veritabanı göçü üret** → Run workflow. Bir sonraki yayında Vercel değişikliği uygular.
 
 ## 2. Yerel çalışan (her LinkedIn hesabı sahibi kendi bilgisayarında)
 
