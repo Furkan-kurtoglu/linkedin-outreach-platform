@@ -48,21 +48,33 @@ export async function importMoh(form: FormData) {
 }
 
 /** OpenStreetMap (Overpass): hastane ve klinikler; kamu görünenler ayıklanır */
+const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+const BBOX: Record<string, string> = { istanbul: "40.80,28.00,41.60,29.95" };
+
 export async function importOsm(form: FormData) {
   const ctx = await requireContext();
   const il = clean(form.get("il")) || "İstanbul";
   const dental = !!form.get("dental");
-  const kinds = ['nwr["amenity"="hospital"]["name"](area.a);', 'nwr["amenity"="clinic"]["name"](area.a);', 'nwr["healthcare"~"^(hospital|clinic|centre)$"]["name"](area.a);', ...(dental ? ['nwr["amenity"="dentist"]["name"](area.a);'] : [])];
-  const query = `[out:json][timeout:50];area["name"="${il.replace(/["\\]/g, "")}"]["boundary"="administrative"]["admin_level"="4"]->.a;(${kinds.join("")});out tags center;`;
-  const res = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "user-agent": UA, "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ data: query }),
-    signal: AbortSignal.timeout(55_000),
-    cache: "no-store",
-  }).catch(() => null);
-  if (!res?.ok) redirect("/kurumlar?hata=osm_erisim");
-  const json = (await res.json().catch(() => null)) as { elements?: { tags?: Record<string, string> }[] } | null;
+  const amenity = dental ? "hospital|clinic|dentist" : "hospital|clinic";
+  // İstanbul için sınır kutusu (hızlı); diğer iller için idari alan
+  const box = BBOX[fold(il)];
+  const scope = box ? `(${box})` : "(area.a)";
+  const area = box ? "" : `area["name"="${il.replace(/["\\]/g, "")}"]["boundary"="administrative"]["admin_level"="4"]->.a;`;
+  const query = `[out:json][timeout:25];${area}(nwr["amenity"~"^(${amenity})$"]["name"]${scope};);out tags;`;
+  let json: { elements?: { tags?: Record<string, string> }[] } | null = null;
+  for (const url of OVERPASS) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "user-agent": UA, "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+      body: new URLSearchParams({ data: query }),
+      signal: AbortSignal.timeout(27_000),
+      cache: "no-store",
+    }).catch(() => null);
+    if (res?.ok) {
+      json = (await res.json().catch(() => null)) as typeof json;
+      if (json) break;
+    }
+  }
   if (!json) redirect("/kurumlar?hata=osm_erisim");
   const drafts = parseOverpass(json, il, { dental });
   const added = await save(ctx.workspace.id, drafts);
