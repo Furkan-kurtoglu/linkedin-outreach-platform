@@ -17,7 +17,7 @@ import { join } from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import { AuthError, PanelApi } from "./api";
 import { LOG_DIR, PROFILE_DIR, loadConfig, resetConfig } from "./config";
-import { discover, discoverCompanies, isLoggedIn, readInbox, readSelf, recentConnections, sendInvite, sendMessage, sentInvites, visitProfile, withdrawInvite, type SelfInfo } from "./linkedin/actions";
+import { discover, discoverCompanies, enrichCompanies, isLoggedIn, readInbox, readSelf, recentConnections, sendInvite, sendMessage, sentInvites, visitProfile, withdrawInvite, type SelfInfo } from "./linkedin/actions";
 import { JobError, pause, sleep } from "./linkedin/util";
 
 const VERSION = "0.1.0";
@@ -99,6 +99,8 @@ async function runJob(page: Page, api: PanelApi, self: SelfInfo, job: RunnerJob,
       return { ok: true, data: await discover(page, p.steps, p.viewBudget) };
     case "DISCOVER_COMPANIES":
       return { ok: true, data: await discoverCompanies(page, p.queries) };
+    case "ENRICH_COMPANIES":
+      return { ok: true, data: await enrichCompanies(page, p.companies) };
   }
 }
 

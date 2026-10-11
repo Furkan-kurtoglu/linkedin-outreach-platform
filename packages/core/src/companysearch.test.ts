@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { canonicalCompanyUrl, companiesFromResult, companyQueryUrls, parseCompanyCard, sizeFromEmployees } from "./companysearch";
+import { canonicalCompanyUrl, companiesFromResult, companyQueryUrls, employeesFromText, expandByCity, parseAboutPairs, parseCompanyCard, sizeFromEmployees } from "./companysearch";
+import { TR_PROVINCES } from "./provinces";
 
 describe("LinkedIn şirket kartı", () => {
   it("sektör, il, takipçi ve çalışan sayısını ayıklar", () => {
@@ -37,5 +38,21 @@ describe("LinkedIn şirket kartı", () => {
     expect(q[0]!.url).toContain("companyHqGeo=");
     expect(q[0]!.url).toContain("102105699");
     expect(q.filter((x) => x.label.toLowerCase() === "özel klinik")).toHaveLength(1);
+  });
+  it("hakkında çiftlerinden web sitesi ve boyutu okur", () => {
+    const d = parseAboutPairs("k1", [{ label: "Web Sitesi", value: "https://alfa.com.tr)" }, { label: "Şirket büyüklüğü", value: "51-200 çalışan" }, { label: "Genel Merkez", value: "İstanbul, İstanbul" }]);
+    expect(d).toMatchObject({ id: "k1", website: "https://alfa.com.tr", sizeText: "51-200 çalışan", hq: "İstanbul, İstanbul" });
+    expect(parseAboutPairs("k2", [{ label: "?", value: "x" }]).empty).toBe(true);
+  });
+  it("çalışan metnini sayıya çevirir", () => {
+    expect(employeesFromText("201-500 çalışan")).toBe(351);
+    expect(employeesFromText("10.001+ çalışan")).toBe(10001);
+    expect(employeesFromText(undefined)).toBeUndefined();
+  });
+  it("anahtar kelimeleri illerle çarpar; 81 il vardır", () => {
+    expect(expandByCity(["özel klinik"], ["Ankara", "İzmir"])).toEqual(["özel klinik Ankara", "özel klinik İzmir"]);
+    expect(expandByCity(["a"], [])).toEqual(["a"]);
+    expect(new Set(TR_PROVINCES).size).toBe(81);
+    expect(companyQueryUrls(Array.from({ length: 20 }, (_, i) => `k${i}`), { limit: 100 })).toHaveLength(20);
   });
 });

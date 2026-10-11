@@ -1,10 +1,11 @@
+import { TR_PROVINCES } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireContext } from "@/lib/context";
 import { KIND_LABEL, SIZE_LABEL, STATUS_LABEL, institutionWhere, type InstSearch } from "@/lib/institution-filter";
-import { bulkInstitutions, findCompaniesOnLinkedIn, importMoh, importOsm, importPaste, importSeed } from "./actions";
+import { bulkInstitutions, enrichInstitutions, findCompaniesOnLinkedIn, importMoh, importOsm, importPaste, importSeed } from "./actions";
 import { SelectAll } from "./SelectAll";
 
 export const metadata: Metadata = { title: "Kurum Ar-Ge" };
@@ -19,7 +20,7 @@ const ERR: Record<string, string> = {
   bos: "Eklenecek satır bulunamadı.",
   anahtar: "En az bir arama sözcüğü yazın.",
   hesap: "Önce Hesaplar sayfasından bir LinkedIn hesabı bağlayın; arama o hesabın tarayıcısında yapılır.",
-  bekleyen: "Bekleyen LinkedIn aramaları var. Yerel çalışan onları bitirince yenisini başlatın.",
+  bekleyen: "Sırada zaten çok sayıda LinkedIn araması var (100+). Yerel çalışan bir kısmını bitirince yenisini ekleyin.",
 };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -29,22 +30,31 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const where = institutionWhere(ctx.workspace.id, f);
   const page = Math.max(1, Math.floor(+(sp.sayfa ?? 1)) || 1);
   const ws = ctx.workspace.id;
-  const [total, matching, rows, byKind, byStatus, agents, cities] = await Promise.all([
+  const [total, matching, rows, byKind, byStatus, agents, extraCities, account, liJobs, pendingEnrich] = await Promise.all([
     prisma.institution.count({ where: { workspaceId: ws } }),
     prisma.institution.count({ where }),
     prisma.institution.findMany({ where, orderBy: [{ city: "asc" }, { district: "asc" }, { name: "asc" }], skip: (page - 1) * PAGE, take: PAGE }),
     prisma.institution.groupBy({ by: ["kind"], where: { workspaceId: ws }, _count: true }),
     prisma.institution.groupBy({ by: ["status"], where: { workspaceId: ws }, _count: true }),
     prisma.agent.findMany({ where: { workspaceId: ws }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } }),
-    prisma.institution.findMany({ where: { workspaceId: ws, city: { not: null } }, distinct: ["city"], select: { city: true }, orderBy: { city: "asc" }, take: 100 }),
+    prisma.institution.findMany({ where: { workspaceId: ws, city: { not: null } }, distinct: ["city"], select: { city: true }, orderBy: { city: "asc" }, take: 200 }),
+    prisma.linkedinAccount.findFirst({ where: { workspaceId: ws }, orderBy: { createdAt: "asc" }, select: { runnerLastSeenAt: true } }),
+    prisma.job.findMany({ where: { linkedinAccount: { workspaceId: ws }, type: { in: ["DISCOVER_COMPANIES", "ENRICH_COMPANIES"] } }, orderBy: { createdAt: "desc" }, take: 300, select: { type: true, status: true, lastError: true, finishedAt: true } }),
+    prisma.institution.count({ where: { workspaceId: ws, linkedinUrl: { not: null }, enrichedAt: null } }),
   ]);
+  // Tüm 81 il her zaman seçilebilir; veride listede olmayan yazımlar da eklenir
+  const cities = [...TR_PROVINCES, ...extraCities.map((c) => c.city ?? "").filter((c) => c && !TR_PROVINCES.some((p) => p.toLocaleLowerCase("tr-TR") === c.toLocaleLowerCase("tr-TR")))].map((city) => ({ city }));
+  const seenMin = account?.runnerLastSeenAt ? Math.round((Date.now() - account.runnerLastSeenAt.getTime()) / 60_000) : null;
+  const runnerOn = seenMin !== null && seenMin < 3;
+  const jobCount = (t: string, st2: string[]) => liJobs.filter((j) => j.type === t && st2.includes(j.status)).length;
+  const lastFail = liJobs.find((j) => j.status === "FAILED" || (j.lastError && j.status === "PENDING"))?.lastError;
   const k = (kind: string) => byKind.find((b) => b.kind === kind)?._count ?? 0;
   const st = (s: string) => byStatus.find((b) => b.status === s)?._count ?? 0;
   const pages = Math.max(1, Math.ceil(matching / PAGE));
   const qs = (p: number) => new URLSearchParams({ ...Object.fromEntries(Object.entries(f).filter(([, v]) => v) as [string, string][]), sayfa: String(p) }).toString();
   const filtered = Object.values(f).some(Boolean);
 
-  const note = sp.aranacak != null ? `${sp.aranacak} arama sözcüğü ${sp.is} işe bölünerek sıraya alındı. Yerel çalışan (baslat.bat) açıkken LinkedIn'de taranır; bulunan şirketler bu listeye "LinkedIn" kaynağıyla düşer.` : sp.eklendi != null ? `${sp.eklendi} yeni kurum eklendi${sp.toplam ? ` (kaynakta ${sp.toplam} kayıt vardı; zaten listede olanlar atlandı)` : ""}.` : sp.kampanya != null ? `${sp.kampanya} kurum kampanyanın hedef listesine eklendi${+(sp.atlanan ?? 0) ? `; ${sp.atlanan} kurum hariç tutma kuralı nedeniyle atlandı` : ""}.` : sp.islem ? `${sp.n ?? 0} kurum ${sp.islem === "haric" ? "hariç tutuldu" : sp.islem === "sil" ? "silindi" : "yeniye alındı"}.` : null;
+  const note = sp.ayrinti_is != null ? `${sp.ayrinti_is} ayrıntı okuma işi sıraya alındı (web sitesi, çalışan sayısı, merkez). Yerel çalışan açıkken yapılır.` : sp.aranacak != null ? `${sp.aranacak} arama sözcüğü ${sp.is} işe bölünerek sıraya alındı. Yerel çalışan (baslat.bat) açıkken LinkedIn'de taranır; bulunan şirketler bu listeye "LinkedIn" kaynağıyla düşer.` : sp.eklendi != null ? `${sp.eklendi} yeni kurum eklendi${sp.toplam ? ` (kaynakta ${sp.toplam} kayıt vardı; zaten listede olanlar atlandı)` : ""}.` : sp.kampanya != null ? `${sp.kampanya} kurum kampanyanın hedef listesine eklendi${+(sp.atlanan ?? 0) ? `; ${sp.atlanan} kurum hariç tutma kuralı nedeniyle atlandı` : ""}.` : sp.islem ? `${sp.n ?? 0} kurum ${sp.islem === "haric" ? "hariç tutuldu" : sp.islem === "sil" ? "silindi" : "yeniye alındı"}.` : null;
 
   return (
     <>
@@ -67,11 +77,29 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <div className="stat"><div className="sub">Seçili / hariç</div><div className="v">{st("SELECTED")} / {st("EXCLUDED")}</div></div>
       </div>
 
+      <div className={`banner${runnerOn ? "" : " warning"}`} role="status" style={{ marginBottom: 16 }}>
+        <div className="txt">
+          <b>{runnerOn ? "Yerel çalışan açık; LinkedIn aramaları yapılıyor." : seenMin === null ? "Yerel çalışan henüz bağlanmadı." : `Yerel çalışan kapalı (son sinyal ${seenMin >= 120 ? `${Math.round(seenMin / 60)} saat` : `${seenMin} dk`} önce).`}</b>
+          <p>LinkedIn aramaları yalnızca çalışan açıkken (baslat.bat) yürür; kapalıyken sırada bekler.
+            {" "}Şirket araması: {jobCount("DISCOVER_COMPANIES", ["PENDING", "RUNNING"])} sırada, {jobCount("DISCOVER_COMPANIES", ["DONE"])} bitti, {jobCount("DISCOVER_COMPANIES", ["FAILED"])} hatalı.
+            {" "}Ayrıntı okuma: {jobCount("ENRICH_COMPANIES", ["PENDING", "RUNNING"])} sırada, {jobCount("ENRICH_COMPANIES", ["DONE"])} bitti.
+            {lastFail ? ` Son hata: ${lastFail}` : ""}</p>
+        </div>
+      </div>
+
       <form action={findCompaniesOnLinkedIn} className="card" style={{ marginBottom: 16 }}>
         <div className="card-h"><h2>LinkedIn'de şirket ara</h2><span className="sub">Güncel kaynak: LinkedIn şirket sayfaları</span></div>
         <div className="card-b stack">
           <p className="sub" style={{ margin: 0 }}>Web listeleri eskiyebilir; LinkedIn'de şirketin sayfası varsa ve hâlâ aktifse burada görünür. Her satıra bir arama sözcüğü yazın (Türkçe ve İngilizce olabilir). Bulunan şirketler havuza eklenir; sonra kampanyaya ekleyince o şirketlerdeki kurucu, müdür ve yöneticiler aranır.</p>
           <div className="field"><label htmlFor="li-anahtar">Arama sözcükleri</label><textarea id="li-anahtar" name="anahtar" style={{ minHeight: 96 }} defaultValue={sp.anahtar ?? "özel klinik\nestetik klinik\ndiş kliniği\ntıp merkezi\nağız ve diş sağlığı\nsağlık grubu"} /></div>
+          <div className="field">
+            <label htmlFor="li-sehir">İller</label>
+            <select id="li-sehir" name="sehir" multiple size={6} defaultValue={["tum"]}>
+              <option value="tum">Tüm 81 il (her sözcük için il il arar)</option>
+              {TR_PROVINCES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <span className="sub">Birden çok il için Ctrl (Mac: Cmd) ile seçin. LinkedIn bir aramada en fazla birkaç yüz sonuç verdiği için il il aramak daha çok kurum bulur. Tüm illerde sözcük sayısı 3 ile sınırlanır.</span>
+          </div>
           <div className="grid g2">
             <div className="field"><label htmlFor="li-tur">Tür belli değilse</label><select id="li-tur" name="tur" defaultValue="CLINIC">{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
             <div className="field"><label htmlFor="li-sayfa">Sözcük başına sayfa</label><select id="li-sayfa" name="sayfa" defaultValue="3">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} sayfa (~{n * 10} şirket)</option>)}</select></div>
@@ -79,6 +107,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <div className="row"><SubmitButton className="btn primary" pendingText="Sıraya alınıyor…">LinkedIn'de ara</SubmitButton><span className="sub">Yalnızca şirket sayfalarını okur; kimseye davet ya da mesaj gitmez.</span></div>
         </div>
       </form>
+      {pendingEnrich > 0 && (
+        <form action={enrichInstitutions} className="card" style={{ marginBottom: 16 }}>
+          <div className="card-b row between">
+            <div className="txt" style={{ flex: "1 1 280px" }}><b>{pendingEnrich} LinkedIn şirketinin ayrıntısı okunmadı</b><p className="sub" style={{ margin: "2px 0 0" }}>Şirket sayfasındaki web sitesi, sektör, çalışan sayısı ve merkez bilgisi okunur. Yeni bulunanlar için bu kendiliğinden başlar; buradan elle de başlatabilirsiniz.</p></div>
+            <SubmitButton className="btn" pendingText="Sıraya alınıyor…">Ayrıntıları tamamla</SubmitButton>
+          </div>
+        </form>
+      )}
 
       <details className="card" open={total === 0} style={{ marginBottom: 16 }}>
         <summary className="card-h" style={{ cursor: "pointer" }}><h2>Kaynaklardan kurum topla</h2><span className="sub">Resmî liste, harita, yapıştırma, hazır liste</span></summary>
@@ -86,13 +122,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <form action={importMoh} className="stack">
             <h3>Sağlık Bakanlığı özel hastane listesi</h3>
             <p className="sub" style={{ margin: 0 }}>Faal özel hastanelerin resmî listesi (il, ilçe, ad, tip). Küçük, orta ve büyük hepsi gelir. Bakanlık sayfasındaki liste 2020 tarihli olabilir; yeni açılanlar harita ve yapıştırma ile tamamlanır.</p>
-            <div className="field"><label htmlFor="moh-il">İl</label><input type="text" id="moh-il" name="il" defaultValue="İstanbul" placeholder="Boş bırakırsanız tüm iller" /></div>
+            <div className="field"><label htmlFor="moh-il">İl</label><select id="moh-il" name="il" defaultValue=""><option value="">Tüm iller (81 il)</option>{TR_PROVINCES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             <div className="row"><SubmitButton className="btn primary" pendingText="Çekiliyor…">Listeyi çek</SubmitButton></div>
           </form>
           <form action={importOsm} className="stack">
             <h3>Haritadan hastane ve klinik (OpenStreetMap)</h3>
             <p className="sub" style={{ margin: 0 }}>Haritada kayıtlı özel hastane, klinik ve tıp merkezleri; kamu görünenler ayıklanır. Kapsam eksik olabilir. Birkaç on saniye sürer.</p>
-            <div className="field"><label htmlFor="osm-il">İl</label><input type="text" id="osm-il" name="il" defaultValue="İstanbul" /></div>
+            <div className="field"><label htmlFor="osm-il">İl</label><select id="osm-il" name="il" defaultValue="İstanbul">{TR_PROVINCES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
             <label className="check" style={{ borderBottom: 0, padding: 0 }}><input type="checkbox" name="dental" /><span>Diş klinikleri de gelsin <span className="sub">(sayıları çok yüksek olabilir)</span></span></label>
             <div className="row"><SubmitButton className="btn primary" pendingText="Aranıyor… (1 dk sürebilir)">Haritadan çek</SubmitButton></div>
           </form>
@@ -101,7 +137,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
             <p className="sub" style={{ margin: 0 }}>İl sağlık müdürlüğü, dernek ya da kendi Excel listeniz. Her satıra bir kurum: <code>Ad; İlçe; Tür</code>. Yalnızca ad da yeter.</p>
             <textarea name="liste" style={{ minHeight: 96 }} placeholder={"Alfa Tıp Merkezi; Kadıköy\nBeta Kliniği; Şişli"} aria-label="Kurum listesi" />
             <div className="grid g2">
-              <div className="field"><label htmlFor="p-il">İl</label><input type="text" id="p-il" name="il" defaultValue="İstanbul" /></div>
+              <div className="field"><label htmlFor="p-il">İl</label><select id="p-il" name="il" defaultValue="İstanbul">{TR_PROVINCES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
               <div className="field"><label htmlFor="p-tur">Tür belli değilse</label><select id="p-tur" name="tur" defaultValue=""><option value="">Addan anla</option>{Object.entries(KIND_LABEL).filter(([x]) => x !== "OTHER").map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
             </div>
             <div className="row"><SubmitButton className="btn primary" pendingText="Ekleniyor…">Listeyi ekle</SubmitButton></div>
@@ -147,14 +183,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           </div>
           <div className="card scroll">
             <table>
-              <thead><tr><th className="sel"><SelectAll formId="kurum-form" /></th><th>Kurum</th><th>Tür</th><th>İl / ilçe</th><th>Boyut</th><th>Kaynak</th><th>Durum</th></tr></thead>
+              <thead><tr><th className="sel"><SelectAll formId="kurum-form" /></th><th>Kurum</th><th>Tür</th><th>İl / ilçe</th><th>Web sitesi</th><th>Boyut</th><th>Kaynak</th><th>Durum</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.id}>
                     <td className="sel"><input type="checkbox" name="ids" value={r.id} aria-label={`${r.name} seç`} /></td>
-                    <td><b>{r.name}</b>{r.orgType && <div className="sub">{r.orgType}</div>}</td>
+                    <td><b>{r.linkedinUrl ? <a className="link" href={r.linkedinUrl} target="_blank" rel="noopener noreferrer">{r.name}</a> : r.name}</b>{r.orgType && <div className="sub">{r.orgType}</div>}{r.note && <div className="sub">{r.note}</div>}</td>
                     <td><span className="tag t-mute">{KIND_LABEL[r.kind] ?? r.kind}</span></td>
                     <td>{[r.city, r.district].filter(Boolean).join(" / ") || "—"}</td>
+                    <td>{r.website ? <a className="link" href={/^https?:/.test(r.website) ? r.website : `https://${r.website}`} target="_blank" rel="noopener noreferrer">{r.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}</a> : <span className="sub">—</span>}</td>
                     <td>{r.size ? SIZE_LABEL[r.size] : <span className="sub">—</span>}</td>
                     <td className="sub">{({ moh: "Sağlık Bakanlığı", linkedin: "LinkedIn", osm: "Harita", paste: "Yapıştırılan", seed: "Hazır liste" } as Record<string, string>)[r.source] ?? r.source}</td>
                     <td><span className={`tag ${r.status === "SELECTED" ? "t-good" : r.status === "EXCLUDED" ? "t-bad" : "t-mute"}`}>{STATUS_LABEL[r.status]}</span></td>

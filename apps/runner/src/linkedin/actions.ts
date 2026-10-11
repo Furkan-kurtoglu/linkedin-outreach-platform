@@ -6,9 +6,12 @@
  */
 import {
   canonicalProfileUrl,
+  parseAboutPairs,
   type ConnectionsData,
   type CompanyDiscoverData,
+  type CompanyDetail,
   type CompanyQueryPayload,
+  type EnrichCompaniesData,
   type DiscoverCandidate,
   type DiscoverData,
   type DiscoverStepPayload,
@@ -529,4 +532,46 @@ export async function discoverCompanies(page: Page, queries: CompanyQueryPayload
     report.push({ label: q.label, found });
   }
   return { companies, viewed, queries: report };
+}
+
+/**
+ * Şirket "Hakkında" sayfalarını gezer; web sitesi, sektör, büyüklük, merkez gibi ayrıntıları okur.
+ * Etiket-değer çiftleri sayfadaki tanım listesinden (dt/dd) alınır; etiketler Türkçe ve İngilizce eşlenir.
+ */
+export async function enrichCompanies(page: Page, companies: { id: string; url: string }[], deadlineMs = 6 * 60_000): Promise<EnrichCompaniesData> {
+  const t0 = Date.now();
+  const items: CompanyDetail[] = [];
+  for (const c of companies) {
+    if (Date.now() - t0 > deadlineMs) break;
+    await open(page, `${c.url.replace(/\/+$/, "")}/about/`);
+    await pause(1200, 2200);
+    const pairs = await page.locator("main dl").evaluateAll((dls) =>
+      dls.flatMap((dl) => {
+        const out: { label: string; value: string }[] = [];
+        let label = "";
+        for (const el of Array.from(dl.children)) {
+          if (el.tagName === "DT") label = (el as HTMLElement).innerText ?? "";
+          else if (el.tagName === "DD" && label) {
+            const a = el.querySelector("a[href^='http']") as HTMLAnchorElement | null;
+            const href = a?.href ?? "";
+            // Web sitesi LinkedIn yönlendirmesi üzerinden gelebilir; asıl adres "url" parametresindedir
+            let value = (el as HTMLElement).innerText ?? "";
+            if (/^(web ?sitesi|website)$/i.test(label.trim()) && href) {
+              try {
+                const u = new URL(href);
+                value = u.searchParams.get("url") ?? href;
+              } catch {
+                value = href;
+              }
+            }
+            out.push({ label, value });
+          }
+        }
+        return out;
+      }),
+    );
+    items.push(parseAboutPairs(c.id, pairs));
+    await pause(3500, 8000);
+  }
+  return { items };
 }

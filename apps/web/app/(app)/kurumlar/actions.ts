@@ -1,9 +1,10 @@
 "use server";
-import { companyQueryUrls, fold, institutionKey, matchesExcludedCompany, parseMohHtml, parseOverpass, parsePaste, type InstitutionDraft, type InstitutionKind, type JobPayload } from "@hfo/core";
+import { TR_PROVINCES, companyQueryUrls, expandByCity, fold, institutionKey, matchesExcludedCompany, parseMohHtml, parseOverpass, parsePaste, type InstitutionDraft, type InstitutionKind, type JobPayload } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
+import { enqueueEnrichment } from "@/lib/discover-queue";
 import { institutionWhere, type InstSearch } from "@/lib/institution-filter";
 import { SEED } from "@/lib/institution-seed";
 
@@ -158,12 +159,15 @@ export async function findCompaniesOnLinkedIn(form: FormData) {
   if (!keywords.length) redirect("/kurumlar?hata=anahtar");
   const kind = clean(form.get("tur"));
   const pages = Math.min(Math.max(Math.floor(+clean(form.get("sayfa"))) || 3, 1), 5);
+  // Şehir seçimi: "tum" tüm 81 il; boşsa şehir eklenmez (ülke geneli tek arama)
+  const picked = form.getAll("sehir").map(String);
+  const cities = picked.includes("tum") ? TR_PROVINCES : picked.filter((c) => TR_PROVINCES.includes(c));
   const account = await prisma.linkedinAccount.findFirst({ where: { workspaceId: ctx.workspace.id, status: { not: "DISCONNECTED" } }, orderBy: { createdAt: "asc" }, select: { id: true } });
   if (!account) redirect("/kurumlar?hata=hesap");
   const open = await prisma.job.count({ where: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", status: { in: ["PENDING", "RUNNING"] } } });
-  if (open >= 3) redirect("/kurumlar?hata=bekleyen");
-  // Çalışanın sekiz dakikalık iş sınırı için her iş en çok 6 aramayı kapsar
-  const all = keywords.slice(0, 18);
+  if (open >= 100) redirect("/kurumlar?hata=bekleyen");
+  // Anahtar kelime x il çarpılır; çalışanın sekiz dakikalık iş sınırı için her iş en çok 6 aramayı kapsar
+  const all = expandByCity(keywords.slice(0, cities.length > 20 ? 3 : 8), cities.length ? cities : []).slice(0, 600);
   let jobs = 0;
   for (let i = 0; i < all.length; i += 6) {
     const qs = companyQueryUrls(all.slice(i, i + 6), { maxPages: pages });
@@ -172,7 +176,15 @@ export async function findCompaniesOnLinkedIn(form: FormData) {
     await prisma.job.create({ data: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", priority: 35, runAfter: new Date(), payload: payload as unknown as Prisma.InputJsonValue } });
     jobs++;
   }
-  await audit(ctx, "institutions.linkedin_search", { keywords: all.length, jobs, pages });
+  await audit(ctx, "institutions.linkedin_search", { queries: all.length, jobs, pages, cities: cities.length });
   revalidatePath("/kurumlar");
   redirect(`/kurumlar?aranacak=${all.length}&is=${jobs}`);
+}
+
+/** LinkedIn'den bulunup ayrıntısı okunmamış şirketler için "Hakkında" okuma işlerini başlatır. */
+export async function enrichInstitutions() {
+  const ctx = await requireContext();
+  const n = await enqueueEnrichment(ctx.workspace.id, 150);
+  revalidatePath("/kurumlar");
+  redirect(`/kurumlar?ayrinti_is=${n}`);
 }

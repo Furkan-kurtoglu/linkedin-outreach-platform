@@ -99,6 +99,7 @@ enum JobType {
   CHECK_INBOX
   DISCOVER
   DISCOVER_COMPANIES // LinkedIn şirket aramasıyla kurum havuzunu doldurur
+  ENRICH_COMPANIES // Şirket sayfasından web sitesi, boyut ve merkez gibi ayrıntıları okur
 }
 
 enum JobStatus {
@@ -668,6 +669,8 @@ model Institution {
   /// NEW, SELECTED, EXCLUDED
   status      String   @default("NEW")
   note        String?
+  /// Şirket sayfasından ayrıntılar okunduğu an
+  enrichedAt  DateTime?
   createdAt   DateTime @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

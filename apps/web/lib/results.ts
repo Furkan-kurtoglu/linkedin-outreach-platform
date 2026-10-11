@@ -9,6 +9,8 @@ import {
   canonicalProfileUrl,
   chooseCampaign,
   companiesFromResult,
+  employeesFromText,
+  sizeFromEmployees,
   classifyReply,
   containsFolded,
   countExternalInvites,
@@ -24,6 +26,7 @@ import {
   splitHeadline,
   suppressesPermanently,
   type CompanyDiscoverData,
+  type EnrichCompaniesData,
   type ConnectionsData,
   type InstitutionKind,
   type DiscoverData,
@@ -38,7 +41,7 @@ import {
 } from "@hfo/core";
 import { prisma, Prisma, type Job, type LinkedinAccount } from "@hfo/db";
 import { toTargeting } from "./convert";
-import { enqueueDiscover } from "./discover-queue";
+import { enqueueDiscover, enqueueEnrichment } from "./discover-queue";
 import { pooledModel } from "./learning-model";
 import { planAccount } from "./planner";
 import { extendRetention } from "./retention";
@@ -204,6 +207,10 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
       break;
     }
 
+    case "ENRICH_COMPANIES":
+      await ingestEnrichment(account.workspaceId, (result.data ?? { items: [] }) as EnrichCompaniesData);
+      break;
+
     case "DISCOVER_COMPANIES":
       await ingestCompanies(account.workspaceId, (result.data ?? { companies: [], viewed: 0, queries: [] }) as CompanyDiscoverData, payload.kind, payload.agentId);
       break;
@@ -277,6 +284,7 @@ async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, k
     if (Object.keys(patch).length) await prisma.institution.update({ where: { id: e.id }, data: patch });
   }
   if (fresh.length) await prisma.institution.createMany({ data: fresh, skipDuplicates: true });
+  await enqueueEnrichment(workspaceId);
   // Temsilci için aranmışsa bulunan şirketler hedef listeye de girer (hariç tutma kuralları uygulanır)
   if (agentId && (await prisma.agent.count({ where: { id: agentId, workspaceId } }))) {
     const rules = (await prisma.suppression.findMany({ where: { workspaceId, kind: "company" }, select: { value: true } })).map((x) => x.value);
@@ -284,6 +292,24 @@ async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, k
     if (ok.length) await prisma.targetAccount.createMany({ data: ok.map((r) => ({ agentId, name: r.name, origin: "linkedin" })), skipDuplicates: true });
     // Yeni hedef şirketler bulununca kişi taraması beklemeden başlar
     if (ok.length) await enqueueDiscover(agentId);
+  }
+}
+
+/** Şirket sayfalarından okunan ayrıntıları kurum kaydına yazar; var olan dolu alanların üzerine yazmaz. */
+async function ingestEnrichment(workspaceId: string, data: EnrichCompaniesData) {
+  for (const d of data.items) {
+    const inst = await prisma.institution.findFirst({ where: { id: d.id, workspaceId }, select: { id: true, website: true, size: true, orgType: true, city: true, note: true } });
+    if (!inst) continue;
+    const patch: Prisma.InstitutionUpdateInput = { enrichedAt: new Date() };
+    if (d.website && !inst.website) patch.website = d.website.slice(0, 300);
+    const size = sizeFromEmployees(employeesFromText(d.sizeText));
+    if (size) patch.size = size;
+    if (d.industry && !inst.orgType) patch.orgType = d.industry;
+    const hqCity = d.hq?.split(",")[0]?.trim();
+    if (hqCity && !inst.city) patch.city = hqCity;
+    const note = [d.sizeText && `Çalışan: ${d.sizeText}`, d.founded && `Kuruluş: ${d.founded}`, d.specialties && `Uzmanlık: ${d.specialties}`].filter(Boolean).join(" · ");
+    if (note) patch.note = note.slice(0, 500);
+    await prisma.institution.update({ where: { id: inst.id }, data: patch });
   }
 }
 

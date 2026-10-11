@@ -13,12 +13,32 @@ export type JobType =
   | "CHECK_INBOX"
   | "SYNC_SENT_INVITES"
   | "DISCOVER"
-  | "DISCOVER_COMPANIES";
+  | "DISCOVER_COMPANIES"
+  | "ENRICH_COMPANIES";
 
 export interface CompanyQueryPayload {
   label: string;
   url: string;
   maxPages: number;
+}
+
+/** Şirket sayfasından okunan ayrıntılar (Hakkında bölümü) */
+export interface CompanyDetail {
+  /** Panelin kurum kaydı */
+  id: string;
+  website?: string;
+  industry?: string;
+  /** "51-200 çalışan" gibi ham metin */
+  sizeText?: string;
+  hq?: string;
+  founded?: string;
+  specialties?: string;
+  /** Sayfada ayrıntı bulunamadıysa */
+  empty?: boolean;
+}
+
+export interface EnrichCompaniesData {
+  items: CompanyDetail[];
 }
 
 export interface DiscoverStepPayload {
@@ -51,7 +71,8 @@ export type JobPayload =
   | { type: "CHECK_INBOX"; limit: number }
   | { type: "SYNC_SENT_INVITES" }
   | { type: "DISCOVER"; agentId: string; steps: DiscoverStepPayload[]; viewBudget: number }
-  | { type: "DISCOVER_COMPANIES"; queries: CompanyQueryPayload[]; /** Hangi türde kurum arandığı (panel kaydı için) */ kind?: string; /** Doluysa bulunan şirketler bu temsilcinin hedef listesine de eklenir */ agentId?: string };
+  | { type: "DISCOVER_COMPANIES"; queries: CompanyQueryPayload[]; /** Hangi türde kurum arandığı (panel kaydı için) */ kind?: string; /** Doluysa bulunan şirketler bu temsilcinin hedef listesine de eklenir */ agentId?: string }
+  | { type: "ENRICH_COMPANIES"; companies: { id: string; url: string }[] };
 
 export interface RunnerJob {
   id: string;
@@ -163,7 +184,7 @@ export type ErrorCode =
 export type JobResult =
   | {
       ok: true;
-      data?: VisitData | InviteData | ConnectionsData | InboxData | SentInvitesData | DiscoverData | CompanyDiscoverData | InmailData;
+      data?: VisitData | InviteData | ConnectionsData | InboxData | SentInvitesData | DiscoverData | CompanyDiscoverData | EnrichCompaniesData | InmailData;
     }
   | { ok: false; error: ErrorCode; message?: string };
 

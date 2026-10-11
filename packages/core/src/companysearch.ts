@@ -3,7 +3,7 @@
  * ayıklar. Ağ erişimi yoktur; yalnızca metin ayrıştırır, bu yüzden test edilebilir.
  */
 import { institutionKey, kindFromText, looksPublic, type InstitutionDraft, type InstitutionKind, type InstitutionSize } from "./institutions";
-import type { CompanyDiscoverData, FoundCompany } from "./protocol";
+import type { CompanyDetail, CompanyDiscoverData, FoundCompany } from "./protocol";
 import { fold } from "./text";
 
 /** Türkiye'nin LinkedIn konum kimliği (şirket merkezi süzgeci) */
@@ -110,7 +110,7 @@ export function companiesFromResult(data: CompanyDiscoverData, fallbackKind?: In
 }
 
 /** Aranacak anahtar kelimelerden LinkedIn şirket arama bağlantıları (en çok 6) */
-export function companyQueryUrls(keywords: string[], opts: { geoUrn?: string; maxPages?: number } = {}): { label: string; url: string; maxPages: number }[] {
+export function companyQueryUrls(keywords: string[], opts: { geoUrn?: string; maxPages?: number; limit?: number } = {}): { label: string; url: string; maxPages: number }[] {
   const seen = new Set<string>();
   const out: { label: string; url: string; maxPages: number }[] = [];
   for (const k of keywords) {
@@ -120,5 +120,47 @@ export function companyQueryUrls(keywords: string[], opts: { geoUrn?: string; ma
     const p = new URLSearchParams({ keywords: kw, companyHqGeo: `["${opts.geoUrn ?? TURKEY_GEO_URN}"]`, origin: "FACETED_SEARCH" });
     out.push({ label: kw, url: `https://www.linkedin.com/search/results/companies/?${p.toString()}`, maxPages: Math.min(Math.max(opts.maxPages ?? 3, 1), 5) });
   }
-  return out.slice(0, 6);
+  return out.slice(0, opts.limit ?? 6);
+}
+
+/** Anahtar kelimeleri illerle çarpar: "özel klinik" x ["Ankara","İzmir"] -> "özel klinik Ankara", "özel klinik İzmir". */
+export function expandByCity(keywords: string[], cities: string[]): string[] {
+  const kws = keywords.map((k) => k.trim()).filter(Boolean);
+  if (!cities.length) return kws;
+  return kws.flatMap((k) => cities.map((c) => `${k} ${c}`));
+}
+
+const ABOUT_LABELS: [keyof Omit<CompanyDetail, "id" | "empty">, RegExp][] = [
+  ["website", /^(web ?sitesi|website)$/i],
+  ["industry", /^(sektör|industry)$/i],
+  ["sizeText", /^(şirket büyüklüğü|company size)$/i],
+  ["hq", /^(genel merkez|headquarters|merkez)$/i],
+  ["founded", /^(kuruluş|founded|kuruluş yılı)$/i],
+  ["specialties", /^(uzmanlık alanları|specialties|uzmanlıklar)$/i],
+];
+
+/** Hakkında sayfasındaki "etiket - değer" çiftlerinden ayrıntı çıkarır. */
+export function parseAboutPairs(id: string, pairs: { label: string; value: string }[]): CompanyDetail {
+  const out: CompanyDetail = { id };
+  for (const { label, value } of pairs) {
+    const l = label.replace(/\s+/g, " ").trim();
+    const v = value.replace(/\s+/g, " ").trim();
+    if (!v) continue;
+    const hit = ABOUT_LABELS.find(([, re]) => re.test(l));
+    if (hit) out[hit[0]] = hit[0] === "website" ? v.replace(/[)\].,;]+$/, "") : v.slice(0, 300);
+  }
+  if (!out.website && !out.industry && !out.sizeText && !out.hq && !out.founded && !out.specialties) out.empty = true;
+  return out;
+}
+
+/** "11-50 çalışan" / "201-500 employees" / "10.001+ çalışan" -> orta nokta (yaklaşık) */
+export function employeesFromText(t: string | undefined): number | undefined {
+  if (!t) return undefined;
+  const r = t.match(/(\d[\d.,]*)\s*[-–]\s*(\d[\d.,]*)/);
+  const clean = (x: string) => Number(x.replace(/[.,]/g, ""));
+  if (r) return Math.round((clean(r[1]!) + clean(r[2]!)) / 2);
+  const p = t.match(/(\d[\d.,]*)\s*\+/);
+  if (p) return clean(p[1]!);
+  const one = t.match(/(\d[\d.,]*)/);
+  return one ? clean(one[1]!) : undefined;
 }
