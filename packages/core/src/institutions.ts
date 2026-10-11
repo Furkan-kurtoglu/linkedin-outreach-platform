@@ -20,10 +20,19 @@ export interface InstitutionDraft {
 }
 
 const trLower = (s: string) => s.toLocaleLowerCase("tr-TR");
+
+/** Türkçe kuralla küçültünce bozulan yabancı marka sözcükleri (MEMORIAL -> memorıal olmasın) */
+const FOREIGN = new Set(["memorial", "hospital", "liv", "medicana", "medical", "medipol", "international", "british", "intercontinental", "medistate", "florence", "nightingale", "avicenna", "group", "health", "healthcare", "clinic", "center", "centre", "park", "vm", "mlp", "care", "city", "american", "german", "estethica", "mega", "plus", "dental", "doctors", "metropol", "emsey", "kolan", "ethica", "hisar", "tema"]);
+
+const capWord = (w: string) => w.charAt(0).toLocaleUpperCase("tr-TR") + w.slice(1);
 const trTitle = (s: string) =>
-  trLower(s)
+  s
     .split(/(\s+|-|\/|\()/)
-    .map((w) => (/^[\p{L}]/u.test(w) ? w.charAt(0).toLocaleUpperCase("tr-TR") + w.slice(1) : w))
+    .map((w) => {
+      if (!/^[\p{L}]/u.test(w)) return w;
+      const plain = w.toLocaleLowerCase("en-US");
+      return FOREIGN.has(plain) ? capWord(plain) : capWord(trLower(w));
+    })
     .join("");
 
 /** "ÖZEL ACIBADEM ADANA HASTANESİ" -> "Acıbadem Adana Hastanesi" */
