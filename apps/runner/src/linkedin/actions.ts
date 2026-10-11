@@ -452,7 +452,7 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
       await open(page, url);
       await page.mouse.wheel(0, 1500).catch(() => undefined);
       await pause(1200, 2200);
-      const rows = await page.locator("main li").evaluateAll((lis) =>
+      const rows = await retryNav(page, () => page.locator("main li").evaluateAll((lis) =>
         lis
           .map((li) => {
             const a = li.querySelector("a[href*='/in/']") as HTMLAnchorElement | null;
@@ -461,8 +461,8 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
             return { href: a.href, name: (nameEl?.innerText ?? a.innerText ?? "").split("\n")[0]!.trim(), text: (li as HTMLElement).innerText };
           })
           .filter((x): x is { href: string; name: string; text: string } => !!x && !!x.name),
-      );
-      if (!rows.length) break;
+      )).catch(() => null);
+      if (!rows?.length) break;
       viewed += rows.length;
       stepViewed += rows.length;
       for (const r of rows) {
@@ -490,6 +490,20 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
     report.push({ label: step.label, viewed: stepViewed, found: stepFound });
   }
   return { candidates, viewed, steps: report };
+}
+
+/** LinkedIn sayfası okunurken yeniden yönlendirirse ("Execution context was destroyed") sayfa oturunca bir kez daha dener. */
+async function retryNav<T>(page: Page, fn: () => Promise<T>, tries = 3): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (i >= tries || !/execution context|navigat|target closed/i.test(msg)) throw e;
+      await page.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => undefined);
+      await pause(1500, 2500);
+    }
+  }
 }
 
 /**
@@ -545,7 +559,7 @@ export async function enrichCompanies(page: Page, companies: { id: string; url: 
     if (Date.now() - t0 > deadlineMs) break;
     await open(page, `${c.url.replace(/\/+$/, "")}/about/`);
     await pause(1200, 2200);
-    const pairs = await page.locator("main dl").evaluateAll((dls) =>
+    const pairs = await retryNav(page, () => page.locator("main dl").evaluateAll((dls) =>
       dls.flatMap((dl) => {
         const out: { label: string; value: string }[] = [];
         let label = "";
@@ -569,7 +583,7 @@ export async function enrichCompanies(page: Page, companies: { id: string; url: 
         }
         return out;
       }),
-    );
+    )).catch(() => [] as { label: string; value: string }[]);
     items.push(parseAboutPairs(c.id, pairs));
     await pause(3500, 8000);
   }
