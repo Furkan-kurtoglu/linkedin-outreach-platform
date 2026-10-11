@@ -40,3 +40,8 @@ Sıralama: önce kullanıcıya en çok değer katan, sonra kalan.
 
 Bilerek yapılmayanlar: içerik/gönderi üretimi, ücretli entegrasyonlar.
 Tasarım ilkesi: ProspectHalo'nun bilgi mimarisinden ilham, görünüm bizim mevcut tasarım dilimizde (kopya değil).
+
+## Durum (11 Ekim 2026)
+Tamamlandı ve yayında: çoklu şirket + en fazla 5 aktif temsilci · kampanya ayarları alt menüsü (Genel, Gönderim, Hedefleme, Özerklik, Seçenekler, Öğrenme, Entegrasyon, Tehlikeli alan) · kampanyaya özel gönderim penceresi (planlayıcıya bağlı) · tercihli ölçüt, iş arayanı atlama, kararsız aday politikası (keşif sonuç işleyicisine bağlı) · "yalnızca bul" modu · webhook (imzalı, deneme gönderimi) · hesap sayaçları ve eski davet temizleme anahtarı · genel bakış grafiği · analitik sayfası · gelen kutusu süzgeçleri · kişi arama/sıralama · akış şeması.
+
+Yapılmadı (bilerek): içerik üretimi; e-posta bildirimi (ücretsiz gönderici yok; webhook ile Zapier/Make üzerinden e-postaya bağlanabilir); niyet sinyalleri (iş ilanı, rakip, uzman izleme) — LinkedIn'den güvenilir okunamadığı için; Sales Navigator'a bağlı filtreler (kıdem, işlev, şirket büyüklüğü).
