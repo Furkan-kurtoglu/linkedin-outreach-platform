@@ -26,6 +26,20 @@ export async function loadConfig(): Promise<Config> {
   const envPanel = (process.env.HFO_PANEL ?? "").trim().replace(/\/+$/, "");
   const envToken = (process.env.HFO_TOKEN ?? "").trim();
   if (/^https?:\/\/\S+$/.test(envPanel) && /^hfo_[A-Za-z0-9_-]{20,}$/.test(envToken)) return { panelUrl: envPanel, token: envToken };
+  // Anahtar dosyası: konsola yapıştırmak zorsa, anahtarı "anahtar.txt" adlı bir dosyaya yazıp program klasörüne koyun.
+  // Okunduktan sonra dosya silinir ve anahtar yalnızca kullanıcı klasöründeki ayarlara kaydedilir.
+  const keyFile = [join(process.cwd(), "anahtar.txt"), join(HOME, "anahtar.txt")];
+  for (const f of keyFile) {
+    const t = (await readFile(f, "utf8").catch(() => "")).trim().match(/hfo_[A-Za-z0-9_-]{20,}/)?.[0];
+    const panel = (process.env.HFO_DEFAULT_PANEL ?? "").replace(/\/+$/, "");
+    if (t && /^https?:\/\/\S+$/.test(panel)) {
+      const c = { panelUrl: panel, token: t };
+      await writeFile(CONFIG_FILE, JSON.stringify(c, null, 2), { mode: 0o600 });
+      await rm(f, { force: true });
+      console.log("Anahtar anahtar.txt dosyasından okundu ve dosya silindi.");
+      return c;
+    }
+  }
   try {
     const c = JSON.parse(await readFile(CONFIG_FILE, "utf8")) as Partial<Config>;
     if (c.panelUrl && c.token) return { panelUrl: c.panelUrl, token: c.token };
@@ -39,7 +53,7 @@ export async function loadConfig(): Promise<Config> {
   if (panelUrl) console.log(`Panel: ${panelUrl}`);
   while (!/^https?:\/\/\S+$/.test(panelUrl)) panelUrl = (await rl.question("Panel adresi (ör. https://outreach-ornek.vercel.app): ")).trim().replace(/\/+$/, "");
   let token = "";
-  while (!/^hfo_[A-Za-z0-9_-]{20,}$/.test(token)) token = (await rl.question("Bağlantı anahtarını yapıştırın (sağ tık ya da Ctrl+V, sonra Enter): ")).trim();
+  while (!/^hfo_[A-Za-z0-9_-]{20,}$/.test(token)) token = (await rl.question("Bağlantı anahtarını yapıştırın (pencerede SAĞ TIKLAYIN; yazı görünmez, Enter'a basın): ")).trim();
   rl.close();
   const c = { panelUrl, token };
   await writeFile(CONFIG_FILE, JSON.stringify(c, null, 2), { mode: 0o600 });
