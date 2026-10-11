@@ -41,7 +41,12 @@ jobs:
       - name: Çekirdek tip kontrolü
         run: pnpm --filter @hfo/core typecheck
       - name: Panel tip kontrolü
-        run: pnpm --filter @hfo/web typecheck
+        run: |
+          set -o pipefail
+          pnpm --filter @hfo/web exec tsc --noEmit --pretty false | tee /tmp/tsc.txt || {
+            sed -E 's/^(.*)\(([0-9]+),([0-9]+)\): error (TS[0-9]+): (.*)$/::error file=apps\/web\/\1,line=\2,col=\3::\4 \5/' /tmp/tsc.txt
+            exit 1
+          }
       - name: Panel derleme
         run: pnpm --filter @hfo/web build
         env:
