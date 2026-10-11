@@ -15,7 +15,7 @@ export default async function Page() {
     <>
       <h1>Fırsatlar</h1>
       <p className="lede">Cevap veren ve görüşmeye ilerleyen kişiler. Aşamayı ve sıradaki adımı kişi kartından güncelleyin.</p>
-      <div className="board" style={{ gridTemplateColumns: "repeat(5, minmax(220px, 1fr))" }}>
+      <div className="board board5">
         {OPP_STAGES.map(([k, l]) => {
           const list = opps.filter((o) => o.stage === k);
           return (

@@ -85,7 +85,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <div className="stack" style={{ gap: 16 }}>
           <div className="card">
             <div className="card-h"><h2>Etkinlik · son {days} gün</h2></div>
-            <div className="card-b row" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}>
+            <div className="card-b chart-row">
               <div style={{ flex: 1, minWidth: 0 }}>
                 <LineChart labels={data.found.labels} series={SERIES.map(([k, , color]) => ({ key: k, color, counts: data[k].counts }))} />
               </div>

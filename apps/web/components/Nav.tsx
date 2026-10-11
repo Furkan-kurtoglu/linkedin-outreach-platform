@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const ITEMS: ({ href: string; label: string; badge?: "queue" | "inbox" } | { group: string })[] = [
   { href: "/", label: "Genel bakış" },
@@ -20,10 +21,34 @@ const ITEMS: ({ href: string; label: string; badge?: "queue" | "inbox" } | { gro
 
 export function Nav({ counts, runner, userName }: { counts: { queue: number; inbox: number }; runner: { ok: boolean; text: string }; userName: string }) {
   const path = usePathname();
+  const [open, setOpen] = useState(false);
+  // Sayfa değişince çekmece kapanır; açıkken Esc kapatır ve arka plan kaymaz
+  useEffect(() => setOpen(false), [path]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("keydown", onKey);
+    document.body.classList.add("lock");
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.classList.remove("lock");
+    };
+  }, [open]);
   const active = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`) || (href === "/kampanyalar" && path.startsWith("/kisiler/")));
   return (
-    <nav className="side" aria-label="Ana menü">
-      <div className="logo">
+    <>
+    <header className="topbar">
+      <div className="logo"><i>H</i>HeAlthFintel</div>
+      <button type="button" className="menu-btn" aria-expanded={open} aria-controls="ana-menu" onClick={() => setOpen((v) => !v)}>
+        <span className="sr">{open ? "Menüyü kapat" : "Menüyü aç"}</span>
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          {open ? <path d="M4 4l12 12M16 4L4 16" /> : <path d="M3 5h14M3 10h14M3 15h14" />}
+        </svg>
+      </button>
+    </header>
+    <div className="scrim" data-open={open} onClick={() => setOpen(false)} aria-hidden="true" />
+    <nav className="side" id="ana-menu" data-open={open} aria-label="Ana menü">
+      <div className="logo desk">
         <i>H</i>HeAlthFintel
       </div>
       {ITEMS.map((it) =>
@@ -51,5 +76,6 @@ export function Nav({ counts, runner, userName }: { counts: { queue: number; inb
         </form>
       </div>
     </nav>
+    </>
   );
 }

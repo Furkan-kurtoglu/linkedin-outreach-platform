@@ -69,7 +69,7 @@ export async function LearningSection({ campaign: c }: TabProps) {
 
   return (
     <div className="stack" style={{ gap: 16 }}>
-      <div className="stat5" style={{ gridTemplateColumns: "repeat(3,minmax(0,1fr))" }}>
+      <div className="stat5 stat3">
         <div className="stat"><div className="sub">Olumlu sonuç</div><div className="v">{interested.length}</div><div className="sub">İlgilendiğini yazan kişi</div></div>
         <div className="stat"><div className="sub">Akışa alınan</div><div className="v">{promoted}</div><div className="sub">Uygun bulunan aday</div></div>
         <div className="stat"><div className="sub">Elenen</div><div className="v">{rejected.length}</div><div className="sub">Kurallara uymayan aday</div></div>

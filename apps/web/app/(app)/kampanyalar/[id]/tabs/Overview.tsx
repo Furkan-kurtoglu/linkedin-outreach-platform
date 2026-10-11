@@ -47,10 +47,10 @@ export async function OverviewTab({ campaign: c }: TabProps) {
         <div className="stat"><div className="sub">Cevap</div><div className="v">{replied}</div><div className="sub">{pct(replied, contacted)} cevap oranı</div></div>
         <div className="stat"><div className="sub">İlgilenen</div><div className="v">{interested}</div><div className="sub">olumlu cevap</div></div>
       </div>
-      <div className="grid g2" style={{ gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr)" }}>
+      <div className="grid g-wide">
         <div className="card">
           <div className="card-h"><h2>Etkinlik · son 30 gün</h2></div>
-          <div className="card-b row" style={{ alignItems: "flex-start", flexWrap: "nowrap" }}>
+          <div className="card-b chart-row">
             <div style={{ flex: 1, minWidth: 0 }}>
               <LineChart labels={labels} series={SERIES.map(([k, , color]) => ({ key: k, color, counts: data[k].counts }))} />
             </div>
