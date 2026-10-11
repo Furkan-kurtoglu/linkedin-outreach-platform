@@ -1,5 +1,5 @@
 "use server";
-import { GeminiProvider, assist, companyQueryUrls, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
+import { GeminiProvider, assist, companyQueryUrls, parseKinds, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -128,6 +128,7 @@ export async function saveTargeting(form: FormData) {
     excludedCompanyKeywords: lines(form.get("excludedCompanyKeywords")),
     geoUrns: lines(form.get("geoUrns")).filter((x) => /^\d+$/.test(x)),
     engagementPostUrls: lines(form.get("engagementPostUrls")).filter((x) => /^https:\/\/www\.linkedin\.com\//.test(x)),
+    institutionKinds: parseKinds(form.getAll("institutionKinds").map(String)),
   };
   if (!t.titles.length) settingsBack(agent.id, "hedefleme", "&uyari=unvan");
   const policy = String(form.get("uncertainPolicy"));

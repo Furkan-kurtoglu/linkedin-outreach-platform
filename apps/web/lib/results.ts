@@ -40,7 +40,7 @@ import {
   type VisitData,
 } from "@hfo/core";
 import { prisma, Prisma, type Job, type LinkedinAccount } from "@hfo/db";
-import { toTargeting } from "./convert";
+import { readTargeting, toTargeting } from "./convert";
 import { enqueueDiscover, enqueueEnrichment } from "./discover-queue";
 import { applyCompanyExclusions } from "./institution-exclusions";
 import { pooledModel } from "./learning-model";
@@ -288,9 +288,11 @@ async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, k
   await applyCompanyExclusions(workspaceId);
   await enqueueEnrichment(workspaceId);
   // Temsilci için aranmışsa bulunan şirketler hedef listeye de girer (hariç tutma kuralları uygulanır)
-  if (agentId && (await prisma.agent.count({ where: { id: agentId, workspaceId } }))) {
+  const agent = agentId ? await prisma.agent.findFirst({ where: { id: agentId, workspaceId }, select: { targeting: true } }) : null;
+  if (agentId && agent) {
     const rules = (await prisma.suppression.findMany({ where: { workspaceId, kind: "company" }, select: { value: true } })).map((x) => x.value);
-    const ok = rows.filter((r) => !rules.some((rule) => matchesExcludedCompany(r.name, rule)));
+    const kinds = readTargeting(agent.targeting).institutionKinds as string[];
+    const ok = rows.filter((r) => (!kinds.length || kinds.includes(r.kind)) && !rules.some((rule) => matchesExcludedCompany(r.name, rule)));
     if (ok.length) await prisma.targetAccount.createMany({ data: ok.map((r) => ({ agentId, name: r.name, origin: "linkedin" })), skipDuplicates: true });
     // Yeni hedef şirketler bulununca kişi taraması beklemeden başlar
     if (ok.length) await enqueueDiscover(agentId);

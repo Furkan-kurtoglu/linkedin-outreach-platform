@@ -1,12 +1,13 @@
 "use server";
-import { TR_PROVINCES, companyQueryUrls, expandByCity, fold, institutionKey, matchesExcludedCompany, parseMohHtml, parseOverpass, parsePaste, type InstitutionDraft, type InstitutionKind, type JobPayload } from "@hfo/core";
+import { KIND_SEARCH, TR_PROVINCES, companyQueryUrls, expandByCity, fold, institutionKey, matchesExcludedCompany, parseMohHtml, parseOverpass, parsePaste, type InstitutionDraft, type InstitutionKind, type JobPayload } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
 import { enqueueEnrichment } from "@/lib/discover-queue";
 import { applyCompanyExclusions } from "@/lib/institution-exclusions";
-import { institutionWhere, type InstSearch } from "@/lib/institution-filter";
+import { KIND_LABEL, institutionWhere, type InstSearch } from "@/lib/institution-filter";
+import { readTargeting } from "@/lib/convert";
 import { SEED } from "@/lib/institution-seed";
 
 const MOH_URL = "https://shgmozelhasdb.saglik.gov.tr/TR-53567/ozel-hastane-listesi-faal.html";
@@ -128,16 +129,22 @@ export async function bulkInstitutions(form: FormData) {
   const where = scopeAll ? institutionWhere(ws, sp) : { workspaceId: ws, id: { in: ids } };
 
   if (op === "kampanya") {
-    const agent = await prisma.agent.findFirst({ where: { id: clean(form.get("agentId")), workspaceId: ws }, select: { id: true } });
+    const agent = await prisma.agent.findFirst({ where: { id: clean(form.get("agentId")), workspaceId: ws }, select: { id: true, targeting: true } });
     if (!agent) redirect(back("uyari=kampanya"));
-    const rows = await prisma.institution.findMany({ where: { AND: [where, { status: { not: "EXCLUDED" } }] }, select: { id: true, name: true }, take: 3000 });
+    const rows = await prisma.institution.findMany({ where: { AND: [where, { status: { not: "EXCLUDED" } }] }, select: { id: true, name: true, kind: true }, take: 3000 });
+    const allowed = readTargeting(agent.targeting).institutionKinds as string[];
+    const kindsInSel = [...new Set(rows.map((r) => r.kind))];
+    // Tür güvenliği: kampanyanın hedef türleri varsa yalnızca onlar; yoksa karışık tür eklenemez
+    if (!allowed.length && kindsInSel.length > 1) redirect(back(`uyari=karisik&turler=${encodeURIComponent(kindsInSel.map((k) => KIND_LABEL[k] ?? k).join(", "))}`));
+    const matching = allowed.length ? rows.filter((r) => allowed.includes(r.kind)) : rows;
+    const wrongKind = rows.length - matching.length;
     const rules = (await prisma.suppression.findMany({ where: { workspaceId: ws, kind: "company" }, select: { value: true } })).map((s) => s.value);
-    const ok = rows.filter((r) => !rules.some((rule) => matchesExcludedCompany(r.name, rule)));
+    const ok = matching.filter((r) => !rules.some((rule) => matchesExcludedCompany(r.name, rule)));
     const created = await prisma.targetAccount.createMany({ data: ok.map((r) => ({ agentId: agent.id, name: r.name, origin: "kurum" })), skipDuplicates: true });
     await prisma.institution.updateMany({ where: { id: { in: ok.map((r) => r.id) } }, data: { status: "SELECTED" } });
-    await audit(ctx, "institutions.to_campaign", { agentId: agent.id, added: created.count, skipped: rows.length - ok.length });
+    await audit(ctx, "institutions.to_campaign", { agentId: agent.id, added: created.count, skipped: matching.length - ok.length, wrongKind });
     revalidatePath("/kurumlar");
-    redirect(back(`kampanya=${created.count}&atlanan=${rows.length - ok.length}`));
+    redirect(back(`kampanya=${created.count}&atlanan=${matching.length - ok.length}&tur_uyumsuz=${wrongKind}`));
   }
   if (op === "haric" || op === "yeni") {
     const r = await prisma.institution.updateMany({ where, data: { status: op === "haric" ? "EXCLUDED" : "NEW" } });
@@ -158,9 +165,10 @@ export async function bulkInstitutions(form: FormData) {
  */
 export async function findCompaniesOnLinkedIn(form: FormData) {
   const ctx = await requireContext();
-  const keywords = clean(form.get("anahtar")).split(/\r?\n|;/).map((x) => x.trim()).filter(Boolean);
-  if (!keywords.length) redirect("/kurumlar?hata=anahtar");
-  const kind = clean(form.get("tur"));
+  const custom = clean(form.get("anahtar")).split(/\r?\n|;/).map((x) => x.trim()).filter(Boolean);
+  const kinds = form.getAll("turler").map(String).filter((k): k is InstitutionKind => !!KIND_SEARCH[k as InstitutionKind]);
+  if (!custom.length && !kinds.length) redirect("/kurumlar?hata=anahtar");
+  const fallback = clean(form.get("tur"));
   const pages = Math.min(Math.max(Math.floor(+clean(form.get("sayfa"))) || 3, 1), 5);
   // Seçilen iller (onay kutuları); hiç seçilmezse şehir eklenmez (Türkiye geneli tek arama)
   const picked = new Set(form.getAll("sehir").map(String));
@@ -169,19 +177,30 @@ export async function findCompaniesOnLinkedIn(form: FormData) {
   if (!account) redirect("/kurumlar?hata=hesap");
   const open = await prisma.job.count({ where: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", status: { in: ["PENDING", "RUNNING"] } } });
   if (open >= 100) redirect("/kurumlar?hata=bekleyen");
-  // Anahtar kelime x il çarpılır; çalışanın sekiz dakikalık iş sınırı için her iş en çok 6 aramayı kapsar
-  const all = expandByCity(keywords.slice(0, cities.length > 20 ? 3 : 8), cities.length ? cities : []).slice(0, 600);
+  // Her tür kendi sözcükleriyle ve kendi türüyle aranır; kullanıcının yazdığı sözcükler ayrı bir grup olur.
+  // Anahtar kelime x il çarpılır; çalışanın sekiz dakikalık iş sınırı için her iş en çok 6 aramayı kapsar.
+  const groups: { kind?: string; keywords: string[]; byCity: boolean }[] = [
+    ...kinds.map((k) => ({ kind: k, keywords: KIND_SEARCH[k]!.keywords, byCity: KIND_SEARCH[k]!.byCity })),
+    ...(custom.length ? [{ kind: fallback || undefined, keywords: custom, byCity: true }] : []),
+  ];
+  const cap = Math.max(30, Math.floor(600 / groups.length));
+  let queries = 0;
   let jobs = 0;
-  for (let i = 0; i < all.length; i += 6) {
-    const qs = companyQueryUrls(all.slice(i, i + 6), { maxPages: pages });
-    if (!qs.length) continue;
-    const payload: JobPayload = { type: "DISCOVER_COMPANIES", queries: qs, kind: kind || undefined };
-    await prisma.job.create({ data: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", priority: 35, runAfter: new Date(), payload: payload as unknown as Prisma.InputJsonValue } });
-    jobs++;
+  for (const g of groups) {
+    const kws = g.byCity ? g.keywords.slice(0, cities.length > 20 ? 3 : 8) : g.keywords;
+    const all = (g.byCity ? expandByCity(kws, cities) : kws).slice(0, cap);
+    for (let i = 0; i < all.length; i += 6) {
+      const qs = companyQueryUrls(all.slice(i, i + 6), { maxPages: g.byCity ? pages : 5 });
+      if (!qs.length) continue;
+      const payload: JobPayload = { type: "DISCOVER_COMPANIES", queries: qs, kind: g.kind };
+      await prisma.job.create({ data: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", priority: 35, runAfter: new Date(), payload: payload as unknown as Prisma.InputJsonValue } });
+      jobs++;
+    }
+    queries += all.length;
   }
-  await audit(ctx, "institutions.linkedin_search", { queries: all.length, jobs, pages, cities: cities.length });
+  await audit(ctx, "institutions.linkedin_search", { queries, jobs, pages, cities: cities.length, kinds });
   revalidatePath("/kurumlar");
-  redirect(`/kurumlar?aranacak=${all.length}&is=${jobs}`);
+  redirect(`/kurumlar?aranacak=${queries}&is=${jobs}`);
 }
 
 /** LinkedIn'den bulunup ayrıntısı okunmamış şirketler için "Hakkında" okuma işlerini başlatır. */

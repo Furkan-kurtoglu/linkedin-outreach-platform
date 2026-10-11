@@ -4,7 +4,9 @@
  */
 import {
   DEFAULT_SCHEDULE,
+  parseKinds,
   type DaySchedule,
+  type InstitutionKind,
   type PersonalizationOptions,
   type ScheduleConfig,
   type Sequence,
@@ -27,6 +29,8 @@ export interface TargetingJson {
   geoUrns: string[];
   industryIds: string[];
   engagementPostUrls: string[];
+  /** Kampanyanın hedef kurum türleri (boşsa sınır yok); kurum havuzundan yalnızca bunlar eklenir */
+  institutionKinds: InstitutionKind[];
 }
 
 export const EMPTY_TARGETING: TargetingJson = {
@@ -39,6 +43,7 @@ export const EMPTY_TARGETING: TargetingJson = {
   geoUrns: [],
   industryIds: [],
   engagementPostUrls: [],
+  institutionKinds: [],
 };
 
 const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
@@ -55,6 +60,7 @@ export function readTargeting(json: unknown): TargetingJson {
     geoUrns: strArr(o.geoUrns),
     industryIds: strArr(o.industryIds),
     engagementPostUrls: strArr(o.engagementPostUrls),
+    institutionKinds: parseKinds(o.institutionKinds),
   };
 }
 

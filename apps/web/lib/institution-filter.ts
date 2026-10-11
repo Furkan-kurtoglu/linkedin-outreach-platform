@@ -18,7 +18,8 @@ export const STATUS_LABEL: Record<string, string> = { NEW: "Yeni", SELECTED: "Se
 export function institutionWhere(workspaceId: string, sp: InstSearch): Prisma.InstitutionWhereInput {
   const w: Prisma.InstitutionWhereInput = { workspaceId };
   if (sp.q) w.name = { contains: sp.q, mode: "insensitive" };
-  if (sp.tur && KIND_LABEL[sp.tur]) w.kind = sp.tur;
+  const kinds = (sp.tur ?? "").split(",").filter((k) => KIND_LABEL[k]);
+  if (kinds.length) w.kind = { in: kinds };
   if (sp.ilce) w.district = { contains: sp.ilce, mode: "insensitive" };
   if (sp.il) w.city = { equals: sp.il, mode: "insensitive" };
   if (sp.durum && STATUS_LABEL[sp.durum]) w.status = sp.durum;

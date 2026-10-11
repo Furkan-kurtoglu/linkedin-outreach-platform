@@ -1,3 +1,4 @@
+import { KIND_SEARCH } from "@hfo/core";
 import { SubmitButton } from "@/components/SubmitButton";
 import { readTargeting, segmentKeywords } from "@/lib/convert";
 import { addSegment, addTargetAccounts, removeSegment, removeTargetAccount, saveTargeting } from "../actions";
@@ -23,6 +24,16 @@ export function TargetingTab({ campaign: c, sp }: TabProps) {
           <TA name="excludedTitles" label="Hariç unvanlar" value={t.excludedTitles} />
           <TA name="locations" label="Konum" value={t.locations} rows={2} help="Bulunan kişiler bu konumlara göre puanlanır." />
           <TA name="industries" label="Sektör" value={t.industries} rows={2} />
+          <div className="field">
+            <span className="lbl">Hedef kurum türleri</span>
+            <div className="row" style={{ gap: 14, flexWrap: "wrap" }}>
+              {Object.entries(KIND_SEARCH).map(([k, v]) => (
+                <label key={k} className="row" style={{ gap: 6 }}><input type="checkbox" name="institutionKinds" value={k} defaultChecked={t.institutionKinds.includes(k as never)} /> {v!.label}</label>
+              ))}
+              <label className="row" style={{ gap: 6 }}><input type="checkbox" name="institutionKinds" value="OTHER" defaultChecked={t.institutionKinds.includes("OTHER")} /> Diğer</label>
+            </div>
+            <span className="help">Kurum Ar-Ge'den kampanyaya yalnızca bu türdeki kurumlar eklenir; başka türler atlanır ve sayısı gösterilir. Hiçbiri seçilmezse tür sınırı olmaz, bu durumda tek türden oluşmayan karışık listeler eklenemez.</span>
+          </div>
           <TA name="requiredCompanyKeywords" label="Kurum adında ya da açıklamasında geçmeli" value={t.requiredCompanyKeywords} help="En az biri geçmeli; boşsa aranmaz." />
           <TA name="excludedCompanyKeywords" label="Kurum adında geçerse elensin" value={t.excludedCompanyKeywords} help="Kamu hastaneleri ve aracı kurumlar zaten otomatik ayıklanır." />
           <div className="field">

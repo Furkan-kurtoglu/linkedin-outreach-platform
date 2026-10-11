@@ -1,8 +1,9 @@
-import { TR_PROVINCES, fold } from "@hfo/core";
+import { KIND_SEARCH, TR_PROVINCES, fold } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
+import { readTargeting } from "@/lib/convert";
 import { requireContext } from "@/lib/context";
 import { applyCompanyExclusions } from "@/lib/institution-exclusions";
 import { KIND_LABEL, SIZE_LABEL, STATUS_LABEL, institutionWhere, type InstSearch } from "@/lib/institution-filter";
@@ -28,7 +29,9 @@ const ERR: Record<string, string> = {
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const ctx = await requireContext();
   const sp = await searchParams;
-  const f: InstSearch = { q: sp.q, tur: sp.tur, ilce: sp.ilce, durum: sp.durum, kaynak: sp.kaynak, il: sp.il, boyut: sp.boyut, sektor: sp.sektor };
+  // Tür süzgeci birden çok olabilir (?tur=A&tur=B ya da A,B)
+  const tur = ([] as string[]).concat((sp.tur as unknown as string | string[] | undefined) ?? []).flatMap((x) => x.split(",")).filter((k) => KIND_LABEL[k]).join(",");
+  const f: InstSearch = { q: sp.q, tur: tur || undefined, ilce: sp.ilce, durum: sp.durum, kaynak: sp.kaynak, il: sp.il, boyut: sp.boyut, sektor: sp.sektor };
   const where = institutionWhere(ctx.workspace.id, f);
   const page = Math.max(1, Math.floor(+(sp.sayfa ?? 1)) || 1);
   const ws = ctx.workspace.id;
@@ -40,7 +43,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
     prisma.institution.findMany({ where, orderBy: [{ city: "asc" }, { district: "asc" }, { name: "asc" }], skip: (page - 1) * PAGE, take: PAGE }),
     prisma.institution.groupBy({ by: ["kind"], where: { workspaceId: ws }, _count: true }),
     prisma.institution.groupBy({ by: ["status"], where: { workspaceId: ws }, _count: true }),
-    prisma.agent.findMany({ where: { workspaceId: ws }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } }),
+    prisma.agent.findMany({ where: { workspaceId: ws }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, targeting: true } }),
     prisma.institution.findMany({ where: { workspaceId: ws, city: { not: null } }, distinct: ["city"], select: { city: true }, orderBy: { city: "asc" }, take: 200 }),
     prisma.linkedinAccount.findFirst({ where: { workspaceId: ws }, orderBy: { createdAt: "asc" }, select: { runnerLastSeenAt: true } }),
     prisma.job.findMany({ where: { linkedinAccount: { workspaceId: ws }, type: { in: ["DISCOVER_COMPANIES", "ENRICH_COMPANIES"] } }, orderBy: { createdAt: "desc" }, take: 300, select: { type: true, status: true, lastError: true, finishedAt: true } }),
@@ -63,7 +66,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const qs = (p: number) => new URLSearchParams({ ...Object.fromEntries(Object.entries(f).filter(([, v]) => v) as [string, string][]), sayfa: String(p) }).toString();
   const filtered = Object.values(f).some(Boolean);
 
-  const note = sp.ayrinti_is != null ? `${sp.ayrinti_is} ayrıntı okuma işi sıraya alındı (web sitesi, çalışan sayısı, merkez). Yerel çalışan açıkken yapılır.` : sp.aranacak != null ? `${sp.aranacak} arama sözcüğü ${sp.is} işe bölünerek sıraya alındı. Yerel çalışan (baslat.bat) açıkken LinkedIn'de taranır; bulunan şirketler bu listeye "LinkedIn" kaynağıyla düşer.` : sp.eklendi != null ? `${sp.eklendi} yeni kurum eklendi${sp.toplam ? ` (kaynakta ${sp.toplam} kayıt vardı; zaten listede olanlar atlandı)` : ""}.` : sp.kampanya != null ? `${sp.kampanya} kurum kampanyanın hedef listesine eklendi${+(sp.atlanan ?? 0) ? `; ${sp.atlanan} kurum hariç tutma kuralı nedeniyle atlandı` : ""}.` : sp.islem ? `${sp.n ?? 0} kurum ${sp.islem === "haric" ? "hariç tutuldu" : sp.islem === "sil" ? "silindi" : "yeniye alındı"}.` : null;
+  const note = sp.ayrinti_is != null ? `${sp.ayrinti_is} ayrıntı okuma işi sıraya alındı (web sitesi, çalışan sayısı, merkez). Yerel çalışan açıkken yapılır.` : sp.aranacak != null ? `${sp.aranacak} arama sözcüğü ${sp.is} işe bölünerek sıraya alındı. Yerel çalışan (baslat.bat) açıkken LinkedIn'de taranır; bulunan şirketler bu listeye "LinkedIn" kaynağıyla düşer.` : sp.eklendi != null ? `${sp.eklendi} yeni kurum eklendi${sp.toplam ? ` (kaynakta ${sp.toplam} kayıt vardı; zaten listede olanlar atlandı)` : ""}.` : sp.kampanya != null ? `${sp.kampanya} kurum kampanyanın hedef listesine eklendi${+(sp.atlanan ?? 0) ? `; ${sp.atlanan} kurum hariç tutma kuralı nedeniyle atlandı` : ""}${+(sp.tur_uyumsuz ?? 0) ? `; ${sp.tur_uyumsuz} kurum kampanyanın hedef türüne uymadığı için eklenmedi` : ""}.` : sp.islem ? `${sp.n ?? 0} kurum ${sp.islem === "haric" ? "hariç tutuldu" : sp.islem === "sil" ? "silindi" : "yeniye alındı"}.` : null;
 
   return (
     <>
@@ -76,6 +79,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       {note && <div className="banner"><div className="txt"><b>{note}</b></div></div>}
       {sp.hata && <div className="banner warning" role="alert"><span className="dot warn" style={{ marginTop: 6 }} /><div className="txt"><b>{ERR[sp.hata] ?? "İşlem tamamlanamadı."}</b>{sp.ayrinti && <p>Ayrıntı: {sp.ayrinti}</p>}</div></div>}
       {sp.uyari === "secim" && <div className="banner warning" role="alert"><div className="txt"><b>Önce tablodan kurum seçin ya da "filtredeki tümü" kutusunu işaretleyin.</b></div></div>}
+      {sp.uyari === "karisik" && <div className="banner warning" role="alert"><div className="txt"><b>Seçimde birden çok tür var ({sp.turler}); tür sınırı olmayan bir kampanyaya karışık liste eklenemez.</b><p>Önce yukarıdan tek bir türe süzün ya da kampanyanın Hedefleme sekmesinde hedef kurum türlerini seçin.</p></div></div>}
       {sp.uyari === "kampanya" && <div className="banner warning" role="alert"><div className="txt"><b>Bir kampanya seçin.</b></div></div>}
 
       <div className="stat5" style={{ marginBottom: 16 }}>
@@ -100,14 +104,23 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <div className="card-h"><h2>LinkedIn'de şirket ara</h2><span className="sub">Güncel kaynak: LinkedIn şirket sayfaları</span></div>
         <div className="card-b stack">
           <p className="sub" style={{ margin: 0 }}>Web listeleri eskiyebilir; LinkedIn'de şirketin sayfası varsa ve hâlâ aktifse burada görünür. Her satıra bir arama sözcüğü yazın (Türkçe ve İngilizce olabilir). Bulunan şirketler havuza eklenir; sonra kampanyaya ekleyince o şirketlerdeki kurucu, müdür ve yöneticiler aranır.</p>
-          <div className="field"><label htmlFor="li-anahtar">Arama sözcükleri</label><textarea id="li-anahtar" name="anahtar" style={{ minHeight: 96 }} defaultValue={sp.anahtar ?? "özel klinik\nestetik klinik\ndiş kliniği\ntıp merkezi\nağız ve diş sağlığı\nsağlık grubu"} /></div>
+          <div className="field">
+            <label>Aranacak kurum türleri</label>
+            <div className="row" style={{ gap: 14, flexWrap: "wrap" }}>
+              {Object.entries(KIND_SEARCH).map(([k, v]) => (
+                <label key={k} className="row" style={{ gap: 6 }} title={v!.keywords.join(", ")}><input type="checkbox" name="turler" value={k} defaultChecked={k === "CLINIC"} /> {v!.label}</label>
+              ))}
+            </div>
+            <span className="sub">Seçilen her tür kendi sözcükleriyle ve kendi türüyle aranır (üstüne gelince sözcükler görünür). Sigorta şirketleri merkezi olduğu için il il değil, Türkiye genelinde aranır.</span>
+          </div>
+          <div className="field"><label htmlFor="li-anahtar">Ek arama sözcükleri (isteğe bağlı)</label><textarea id="li-anahtar" name="anahtar" style={{ minHeight: 72 }} defaultValue={sp.anahtar ?? ""} placeholder={"Her satıra bir sözcük; sağlık dışı sektörler için de kullanılır\nörn. gıda üretimi"} /></div>
           <div className="field">
             <label>İller</label>
             <ProvincePicker provinces={[...TR_PROVINCES]} name="sehir" initial={["İstanbul"]} />
             <span className="sub">Her arama sözcüğü seçilen illerin her biri için ayrı aranır (LinkedIn bir aramada en fazla birkaç yüz sonuç verdiği için il il aramak daha çok kurum bulur). 20'den fazla il seçilirse sözcük sayısı 3 ile sınırlanır.</span>
           </div>
           <div className="grid g2">
-            <div className="field"><label htmlFor="li-tur">Türü anlaşılamayan şirketlere atanacak tür</label><select id="li-tur" name="tur" defaultValue="CLINIC">{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><span className="sub">Tür, şirket adından ve LinkedIn sektöründen çıkarılır (hastane, klinik, diş, sigorta…). Çıkarılamazsa bu tür verilir. Sağlık dışı sektör arıyorsanız "Diğer" seçin; sektör bilgisi her şirketin kaydında ve "Sektör" filtresinde ayrıca tutulur.</span></div>
+            <div className="field"><label htmlFor="li-tur">Ek sözcüklerle bulunup türü anlaşılamayan şirketlere atanacak tür</label><select id="li-tur" name="tur" defaultValue="OTHER">{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select><span className="sub">Tür, şirket adından ve LinkedIn sektöründen çıkarılır (hastane, klinik, diş, sigorta…). Çıkarılamazsa bu tür verilir. Sağlık dışı sektörde "Diğer" kalsın; sektör bilgisi her şirketin kaydında ve "Sektör" filtresinde ayrıca tutulur.</span></div>
             <div className="field"><label htmlFor="li-sayfa">Sözcük başına sayfa</label><select id="li-sayfa" name="sayfa" defaultValue="3">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} sayfa (~{n * 10} şirket)</option>)}</select></div>
           </div>
           <div className="row"><SubmitButton className="btn primary" pendingText="Sıraya alınıyor…">LinkedIn'de ara</SubmitButton><span className="sub">Yalnızca şirket sayfalarını okur; kimseye davet ya da mesaj gitmez.</span></div>
@@ -159,7 +172,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       <form className="card" style={{ marginBottom: 16 }} method="get">
         <div className="card-b row">
           <input type="search" name="q" defaultValue={f.q} placeholder="Kurum adı ara" aria-label="Kurum adı ara" style={{ maxWidth: 240 }} />
-          <select name="tur" defaultValue={f.tur ?? ""} aria-label="Tür" style={{ width: "auto" }}><option value="">Tüm türler</option>{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <fieldset className="row" style={{ gap: 10, flexWrap: "wrap", border: 0, margin: 0, padding: 0 }} aria-label="Tür">
+            {Object.entries(KIND_LABEL).map(([v, l]) => (
+              <label key={v} className="row" style={{ gap: 4 }}><input type="checkbox" name="tur" value={v} defaultChecked={(f.tur ?? "").split(",").includes(v)} /> {l}</label>
+            ))}
+          </fieldset>
           <select name="il" defaultValue={f.il ?? ""} aria-label="İl" style={{ width: "auto" }}><option value="">Tüm iller</option>{cities.map((c) => <option key={c.city} value={c.city ?? ""}>{c.city} ({cityCount.get(fold(c.city ?? "")) ?? 0})</option>)}</select>
           <input type="search" name="ilce" defaultValue={f.ilce} placeholder="İlçe" aria-label="İlçe" style={{ maxWidth: 140 }} />
           <select name="durum" defaultValue={f.durum ?? ""} aria-label="Durum" style={{ width: "auto" }}><option value="">Tüm durumlar</option>{Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
@@ -181,7 +198,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
             <label className="row" style={{ gap: 6 }}><input type="checkbox" name="scope" value="filtre" /> Filtredeki tümüne uygula ({Math.min(matching, 3000)})</label>
             <select name="agentId" aria-label="Kampanya" style={{ width: "auto", color: "var(--fg)" }} defaultValue="">
               <option value="" disabled>Kampanya seç…</option>
-              {agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              {agents.map((a) => { const ks = readTargeting(a.targeting).institutionKinds; return <option key={a.id} value={a.id}>{a.name} — {ks.length ? ks.map((k) => KIND_LABEL[k] ?? k).join(", ") : "tür sınırı yok"}</option>; })}
             </select>
             <button name="op" value="kampanya" className="btn sm">Kampanyaya ekle</button>
             <button name="op" value="haric" className="btn sm">Hariç tut</button>

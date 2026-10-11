@@ -1,6 +1,7 @@
 export * from "./text";
 export * from "./institutions";
 export * from "./companysearch";
+export * from "./kindsearch";
 export * from "./strategy";
 export * from "./provinces";
 export * from "./names";
