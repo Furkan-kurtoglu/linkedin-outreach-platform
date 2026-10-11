@@ -35,8 +35,8 @@ export class PanelApi {
   status(s: { loggedIn: boolean; profileUrl?: string; premium?: boolean; inmailCredits?: number }) {
     return this.req<{ ok: true }>("/api/runner/status", { body: s });
   }
-  poll() {
-    return this.req<PollResponse>("/api/runner/poll", { body: {} });
+  poll(readOnly = false) {
+    return this.req<PollResponse>("/api/runner/poll", { body: { readOnly } });
   }
   result(jobId: string, r: JobResult) {
     return this.req<{ ok: true }>(`/api/runner/jobs/${encodeURIComponent(jobId)}`, { body: r });

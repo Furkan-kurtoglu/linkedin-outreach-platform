@@ -11,8 +11,8 @@
  *            pnpm runner --sifirla  (bağlantı anahtarını yeniden sorar)
  */
 import type { JobPayload, JobResult, RunnerJob } from "@hfo/core";
-import { writeFile } from "node:fs/promises";
-import { platform } from "node:os";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import { AuthError, PanelApi } from "./api";
@@ -27,6 +27,22 @@ const MIN_SEND_GAP_MS = 45_000;
 const JOB_TIMEOUT_MS = 8 * 60_000;
 
 const log = (...a: unknown[]) => console.log(new Date().toLocaleTimeString("tr-TR"), ...a);
+
+/** Bulut modu: ekransız Chrome; LinkedIn oturumu LI_AT ortam değişkeninden (kullanıcının kendi çerezi) alınır. */
+async function launchCloud(): Promise<BrowserContext> {
+  const dir = await mkdtemp(join(tmpdir(), "hfo-"));
+  const ctx = await chromium.launchPersistentContext(dir, {
+    headless: true,
+    viewport: { width: 1280, height: 860 },
+    locale: "tr-TR",
+    timezoneId: "Europe/Istanbul",
+    userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    args: ["--disable-blink-features=AutomationControlled"],
+  });
+  const li = (process.env.LI_AT ?? "").trim();
+  if (li) await ctx.addCookies([{ name: "li_at", value: li, domain: ".linkedin.com", path: "/", secure: true, httpOnly: true, sameSite: "None" }]);
+  return ctx;
+}
 
 async function launch(): Promise<BrowserContext> {
   const opts: Parameters<typeof chromium.launchPersistentContext>[1] = {
@@ -125,7 +141,8 @@ async function main() {
   });
   log(`Panele bağlandı: ${me.displayName}`);
 
-  const ctx = await launch();
+  const cloud = args.includes("--bulut");
+  const ctx = cloud ? await launchCloud() : await launch();
   const page = ctx.pages()[0] ?? (await ctx.newPage());
   let stopping = false;
   const stop = async () => {
@@ -144,7 +161,14 @@ async function main() {
     }
   });
 
-  await waitForLogin(page, api);
+  if (cloud) {
+    if (!(await isLoggedIn(page))) {
+      await api.status({ loggedIn: false }).catch(() => undefined);
+      console.error("LinkedIn oturumu açılamadı: LI_AT çerezi geçersiz ya da süresi dolmuş. Yenisini GitHub gizli değişkenlerine ekleyin.");
+      await ctx.close().catch(() => undefined);
+      process.exit(2);
+    }
+  } else await waitForLogin(page, api);
   const self = await readSelf(page).catch(() => ({ schools: [] }) as SelfInfo);
   await api.status({ loggedIn: true, profileUrl: self.profileUrl, premium: self.premium });
   log(`Hesap: ${self.fullName ?? "okunamadı"}${self.premium ? " (Premium)" : ""}`);
@@ -158,27 +182,44 @@ async function main() {
   const inboxSeen = new Map<string, string>();
   let lastSendAt = 0;
   let lastLoginCheck = Date.now();
+  const deadline = cloud ? Date.now() + (Number(process.env.HFO_BULUT_DAKIKA) || 20) * 60_000 : Number.POSITIVE_INFINITY;
+  let idle = 0;
+  if (cloud) log("Bulut modu: yalnızca arama işleri alınır (davet ve mesaj gönderilmez).");
   log("Çalışıyor. Bu pencereyi ve Chrome'u açık bırakın; bilgisayar uykuya geçerse işler açılınca devam eder.");
 
   while (!stopping) {
+    if (Date.now() > deadline) {
+      log("Bulut süresi doldu; kapatılıyor.");
+      await stop();
+    }
     try {
-      if (Date.now() - lastLoginCheck > 30 * 60_000) {
+      if (!cloud && Date.now() - lastLoginCheck > 30 * 60_000) {
         lastLoginCheck = Date.now();
         if (!(await isLoggedIn(page))) {
           await waitForLogin(page, api);
           await api.status({ loggedIn: true, profileUrl: self.profileUrl });
         }
       }
-      const res = await api.poll();
+      const res = await api.poll(cloud);
+      if (cloud && res.account.status === "NEEDS_LOGIN") {
+        log("Hesap oturum bekliyor; bulut çalışanı durdu.");
+        await stop();
+      }
       if (res.account.status === "NEEDS_LOGIN") {
         if (await isLoggedIn(page)) await api.status({ loggedIn: true, profileUrl: self.profileUrl });
         else await waitForLogin(page, api);
         continue;
       }
       if (!res.job) {
+        // Bulutta dakika sınırlıdır: üst üste iş çıkmazsa erken kapanır
+        if (cloud && ++idle >= 3) {
+          log("Sırada iş yok; kapatılıyor.");
+          await stop();
+        }
         await sleep(res.sleepSec * 1000);
         continue;
       }
+      idle = 0;
       const job = res.job;
       const sending = ["SEND_INVITE", "SEND_MESSAGE", "SEND_INMAIL", "WITHDRAW_INVITE"].includes(job.payload.type);
       if (sending) {

@@ -22,6 +22,10 @@ export interface Config {
 export async function loadConfig(): Promise<Config> {
   await mkdir(HOME, { recursive: true });
   await mkdir(LOG_DIR, { recursive: true });
+  // Bulut çalışanı (GitHub Actions): ayarlar ortam değişkenlerinden gelir, soru sorulmaz
+  const envPanel = (process.env.HFO_PANEL ?? "").trim().replace(/\/+$/, "");
+  const envToken = (process.env.HFO_TOKEN ?? "").trim();
+  if (/^https?:\/\/\S+$/.test(envPanel) && /^hfo_[A-Za-z0-9_-]{20,}$/.test(envToken)) return { panelUrl: envPanel, token: envToken };
   try {
     const c = JSON.parse(await readFile(CONFIG_FILE, "utf8")) as Partial<Config>;
     if (c.panelUrl && c.token) return { panelUrl: c.panelUrl, token: c.token };

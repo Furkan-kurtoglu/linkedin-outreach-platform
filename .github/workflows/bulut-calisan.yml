@@ -1,0 +1,49 @@
+name: Bulut çalışan
+
+# Bilgisayarınız kapalıyken de LinkedIn'de ARAMA yapar (şirket bulma, şirket ayrıntıları, kişi bulma).
+# Davet ve mesaj gönderimi bulutta yapılmaz; onlar kendi bilgisayarınızdaki çalışanda kalır.
+# Çalışması için depo gizli değişkenleri gerekir: HFO_PANEL, HFO_TOKEN, LI_AT (bkz. KURULUM-BULUT.md).
+# Gizli değişkenler yoksa iş hemen bitirilir ve dakika harcamaz.
+on:
+  schedule:
+    # UTC: 03:00, 06:00, 09:00 (Türkiye saati). Özel depoda aylık 2000 ücretsiz dakikaya sığar.
+    - cron: "0 0,3,6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: bulut-calisan
+  cancel-in-progress: false
+
+jobs:
+  ara:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      HFO_PANEL: ${{ secrets.HFO_PANEL }}
+      HFO_TOKEN: ${{ secrets.HFO_TOKEN }}
+      LI_AT: ${{ secrets.LI_AT }}
+      HFO_BULUT_DAKIKA: "20"
+    steps:
+      - name: Gizli değişkenler var mı
+        id: kontrol
+        run: |
+          if [ -n "$HFO_PANEL" ] && [ -n "$HFO_TOKEN" ] && [ -n "$LI_AT" ]; then echo "tamam=1" >> "$GITHUB_OUTPUT"; else echo "Gizli değişkenler eksik (HFO_PANEL, HFO_TOKEN, LI_AT); atlandı."; fi
+      - uses: actions/checkout@v4
+        if: steps.kontrol.outputs.tamam == '1'
+      - uses: pnpm/action-setup@v4
+        if: steps.kontrol.outputs.tamam == '1'
+      - uses: actions/setup-node@v4
+        if: steps.kontrol.outputs.tamam == '1'
+        with:
+          node-version: 22
+      - name: Paketler
+        if: steps.kontrol.outputs.tamam == '1'
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+        run: pnpm install --filter "@hfo/runner..." --no-frozen-lockfile
+      - name: Chromium
+        if: steps.kontrol.outputs.tamam == '1'
+        run: pnpm --filter @hfo/runner exec playwright install --with-deps chromium
+      - name: Aramaları yap
+        if: steps.kontrol.outputs.tamam == '1'
+        run: pnpm --filter @hfo/runner start --bulut

@@ -8,12 +8,16 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const LOCK_MS = 10 * 60_000;
+/** Bulut çalışanı yalnızca okuma/arama işlerini alır; davet ve mesaj gönderimi kullanıcının kendi bilgisayarında kalır. */
+const READ_ONLY = ["DISCOVER", "DISCOVER_COMPANIES", "ENRICH_COMPANIES"] as const;
 
 /**
  * Çalışan dakikada bir sorar: önce planlama yapılır (en fazla 2 dakikada bir), sonra zamanı
  * gelmiş en öncelikli iş kilitlenip verilir. Aynı iş iki kez verilmez.
  */
 export async function POST(req: Request) {
+  const body = (await req.clone().json().catch(() => ({}))) as { readOnly?: boolean };
+  const readOnly = body.readOnly === true;
   let account = await runnerAccount(req);
   if (!account) return unauthorized();
   const now = new Date();
@@ -44,7 +48,7 @@ export async function POST(req: Request) {
   const ws = await prisma.workspace.findUnique({ where: { id: account.workspaceId }, select: { quietDays: true } });
   for (let attempt = 0; attempt < 5; attempt++) {
     const next = await prisma.job.findFirst({
-      where: { linkedinAccountId: account.id, status: "PENDING", runAfter: { lte: now } },
+      where: { linkedinAccountId: account.id, status: "PENDING", runAfter: { lte: now }, ...(readOnly ? { type: { in: [...READ_ONLY] } } : {}) },
       orderBy: [{ priority: "asc" }, { runAfter: "asc" }],
     });
     if (!next) break;
@@ -64,7 +68,7 @@ export async function POST(req: Request) {
   }
 
   const upcoming = await prisma.job.findFirst({
-    where: { linkedinAccountId: account.id, status: "PENDING" },
+    where: { linkedinAccountId: account.id, status: "PENDING", ...(readOnly ? { type: { in: [...READ_ONLY] } } : {}) },
     orderBy: { runAfter: "asc" },
     select: { runAfter: true },
   });
