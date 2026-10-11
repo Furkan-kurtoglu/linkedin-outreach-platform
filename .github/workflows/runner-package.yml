@@ -1,0 +1,49 @@
+name: Çalışan paketi
+
+# Yerel çalışanı Node.js dışında kurulum gerektirmeyen tek klasör olarak paketler ve
+# "dagitim" dalına koyar (Windows ve Mac).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["apps/runner/**", "packages/core/src/**"]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install --filter "@hfo/runner..." --no-frozen-lockfile
+      - name: Paketle
+        run: |
+          set -e
+          out=paket/HeAlthFintel-Calisan
+          mkdir -p $out
+          npx -y esbuild@0.24.0 apps/runner/src/main.ts --bundle --platform=node --format=esm --target=node20 \
+            --external:playwright --external:playwright-core \
+            --define:process.env.HFO_DEFAULT_PANEL='"https://healthfintel-outreach.vercel.app"' \
+            --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);" \
+            --outfile=$out/calisan.mjs
+          cp apps/runner/paket/* $out/
+          chmod +x $out/Baslat.command
+          cd $out && printf '{"name":"hfo-calisan","private":true,"type":"module"}' > package.json && npm install --omit=dev --no-audit --no-fund playwright@1.48.2 && cd -
+          cd paket && zip -qr HeAlthFintel-Calisan.zip HeAlthFintel-Calisan && ls -la
+      - name: dagitim dalına koy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp paket/HeAlthFintel-Calisan.zip /tmp/
+          git fetch origin dagitim || true
+          if git rev-parse --verify origin/dagitim >/dev/null 2>&1; then git checkout -B dagitim origin/dagitim; else git checkout --orphan dagitim && git rm -rqf .; fi
+          rm -rf ./* && cp /tmp/HeAlthFintel-Calisan.zip .
+          echo "Yerel çalışan paketi. Kaynak: main dalı $GITHUB_SHA" > README.md
+          git add -A && git commit -qm "Çalışan paketi ($GITHUB_SHA)" && git push -f origin dagitim

@@ -1,0 +1,9 @@
+HeAlthFintel yerel çalışanı
+
+1. Baslat.bat dosyasına çift tıklayın (Mac: Baslat.command, sağ tık > Aç).
+2. İlk açılışta panelden aldığınız bağlantı anahtarını yapıştırıp Enter'a basın.
+3. Açılan Chrome penceresinde LinkedIn'e kendiniz giriş yapın. Şifreniz okunmaz ve saklanmaz.
+4. Pencereleri açık bırakın. Bilgisayar kapalıyken hiçbir şey gönderilmez.
+
+Kontrol.bat  : yalnızca kendi profilinizi okur, hiçbir şey göndermez (kurulumu denemek için).
+Anahtari-Degistir.bat : bağlantı anahtarını yeniden sorar.

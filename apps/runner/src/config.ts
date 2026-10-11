@@ -30,10 +30,12 @@ export async function loadConfig(): Promise<Config> {
   }
   const rl = createInterface({ input: stdin, output: stdout });
   console.log("\nİlk kurulum. Panelde LinkedIn hesapları sayfasından bağlantı anahtarı oluşturun.\n");
-  let panelUrl = "";
+  // Hazır pakette panel adresi gömülüdür; yalnızca anahtar sorulur
+  let panelUrl = (process.env.HFO_DEFAULT_PANEL ?? "").replace(/\/+$/, "");
+  if (panelUrl) console.log(`Panel: ${panelUrl}`);
   while (!/^https?:\/\/\S+$/.test(panelUrl)) panelUrl = (await rl.question("Panel adresi (ör. https://outreach-ornek.vercel.app): ")).trim().replace(/\/+$/, "");
   let token = "";
-  while (!/^hfo_[A-Za-z0-9_-]{20,}$/.test(token)) token = (await rl.question("Bağlantı anahtarı (hfo_ ile başlar): ")).trim();
+  while (!/^hfo_[A-Za-z0-9_-]{20,}$/.test(token)) token = (await rl.question("Bağlantı anahtarını yapıştırın (sağ tık ya da Ctrl+V, sonra Enter): ")).trim();
   rl.close();
   const c = { panelUrl, token };
   await writeFile(CONFIG_FILE, JSON.stringify(c, null, 2), { mode: 0o600 });
