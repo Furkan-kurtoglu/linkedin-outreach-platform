@@ -75,8 +75,8 @@ function Radios({ name, options, state, def }: { name: string; options: [string,
   );
 }
 
-export function WizardForm({ accounts }: { accounts: { id: string; name: string }[] }) {
-  const [state, action, pending] = useActionState<WizardState, FormData>(createCampaign, {});
+export function WizardForm({ accounts, initial }: { accounts: { id: string; name: string }[]; initial?: Record<string, string> }) {
+  const [state, action, pending] = useActionState<WizardState, FormData>(createCampaign, { values: initial });
   const n = Object.keys(state.errors ?? {}).length;
   return (
     <form action={action} className="stack" style={{ gap: 16, maxWidth: 860 }}>
