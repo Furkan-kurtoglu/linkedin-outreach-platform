@@ -1,12 +1,14 @@
 "use server";
-import { GeminiProvider, assist, canActivateAgent, canUndo, checkMessage, type AssistAction, type AssistResult } from "@hfo/core";
+import { GeminiProvider, assist, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext, type Ctx } from "@/lib/context";
-import { readTargeting, toRules, type TargetingJson } from "@/lib/convert";
+import { readTargeting, toRules, toScheduleConfig, type TargetingJson } from "@/lib/convert";
 import { env } from "@/lib/env";
 import { applyBulk, type Snapshot } from "@/lib/bulk";
+import { fireWebhook } from "@/lib/webhook";
+import { randomBytes } from "node:crypto";
 
 const lines = (v: FormDataEntryValue | null) =>
   String(v ?? "")
@@ -22,6 +24,7 @@ async function own(id: string) {
 }
 
 const back = (id: string, tab: string, extra = "") => redirect(`/kampanyalar/${id}?sekme=${tab}${extra}`);
+const settingsBack = (id: string, bolum: string, extra = "") => redirect(`/kampanyalar/${id}?sekme=ayarlar&bolum=${bolum}${extra}`);
 
 /* ---------- Durum ---------- */
 
@@ -34,7 +37,7 @@ export async function setStatus(form: FormData) {
     if (approved === 0) back(agent.id, "mesajlar", "&uyari=onay");
     if (agent.status !== "ACTIVE") {
       const active = await prisma.agent.count({ where: { workspaceId: ctx.workspace.id, status: "ACTIVE" } });
-      if (!canActivateAgent(active)) back(agent.id, "akis", "&uyari=sinir");
+      if (!canActivateAgent(active)) back(agent.id, "genel", "&uyari=sinir");
     }
   }
   await prisma.agent.update({ where: { id: agent.id }, data: { status: to } });
@@ -53,7 +56,7 @@ export async function setStatus(form: FormData) {
 
 export async function deleteCampaign(form: FormData) {
   const { ctx, agent } = await own(String(form.get("id")));
-  if (String(form.get("confirm")).trim() !== agent.name) back(agent.id, "akis", "&uyari=silme");
+  if (String(form.get("confirm")).trim() !== agent.name) settingsBack(agent.id, "tehlike", "&uyari=silme");
   await prisma.agent.delete({ where: { id: agent.id } });
   await audit(ctx, "campaign.delete", { name: agent.name });
   redirect("/kampanyalar");
@@ -105,20 +108,127 @@ export async function saveTargeting(form: FormData) {
     geoUrns: lines(form.get("geoUrns")).filter((x) => /^\d+$/.test(x)),
     engagementPostUrls: lines(form.get("engagementPostUrls")).filter((x) => /^https:\/\/www\.linkedin\.com\//.test(x)),
   };
-  const review = String(form.get("reviewMode"));
+  if (!t.titles.length) settingsBack(agent.id, "hedefleme", "&uyari=unvan");
+  const policy = String(form.get("uncertainPolicy"));
   await prisma.agent.update({
     where: { id: agent.id },
     data: {
       targeting: t as unknown as Prisma.InputJsonValue,
       fitRule: String(form.get("fitRule") ?? "").trim() || null,
-      budgetSharePct: Math.min(100, Math.max(5, Math.round(+String(form.get("share")) || 100))),
-      reviewMode: review === "REVIEW_FIRST" || review === "AUTONOMOUS" ? review : "REVIEW_ALL",
-      requiredLink: String(form.get("requiredLink") ?? "").trim() || null,
-      bannedPhrases: lines(form.get("bannedPhrases")),
+      preferredKeywords: lines(form.get("preferredKeywords")),
+      skipOpenToWork: form.get("skipOpenToWork") === "on",
+      uncertainPolicy: policy === "DROP" || policy === "ACCEPT_STRONG" ? policy : "ASK",
     },
   });
   await audit(ctx, "campaign.targeting", { agentId: agent.id });
-  back(agent.id, "hedefleme", "&kaydedildi=1");
+  settingsBack(agent.id, "hedefleme", "&kaydedildi=1");
+}
+
+/* ---------- Genel ---------- */
+
+export async function saveGeneral(form: FormData) {
+  const { ctx, agent } = await own(String(form.get("id")));
+  const name = String(form.get("name") ?? "").trim();
+  if (name.length < 3 || name.length > 80) settingsBack(agent.id, "genel", "&uyari=ad");
+  const companyId = String(form.get("companyId") ?? "");
+  const company = companyId ? await prisma.company.findFirst({ where: { id: companyId, workspaceId: ctx.workspace.id } }) : null;
+  const link = String(form.get("requiredLink") ?? "").trim();
+  if (link && !/^https?:\/\/\S+$/.test(link)) settingsBack(agent.id, "genel", "&uyari=link");
+  await prisma.agent.update({
+    where: { id: agent.id },
+    data: { name, companyId: company?.id ?? agent.companyId, requiredLink: link || null, bannedPhrases: lines(form.get("bannedPhrases")) },
+  });
+  await audit(ctx, "campaign.general", { agentId: agent.id });
+  settingsBack(agent.id, "genel", "&kaydedildi=1");
+}
+
+/* ---------- Gönderim ---------- */
+
+export async function saveSending(form: FormData) {
+  const { ctx, agent } = await own(String(form.get("id")));
+  const share = Math.min(100, Math.max(5, Math.round(+String(form.get("share")) || 100)));
+  const own_ = form.get("windowMode") === "own";
+  let data: Prisma.AgentUpdateInput = { budgetSharePct: share, windowDays: [], windowStartMin: null, windowEndMin: null };
+  if (own_) {
+    const days = [0, 1, 2, 3, 4, 5, 6].filter((d) => form.get(`day-${d}`) === "on");
+    const start = parseTime(String(form.get("start") ?? ""));
+    const end = parseTime(String(form.get("end") ?? ""));
+    if (start == null || end == null) settingsBack(agent.id, "gonderim", "&uyari=saat");
+    const cfg = toScheduleConfig(agent.linkedinAccount);
+    const issues = validateAgentWindow({ days, startMin: start!, endMin: end! }, cfg, estimateDailyInvites(cfg, { days, startMin: start!, endMin: end! }, share));
+    if (issues.some((i) => i.level === "error")) settingsBack(agent.id, "gonderim", `&uyari=pencere&ayrinti=${encodeURIComponent(issues.filter((i) => i.level === "error").map((i) => i.message).join(" "))}`);
+    data = { ...data, windowDays: days, windowStartMin: start!, windowEndMin: end! };
+  }
+  await prisma.agent.update({ where: { id: agent.id }, data });
+  // Eski zamanlanmış işler yeni pencereye göre yeniden planlansın
+  await prisma.linkedinAccount.update({ where: { id: agent.linkedinAccountId }, data: { lastPlannedAt: null } });
+  await audit(ctx, "campaign.sending", { agentId: agent.id, window: own_ });
+  settingsBack(agent.id, "gonderim", "&kaydedildi=1");
+}
+
+/* ---------- Özerklik ---------- */
+
+export async function saveAutonomy(form: FormData) {
+  const { ctx, agent } = await own(String(form.get("id")));
+  const review = String(form.get("reviewMode"));
+  const mode = form.get("mode") === "FIND_ONLY" ? "FIND_ONLY" : "FIND_AND_OUTREACH";
+  await prisma.agent.update({
+    where: { id: agent.id },
+    data: { mode, reviewMode: review === "REVIEW_FIRST" || review === "AUTONOMOUS" ? review : "REVIEW_ALL" },
+  });
+  if (mode === "FIND_ONLY") {
+    // Yalnızca bul: sırada bekleyen gönderimler iptal edilir
+    const apIds = (await prisma.agentProspect.findMany({ where: { agentId: agent.id }, select: { id: true } })).map((a) => a.id);
+    await prisma.job.updateMany({ where: { status: { in: ["PENDING", "AWAITING_APPROVAL"] }, agentProspectId: { in: apIds }, type: { in: ["SEND_INVITE", "SEND_MESSAGE", "SEND_INMAIL"] } }, data: { status: "CANCELLED", lastError: "Kampanya \"yalnızca bul\" moduna alındı." } });
+  }
+  await prisma.linkedinAccount.update({ where: { id: agent.linkedinAccountId }, data: { lastPlannedAt: null } });
+  await audit(ctx, "campaign.autonomy", { agentId: agent.id, mode, review });
+  revalidatePath("/", "layout");
+  settingsBack(agent.id, "ozerklik", "&kaydedildi=1");
+}
+
+/* ---------- Entegrasyon (webhook) ---------- */
+
+export async function saveWebhook(form: FormData) {
+  const { ctx, agent } = await own(String(form.get("id")));
+  const raw = String(form.get("webhookUrl") ?? "").trim();
+  if (!raw) {
+    await prisma.agent.update({ where: { id: agent.id }, data: { webhookUrl: null, webhookLastStatus: null, webhookLastAt: null } });
+    settingsBack(agent.id, "entegrasyon", "&kaydedildi=1");
+  }
+  const chk = checkWebhookUrl(raw);
+  if (!chk.ok) settingsBack(agent.id, "entegrasyon", `&uyari=adres&ayrinti=${encodeURIComponent(chk.reason)}`);
+  const events = WEBHOOK_EVENTS.map(([k]) => k).filter((k) => form.get(`ev-${k}`) === "on");
+  await prisma.agent.update({
+    where: { id: agent.id },
+    data: { webhookUrl: chk.ok ? chk.url : null, webhookEvents: events, webhookSecret: agent.webhookSecret ?? randomBytes(24).toString("hex") },
+  });
+  await audit(ctx, "campaign.webhook", { agentId: agent.id });
+  settingsBack(agent.id, "entegrasyon", "&kaydedildi=1");
+}
+
+export async function rotateWebhookSecret(form: FormData) {
+  const { ctx, agent } = await own(String(form.get("id")));
+  await prisma.agent.update({ where: { id: agent.id }, data: { webhookSecret: randomBytes(24).toString("hex") } });
+  await audit(ctx, "campaign.webhook.secret", { agentId: agent.id });
+  settingsBack(agent.id, "entegrasyon", "&yenilendi=1");
+}
+
+export async function testWebhook(form: FormData) {
+  const { agent } = await own(String(form.get("id")));
+  await fireWebhook(agent, { event: "test", person: { name: "Örnek Kişi", title: "Genel Müdür", company: "Örnek Hastane", linkedinUrl: "https://www.linkedin.com/in/ornek" }, message: "Bu bir deneme gönderimidir." }, true);
+  settingsBack(agent.id, "entegrasyon", "&denendi=1");
+}
+
+/* ---------- Tehlikeli alan ---------- */
+
+export async function cancelPending(form: FormData) {
+  const { ctx, agent } = await own(String(form.get("id")));
+  const apIds = (await prisma.agentProspect.findMany({ where: { agentId: agent.id }, select: { id: true } })).map((a) => a.id);
+  const r = await prisma.job.updateMany({ where: { status: { in: ["PENDING", "AWAITING_APPROVAL"] }, agentProspectId: { in: apIds } }, data: { status: "CANCELLED", lastError: "Kampanya sahibi bekleyen işleri iptal etti." } });
+  await audit(ctx, "campaign.cancelPending", { agentId: agent.id, count: r.count });
+  revalidatePath("/", "layout");
+  settingsBack(agent.id, "tehlike", `&iptal=${r.count}`);
 }
 
 export async function addSegment(form: FormData) {
@@ -126,13 +236,13 @@ export async function addSegment(form: FormData) {
   const name = String(form.get("name") ?? "").trim();
   const keywords = String(form.get("keywords") ?? "").trim();
   if (name) await prisma.segment.create({ data: { agentId: agent.id, name, matchRule: keywords || null } });
-  back(agent.id, "hedefleme");
+  settingsBack(agent.id, "hedefleme");
 }
 
 export async function removeSegment(form: FormData) {
   const { agent } = await own(String(form.get("id")));
   await prisma.segment.deleteMany({ where: { id: String(form.get("segmentId")), agentId: agent.id } });
-  back(agent.id, "hedefleme");
+  settingsBack(agent.id, "hedefleme");
 }
 
 export async function addTargetAccounts(form: FormData) {
@@ -140,13 +250,13 @@ export async function addTargetAccounts(form: FormData) {
   for (const name of lines(form.get("names")).slice(0, 500)) {
     await prisma.targetAccount.upsert({ where: { agentId_name: { agentId: agent.id, name } }, update: {}, create: { agentId: agent.id, name } });
   }
-  back(agent.id, "hedefleme");
+  settingsBack(agent.id, "hedefleme");
 }
 
 export async function removeTargetAccount(form: FormData) {
   const { agent } = await own(String(form.get("id")));
   await prisma.targetAccount.deleteMany({ where: { id: String(form.get("accountId")), agentId: agent.id } });
-  back(agent.id, "hedefleme");
+  settingsBack(agent.id, "hedefleme");
 }
 
 /* ---------- Seçenekler ---------- */
@@ -170,7 +280,7 @@ export async function saveOptions(form: FormData) {
     },
   });
   await audit(ctx, "campaign.options", { agentId: agent.id });
-  back(agent.id, "secenekler", "&kaydedildi=1");
+  settingsBack(agent.id, "secenekler", "&kaydedildi=1");
 }
 
 /**

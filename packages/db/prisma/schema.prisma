@@ -231,6 +231,8 @@ model LinkedinAccount {
   inmailCredits     Int?
   /// Son 7 günde panel dışından (LinkedIn'den elle) gönderilen davet sayısı; haftalık bütçeden düşülür
   externalInvites7d Int           @default(0)
+  /// Süresi dolan (kampanyanın geri çekme günü) bekleyen davetleri otomatik geri çek
+  autoWithdraw      Boolean       @default(true)
   warmupEnabled     Boolean       @default(true)
   connectedAt       DateTime?
   pausedUntil       DateTime?
@@ -300,6 +302,24 @@ model Agent {
   inmailMinFitScore Int         @default(80)
   /// Kampanyanın haftada harcayabileceği en fazla InMail kredisi
   inmailWeeklyMax   Int         @default(5)
+
+  // ---- Kampanya ayarları ----
+  /// Kampanyanın kendi gönderim günleri (0=Pazar). Boşsa hesabın takvimi kullanılır.
+  windowDays        Int[]       @default([])
+  windowStartMin    Int?
+  windowEndMin      Int?
+  mode              AgentMode   @default(FIND_AND_OUTREACH)
+  uncertainPolicy   UncertainPolicy @default(ASK)
+  /// Tercihli ifadeler: bulunursa puan artar, bulunmaması elemez
+  preferredKeywords String[]    @default([])
+  /// "Open to Work" ve iş arayan profilleri ele
+  skipOpenToWork    Boolean     @default(true)
+  webhookUrl        String?
+  webhookSecret     String?
+  /// replied, accepted, interested
+  webhookEvents     String[]    @default(["replied"])
+  webhookLastStatus String?
+  webhookLastAt     DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -605,4 +625,15 @@ model AuditLog {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
+}
+
+enum UncertainPolicy {
+  ASK // belirsiz adayları bana sor
+  DROP // belirsiz adayları ele
+  ACCEPT_STRONG // puanı yüksek olanı kabul et, gerisini ele
+}
+
+enum AgentMode {
+  FIND_AND_OUTREACH // bul ve ulaş
+  FIND_ONLY // yalnızca bul ve puanla; hiçbir şey gönderme
 }

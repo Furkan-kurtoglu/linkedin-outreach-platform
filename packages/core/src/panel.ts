@@ -188,3 +188,27 @@ export const MAX_ACTIVE_AGENTS = 5;
 export function canActivateAgent(activeCount: number, max = MAX_ACTIVE_AGENTS): boolean {
   return activeCount < max;
 }
+
+/* ---------- Günlük seri (grafik) ---------- */
+
+/**
+ * Tarihleri son `days` günün gün kovalarına dağıtır (yerel saate göre). Dizinin sonu bugündür.
+ * Aralık dışındaki tarihler yok sayılır.
+ */
+export function bucketByDay(dates: (Date | null | undefined)[], days: number, now: Date, utcOffsetMin = 180): { labels: string[]; counts: number[] } {
+  const DAY = 86_400_000;
+  const off = utcOffsetMin * 60_000;
+  const dayIndex = (t: number) => Math.floor((t + off) / DAY);
+  const today = dayIndex(now.getTime());
+  const counts = new Array<number>(days).fill(0);
+  for (const d of dates) {
+    if (!d) continue;
+    const i = days - 1 - (today - dayIndex(d.getTime()));
+    if (i >= 0 && i < days) counts[i]!++;
+  }
+  const labels = counts.map((_, i) => {
+    const t = new Date((today - (days - 1 - i)) * DAY);
+    return `${String(t.getUTCDate()).padStart(2, "0")}.${String(t.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+  return { labels, counts };
+}

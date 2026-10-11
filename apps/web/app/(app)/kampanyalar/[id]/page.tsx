@@ -8,28 +8,31 @@ import { prisma } from "@hfo/db";
 import { setStatus } from "./actions";
 import { FlowTab } from "./tabs/Flow";
 import { MessagesTab } from "./tabs/Messages";
-import { OptionsTab } from "./tabs/Options";
 import { PeopleTab } from "./tabs/People";
-import { ResultsTab } from "./tabs/Results";
-import { TargetingTab } from "./tabs/Targeting";
+import { OverviewTab } from "./tabs/Overview";
+import { SECTIONS, SettingsTab, type Section } from "./tabs/settings/Settings";
 
 export const metadata: Metadata = { title: "Kampanya" };
 
 const TABS = [
-  ["akis", "Akış"],
-  ["hedefleme", "Hedefleme"],
+  ["genel", "Genel bakış"],
   ["kisiler", "Kişiler"],
+  ["akis", "Akış"],
   ["mesajlar", "Mesajlar"],
-  ["secenekler", "Seçenekler"],
-  ["sonuclar", "Sonuçlar"],
+  ["ayarlar", "Ayarlar"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
+
+/** Eski adresler: sekme anahtarları ayarlar alt menüsüne taşındı. */
+const LEGACY: Record<string, [Tab, Section | undefined]> = { hedefleme: ["ayarlar", "hedefleme"], secenekler: ["ayarlar", "secenekler"], sonuclar: ["genel", undefined] };
 
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const ctx = await requireContext();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const c = await loadCampaign(ctx, id);
-  const tab: Tab = (TABS.find(([k]) => k === sp.sekme)?.[0] ?? "akis") as Tab;
+  const legacy = sp.sekme ? LEGACY[sp.sekme] : undefined;
+  const tab: Tab = legacy?.[0] ?? (TABS.find(([k]) => k === sp.sekme)?.[0] ?? "genel");
+  const section: Section = (SECTIONS.find(([k]) => k === (legacy?.[1] ?? sp.bolum))?.[0] ?? "genel") as Section;
   const optionsOn = [c.firstLineEnabled, c.calendarEnabled, c.englishEnabled, c.openProfileEnabled, c.inmailEnabled].filter(Boolean).length;
   const company = c.companyId ? await prisma.company.findUnique({ where: { id: c.companyId }, select: { name: true } }) : null;
   const reviewCount = await prisma.agentProspect.count({ where: { agentId: c.id, stage: "NEEDS_REVIEW" } });
@@ -74,17 +77,16 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         {TABS.map(([k, l]) => (
           <Link key={k} className="tab" role="tab" aria-selected={tab === k} href={`/kampanyalar/${c.id}?sekme=${k}`}>
             {l}
-            {k === "secenekler" && optionsOn > 0 && <> <span className="badge">{optionsOn}</span></>}
+            {k === "ayarlar" && optionsOn > 0 && <> <span className="badge">{optionsOn}</span></>}
             {k === "kisiler" && reviewCount > 0 && <> <span className="badge">{reviewCount}</span></>}
           </Link>
         ))}
       </div>
+      {tab === "genel" && <OverviewTab campaign={c} sp={sp} />}
       {tab === "akis" && <FlowTab campaign={c} sp={sp} />}
-      {tab === "hedefleme" && <TargetingTab campaign={c} sp={sp} />}
       {tab === "kisiler" && <PeopleTab campaign={c} sp={sp} />}
       {tab === "mesajlar" && <MessagesTab campaign={c} sp={sp} />}
-      {tab === "secenekler" && <OptionsTab campaign={c} sp={sp} />}
-      {tab === "sonuclar" && <ResultsTab campaign={c} sp={sp} />}
+      {tab === "ayarlar" && <SettingsTab campaign={c} sp={sp} section={section} />}
     </>
   );
 }

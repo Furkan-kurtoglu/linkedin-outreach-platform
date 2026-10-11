@@ -3,6 +3,7 @@
  * zaman aynı sonucu verir. Emin olamadığı kişileri "belirsiz" olarak kullanıcıya sorar.
  */
 import { containsFolded } from "./text";
+import { preferredBonus } from "./agentrules";
 
 export interface ProspectInput {
   fullName: string;
@@ -32,6 +33,8 @@ export interface Targeting {
   /** Kurum adında ya da açıklamada en az biri geçmeli (ör. "özel"); boşsa aranmaz */
   requiredCompanyKeywords: string[];
   segments: SegmentRule[];
+  /** Tercihli ifadeler: bulunursa puan artar, bulunmaması elemez */
+  preferredKeywords?: string[];
 }
 
 export type Verdict = "uygun" | "belirsiz" | "elendi";
@@ -117,6 +120,15 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   if (segment) {
     score += 10;
     reasons.push(`Segment: ${segment.name}.`);
+  }
+
+  // Tercihli ölçüt (en fazla +10)
+  if (t.preferredKeywords?.length) {
+    const pb = preferredBonus(t.preferredKeywords, p.title, p.company, p.about);
+    if (pb.bonus) {
+      score += pb.bonus;
+      reasons.push(`Tercih edilen ölçüt: ${pb.hits.join(", ")}.`);
+    }
   }
 
   // Karar

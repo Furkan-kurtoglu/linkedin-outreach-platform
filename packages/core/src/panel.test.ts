@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_ACTIVE_AGENTS, buildTimeline, canActivateAgent, canUndo, deriveAlerts, onboardingProgress, toCsv, UNDO_WINDOW_MS } from "./index";
+import { bucketByDay, MAX_ACTIVE_AGENTS, buildTimeline, canActivateAgent, canUndo, deriveAlerts, onboardingProgress, toCsv, UNDO_WINDOW_MS } from "./index";
 
 const now = new Date("2026-10-12T08:00:00Z");
 const min = (n: number) => new Date(now.getTime() - n * 60_000);
@@ -67,5 +67,14 @@ describe("temsilci sınırı", () => {
     expect(canActivateAgent(4)).toBe(true);
     expect(canActivateAgent(5)).toBe(false);
     expect(canActivateAgent(0, 1)).toBe(true);
+  });
+});
+
+describe("günlük seri", () => {
+  it("son günleri yerel saate göre kovalar", () => {
+    const n = new Date("2026-10-12T10:00:00Z");
+    const r = bucketByDay([n, new Date("2026-10-11T22:30:00Z"), new Date("2026-10-10T10:00:00Z"), new Date("2026-09-01T10:00:00Z"), null], 3, n);
+    expect(r.counts).toEqual([1, 0, 2]); // 22:30 UTC = ertesi gün 01:30 yerel
+    expect(r.labels).toEqual(["10.10", "11.10", "12.10"]);
   });
 });

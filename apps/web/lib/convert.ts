@@ -75,6 +75,7 @@ export function toTargeting(agent: Agent, segments: Segment[], excludedCompanies
     excludedCompanyKeywords: t.excludedCompanyKeywords,
     requiredCompanyKeywords: t.requiredCompanyKeywords,
     segments: segments.map((s) => ({ id: s.id, name: s.name, keywords: segmentKeywords(s) })),
+    preferredKeywords: agent.preferredKeywords,
   };
 }
 

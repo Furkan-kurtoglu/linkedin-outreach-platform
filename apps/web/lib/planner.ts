@@ -9,6 +9,8 @@ import "server-only";
 import {
   PRIORITY,
   allocateInvites,
+  hasWindow,
+  restrictToWindow,
   chooseLanguage,
   fold,
   dispatchTime,
@@ -25,6 +27,7 @@ import {
   salutationFor,
   throttleByCompany,
   warmupBudget,
+  type AgentWindow,
   type DispatchKind,
   type JobPayload,
   type ProspectState,
@@ -62,6 +65,12 @@ function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
+}
+
+/** Kampanyanın kendi gönderim penceresi; yoksa null (hesap takvimi geçerli). */
+export function windowOf(a: Pick<Agent, "windowDays" | "windowStartMin" | "windowEndMin">): AgentWindow | null {
+  const w = { days: a.windowDays, startMin: a.windowStartMin ?? undefined, endMin: a.windowEndMin ?? undefined };
+  return hasWindow(w) ? w : null;
 }
 
 /** Adım + segment + dil için onaylı şablon; A/B varyantları arasında kişiye sabit seçim. */
@@ -235,6 +244,9 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
   const messageCands: MsgCand[] = [];
 
   for (const agent of agents) {
+    // "Yalnızca bul" kampanyaları hiçbir şey göndermez; yalnızca kişi bulur ve puanlar
+    if (agent.mode === "FIND_ONLY") continue;
+    const agentConfig = restrictToWindow(config, windowOf(agent));
     const sequence = toSequence(agent, agent.steps);
     const stepById = new Map(agent.steps.map((s) => [s.id, s]));
     const templates = await prisma.template.findMany({ where: { step: { agentId: agent.id }, status: "APPROVED" } });
@@ -317,7 +329,7 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
             priority: prio,
             dueAt: now,
             make: () => {
-              const at = dispatchTime(kind, now, config, quiet);
+              const at = dispatchTime(kind, now, agentConfig, quiet);
               if (!at) return null;
               const r = renderStep({ agent, ws, account, excludedCompanies, step, templates, ap, prospect: p });
               if (!r.templateId) return null; // onaylı metin yoksa bekler; panelde uyarı görünür
@@ -345,7 +357,8 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
           break;
         }
         case "withdraw": {
-          const at = nextOpenSlot(now, config, quiet);
+          if (!account.autoWithdraw) break;
+          const at = nextOpenSlot(now, agentConfig, quiet);
           if (at)
             newJobs.push(
               job({
@@ -394,39 +407,51 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
   visitJobs.splice(visitsLeft);
   visitsLeft -= visitJobs.length;
 
-  const inviteTimes = planInviteTimes({ now, count: inviteJobs.length, config });
-  inviteJobs.slice(0, inviteTimes.length).forEach(({ cand, agent }, i) => {
-    // Onaylı notu olmayan kampanyanın davetleri atlanır
-    // Davet notu: onaylı metin yoksa notsuz davet gider (LinkedIn notsuz daveti de kabul eder);
+  /** Kampanyanın penceresi varsa zamanlar o pencereye göre ayrı üretilir; yoksa hesap takvimiyle ortak. */
+  const assign = <T extends { agent: Agent }>(items: T[]): (T & { at: Date })[] => {
+    const out: (T & { at: Date })[] = [];
+    const shared = items.filter((x) => !windowOf(x.agent));
+    const pooled = planInviteTimes({ now, count: shared.length, config });
+    shared.slice(0, pooled.length).forEach((x, i) => out.push({ ...x, at: pooled[i]! }));
+    const byAgent = new Map<string, T[]>();
+    for (const x of items) if (windowOf(x.agent)) byAgent.set(x.agent.id, [...(byAgent.get(x.agent.id) ?? []), x]);
+    for (const list of byAgent.values()) {
+      const times = planInviteTimes({ now, count: list.length, config: restrictToWindow(config, windowOf(list[0]!.agent)) });
+      list.slice(0, times.length).forEach((x, i) => out.push({ ...x, at: times[i]! }));
+    }
+    return out;
+  };
+
+  for (const { cand, agent, at } of assign(inviteJobs)) {
+    // Davet notu: onaylı metin yoksa davet gönderilmez (Mesajlar sekmesinde "onay bekliyor" görünür);
     // metin kural denetiminden geçmezse davet onaya düşer.
     const r = cand.note?.();
     const hasNote = !!r?.templateId;
-    if (!hasNote) return; // onaylı davet notu yoksa davet gönderilmez; Mesajlar sekmesinde "onay bekliyor" görünür
+    if (!hasNote) continue;
     newJobs.push(
       job({
         linkedinAccountId: account.id,
         type: "SEND_INVITE",
         status: (hasNote && !r!.ok) || needsApproval(agent.reviewMode, true) ? "AWAITING_APPROVAL" : "PENDING",
         priority: PRIORITY.invite,
-        runAfter: inviteTimes[i]!,
+        runAfter: at,
         payload: { type: "SEND_INVITE", profileUrl: cand.prospect.linkedinUrl, note: hasNote ? r!.text : undefined, stepId: cand.step.id, templateId: r?.templateId },
         draftText: hasNote ? r!.text : undefined,
         agentProspectId: cand.ap.id,
         lastError: hasNote && !r!.ok ? r!.issues.join(" ") : undefined,
       }),
     );
-  });
+  }
 
   // Ziyaretler davet saatleriyle aynı pencerelere yayılır
-  const visitTimes = planInviteTimes({ now, count: visitJobs.length, config });
-  visitJobs.slice(0, visitTimes.length).forEach(({ cand, agent }, i) =>
+  for (const { cand, agent, at } of assign(visitJobs))
     newJobs.push(
       job({
         linkedinAccountId: account.id,
         type: "VISIT_PROFILE",
         status: "PENDING",
         priority: 15,
-        runAfter: visitTimes[i]!,
+        runAfter: at,
         payload: {
           type: "VISIT_PROFILE",
           profileUrl: cand.prospect.linkedinUrl,
@@ -435,8 +460,7 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
         },
         agentProspectId: cand.ap.id,
       }),
-    ),
-  );
+    );
 
   /* ---------- Mesajlar: günlük sınır, öncelikli olan önce ---------- */
   const { today: todaysMessages } = pickMessagesForToday(messageCands, messagesLeft);

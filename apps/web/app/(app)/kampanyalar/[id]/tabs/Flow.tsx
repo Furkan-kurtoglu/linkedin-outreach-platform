@@ -2,7 +2,7 @@ import { prisma } from "@hfo/db";
 import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { STEP_LABEL } from "@/lib/convert";
-import { deleteCampaign, saveFlow } from "../actions";
+import { saveFlow } from "../actions";
 import type { TabProps } from "./types";
 
 export async function FlowTab({ campaign: c, sp }: TabProps) {
@@ -66,12 +66,12 @@ export async function FlowTab({ campaign: c, sp }: TabProps) {
           <div className={`optstep ${c.inmailEnabled ? "on" : ""}`}>
             <span style={{ flex: 1 }}><b>Davet kabul edilmezse</b><span className="sub" style={{ display: "block" }}>Geri çekilir; puanı {c.inmailMinFitScore} ve üstüyse InMail gider</span></span>
             <span className={`tag ${c.inmailEnabled ? "t-good" : "t-mute"}`}>{c.inmailEnabled ? "Açık" : "Kapalı"}</span>
-            <Link className="btn sm quiet" href={`/kampanyalar/${c.id}?sekme=secenekler`}>Seçenekler</Link>
+            <Link className="btn sm quiet" href={`/kampanyalar/${c.id}?sekme=ayarlar&bolum=secenekler`}>Seçenekler</Link>
           </div>
           <div className={`optstep ${c.openProfileEnabled ? "on" : ""}`}>
             <span style={{ flex: 1 }}><b>Açık profili olanlar</b><span className="sub" style={{ display: "block" }}>Davet yerine doğrudan mesaj</span></span>
             <span className={`tag ${c.openProfileEnabled ? "t-good" : "t-mute"}`}>{c.openProfileEnabled ? "Açık" : "Kapalı"}</span>
-            <Link className="btn sm quiet" href={`/kampanyalar/${c.id}?sekme=secenekler`}>Seçenekler</Link>
+            <Link className="btn sm quiet" href={`/kampanyalar/${c.id}?sekme=ayarlar&bolum=secenekler`}>Seçenekler</Link>
           </div>
         </div>
         <div className="lane">
@@ -112,17 +112,6 @@ export async function FlowTab({ campaign: c, sp }: TabProps) {
       <div className="row" style={{ marginTop: 16 }}>
         <SubmitButton>Akışı kaydet</SubmitButton>
       </div>
-      <details className="more card" style={{ marginTop: 24 }}>
-        <summary className="card-b">Kampanyayı sil</summary>
-        <div className="card-b stack" style={{ paddingTop: 0 }}>
-          <p className="help" style={{ margin: 0 }}>Kampanya, metinleri ve kişi kayıtları silinir. Gönderilmiş mesajlar LinkedIn&apos;de kalır. Onaylamak için kampanya adını yazın.</p>
-          {sp.uyari === "silme" && <p className="form-error">Ad eşleşmedi.</p>}
-          <div className="row" style={{ flexWrap: "nowrap" }}>
-            <input type="text" name="confirm" aria-label="Kampanya adı" placeholder={c.name} style={{ maxWidth: 280 }} />
-            <button className="btn danger" formAction={deleteCampaign}>Sil</button>
-          </div>
-        </div>
-      </details>
     </form>
   );
 }

@@ -12,6 +12,8 @@ import {
   containsFolded,
   countExternalInvites,
   detectLanguage,
+  isOpenToWork,
+  resolveUncertain,
   priorityScore,
   scoreProspect,
   splitHeadline,
@@ -31,6 +33,7 @@ import { prisma, Prisma, type Job, type LinkedinAccount } from "@hfo/db";
 import { toTargeting } from "./convert";
 import { planAccount } from "./planner";
 import { extendRetention } from "./retention";
+import { fireWebhook } from "./webhook";
 
 const DAY = 86_400_000;
 const MAX_ATTEMPTS = 3;
@@ -165,6 +168,7 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
         prisma.agentProspect.updateMany({ where: { id: { in: accepted.map((a) => a.id) } }, data: { stage: "CONNECTED", connectedAt: now } }),
         prisma.prospect.updateMany({ where: { id: { in: accepted.map((a) => a.prospectId) } }, data: { degree: 1 } }),
       ]);
+      await notifyAccepted(accepted.map((a) => a.id));
       // Kabul edenlere detay mesajı hemen planlansın (1-5 dakika içinde)
       await planAccount(account.id, { force: true });
       break;
@@ -265,6 +269,12 @@ async function ingestInbox(account: LinkedinAccount, data: InboxData, now: Date)
       await prisma.agentProspect.update({ where: { id: ap.id }, data: { stage: "REPLIED", repliedAt: ap.repliedAt ?? now, replyLabel: REPLY_DB[label] } });
       // Cevap gelen kişiye bekleyen otomatik mesaj gitmez
       await prisma.job.updateMany({ where: { agentProspectId: ap.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Kişi cevap verdi." } });
+      const ag = await prisma.agent.findUnique({ where: { id: ap.agentId } });
+      if (ag?.webhookUrl) {
+        const person = { name: prospect.fullName, title: prospect.title, company: prospect.company, linkedinUrl: prospect.linkedinUrl };
+        await fireWebhook(ag, { event: "replied", person, message: lastText.slice(0, 500) });
+        if (label === "ilgileniyor") await fireWebhook(ag, { event: "interested", person, message: lastText.slice(0, 500) });
+      }
       if (label === "ilgileniyor") {
         const exists = await prisma.opportunity.findFirst({ where: { prospectId: prospect.id } });
         if (!exists) await prisma.opportunity.create({ data: { workspaceId: account.workspaceId, prospectId: prospect.id, agentId: ap.agentId } });
@@ -328,6 +338,19 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
     const lastEnded = prospect.agents.filter((a) => ["FINISHED", "REPLIED"].includes(a.stage)).map((a) => a.lastMessageAt ?? a.createdAt).sort((a, b) => b.getTime() - a.getTime())[0];
     const withdrawn = prospect.agents.map((a) => a.withdrawnAt).filter((d): d is Date => !!d).sort((a, b) => b.getTime() - a.getTime())[0];
 
+    if (agent.skipOpenToWork && score.verdict !== "elendi" && isOpenToWork(c.headline, split.title)) {
+      score.verdict = "elendi";
+      score.reasons = ["İş arayan profil (Open to Work).", ...score.reasons];
+    }
+    // Kararsız adaylar kampanya ayarına göre: bana sor / ele / yüksek puanlıyı kabul et
+    let outcome: "review" | "queue" = "queue";
+    if (score.verdict === "belirsiz") {
+      const r = resolveUncertain(agent.uncertainPolicy, score.score);
+      if (r === "drop") {
+        score.verdict = "elendi";
+        score.reasons = ["Belirsiz aday; kampanya ayarı gereği elendi.", ...score.reasons];
+      } else outcome = r === "queue" ? "queue" : "review";
+    }
     if (score.verdict === "elendi") {
       rejected++;
       await prisma.agentProspect.create({
@@ -338,14 +361,14 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
     const decision = chooseCampaign([{ campaignId: agentId, fitScore: score.score, verdict: score.verdict === "belirsiz" ? "uygun" : score.verdict }], { activeCampaignId: active?.agentId, withdrawnAt: withdrawn, lastEndedAt: lastEnded }, now);
     if (!decision.ok) continue;
     const priority = priorityScore({ candidate: { ...c, profileUrl: url }, fitScore: score.score });
-    if (score.verdict === "belirsiz") review++;
+    if (score.verdict === "belirsiz" && outcome === "review") review++;
     else added++;
     await prisma.agentProspect.create({
       data: {
         agentId,
         prospectId: prospect.id,
         segmentId: score.segmentId,
-        stage: score.verdict === "belirsiz" ? "NEEDS_REVIEW" : "QUEUED",
+        stage: score.verdict === "belirsiz" && outcome === "review" ? "NEEDS_REVIEW" : "QUEUED",
         branch: c.degree === 1 ? "CONNECTED" : "NEW_PERSON",
         fitScore: score.score,
         priority,
@@ -361,4 +384,17 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
       details: { jobId, agentId, viewed: data.viewed, steps: data.steps, added, review, rejected } as Prisma.InputJsonValue,
     },
   });
+}
+
+/** Kabul olaylarını kampanyaların webhook adreslerine bildirir (hata akışı durdurmaz). */
+async function notifyAccepted(apIds: string[]) {
+  try {
+    const rows = await prisma.agentProspect.findMany({ where: { id: { in: apIds } }, include: { prospect: true, agent: true } });
+    for (const r of rows) {
+      if (!r.agent.webhookUrl) continue;
+      await fireWebhook(r.agent, { event: "accepted", person: { name: r.prospect.fullName, title: r.prospect.title, company: r.prospect.company, linkedinUrl: r.prospect.linkedinUrl } });
+    }
+  } catch {
+    /* webhook hatası sonuç işlemeyi bozmaz */
+  }
 }
