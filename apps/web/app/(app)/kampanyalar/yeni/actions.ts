@@ -31,6 +31,7 @@ function targetingOf(g: (k: string) => string): TargetingJson {
     geoUrns: [],
     industryIds: [],
     engagementPostUrls: [],
+    institutionKinds: [],
   };
 }
 
