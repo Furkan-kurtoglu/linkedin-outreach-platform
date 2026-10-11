@@ -267,6 +267,7 @@ export function MessageEditor(props: {
                   A/B varyantı ekle
                 </button>
               )}
+              {blocking && <span className="form-error">Onaylamak için kural denetimindeki kırmızı maddeyi düzeltin. Taslak olarak her zaman kaydedebilirsiniz.</span>}
               {state.ok && <span className="form-ok">{state.ok}</span>}
               {state.error && <span className="form-error">{state.error}</span>}
             </div>

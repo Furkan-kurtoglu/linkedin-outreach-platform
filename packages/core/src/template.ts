@@ -119,12 +119,17 @@ export function checkMessage(
     }
   }
 
-  // Görüşme için süre vaat edilmez ("20 dakikalık görüşme" gibi).
-  if (/\d+\s*(dk|dakika)/i.test(text)) {
-    issues.push({
-      code: "duration",
-      message: "Görüşme için süre belirtilmemeli (ör. \"20 dakika\").",
-    });
+  // Görüşme için süre vaat edilmez ("20 dakikalık görüşme" gibi). Ürün anlatımındaki süreler
+  // ("kabul adımını yaklaşık 1 dakikaya indirmeyi hedefliyor") serbesttir.
+  for (const m of text.matchAll(/\d+\s*(?:dk|dakika)\w*/gi)) {
+    const around = text.slice(Math.max(0, m.index - 40), m.index + m[0].length + 40);
+    if (/görüşme|toplantı|sohbet|konuşma|demo|sunum|\bcall\b|meeting/i.test(around)) {
+      issues.push({
+        code: "duration",
+        message: "Görüşme için süre belirtilmemeli (ör. \"20 dakika\").",
+      });
+      break;
+    }
   }
 
   const limit = kind === "invite_note" ? inviteNoteLimit(rules.premium) : MESSAGE_LIMIT;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SCHEDULE,
   acceptedMessageTime,
+  checkMessage,
   dailyQuotas,
   invitesRemainingToday,
   normalizeName,
@@ -119,5 +120,16 @@ describe("davet bütçesi", () => {
     const delay = (t.getTime() - at.getTime()) / 60_000;
     expect(delay).toBeGreaterThanOrEqual(1);
     expect(delay).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("görüşme süresi denetimi", () => {
+  const rules = { bannedPhrases: [], excludedCompanies: [], premium: false } as unknown as Parameters<typeof checkMessage>[2];
+  it("görüşme süresi vaadini yakalar", () => {
+    expect(checkMessage("20 dakikalık bir görüşme olur mu?", "message", rules).some((i) => i.code === "duration")).toBe(true);
+    expect(checkMessage("Kısa bir toplantı için 15 dk ayırabilir misiniz?", "message", rules).some((i) => i.code === "duration")).toBe(true);
+  });
+  it("ürün anlatımındaki süreyi engellemez", () => {
+    expect(checkMessage("QR kodla veznesiz kabul, kabul adımını yaklaşık 1 dakikaya indirmeyi hedefliyor.", "message", rules).some((i) => i.code === "duration")).toBe(false);
   });
 });
