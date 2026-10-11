@@ -1,0 +1,22 @@
+{
+  "name": "@hfo/runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Yerel çalışan: LinkedIn işlemlerini kullanıcının bilgisayarındaki Chrome ile yapar.",
+  "scripts": {
+    "start": "tsx src/main.ts",
+    "check": "tsx src/main.ts --kontrol",
+    "reset": "tsx src/main.ts --sifirla",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hfo/core": "workspace:*",
+    "playwright": "1.48.2",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.6.3"
+  }
+}
