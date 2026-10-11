@@ -62,6 +62,7 @@ export async function importOsm(form: FormData) {
   const area = box ? "" : `area["name"="${il.replace(/["\\]/g, "")}"]["boundary"="administrative"]["admin_level"="4"]->.a;`;
   const query = `[out:json][timeout:25];${area}(nwr["amenity"~"^(${amenity})$"]["name"]${scope};);out tags;`;
   let json: { elements?: { tags?: Record<string, string> }[] } | null = null;
+  const trace: string[] = [];
   for (const url of OVERPASS) {
     const res = await fetch(url, {
       method: "POST",
@@ -69,13 +70,14 @@ export async function importOsm(form: FormData) {
       body: new URLSearchParams({ data: query }),
       signal: AbortSignal.timeout(27_000),
       cache: "no-store",
-    }).catch(() => null);
-    if (res?.ok) {
-      json = (await res.json().catch(() => null)) as typeof json;
+    }).catch((e: unknown) => ({ ok: false as const, status: 0, err: e instanceof Error ? e.name : "hata" }));
+    if (res.ok) {
+      json = (await (res as Response).json().catch(() => null)) as typeof json;
       if (json) break;
-    }
+      trace.push(`${new URL(url).host}: yanıt okunamadı`);
+    } else trace.push(`${new URL(url).host}: ${"err" in res ? res.err : (res as Response).status}`);
   }
-  if (!json) redirect("/kurumlar?hata=osm_erisim");
+  if (!json) redirect(`/kurumlar?hata=osm_erisim&ayrinti=${encodeURIComponent(trace.join(" | "))}`);
   const drafts = parseOverpass(json, il, { dental });
   const added = await save(ctx.workspace.id, drafts);
   await audit(ctx, "institutions.import", { kaynak: "osm", il, added });

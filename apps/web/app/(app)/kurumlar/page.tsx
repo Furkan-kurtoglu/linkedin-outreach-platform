@@ -52,7 +52,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         </div>
       </div>
       {note && <div className="banner"><div className="txt"><b>{note}</b></div></div>}
-      {sp.hata && <div className="banner warning" role="alert"><span className="dot warn" style={{ marginTop: 6 }} /><div className="txt"><b>{ERR[sp.hata] ?? "İşlem tamamlanamadı."}</b></div></div>}
+      {sp.hata && <div className="banner warning" role="alert"><span className="dot warn" style={{ marginTop: 6 }} /><div className="txt"><b>{ERR[sp.hata] ?? "İşlem tamamlanamadı."}</b>{sp.ayrinti && <p>Ayrıntı: {sp.ayrinti}</p>}</div></div>}
       {sp.uyari === "secim" && <div className="banner warning" role="alert"><div className="txt"><b>Önce tablodan kurum seçin ya da "filtredeki tümü" kutusunu işaretleyin.</b></div></div>}
       {sp.uyari === "kampanya" && <div className="banner warning" role="alert"><div className="txt"><b>Bir kampanya seçin.</b></div></div>}
 
