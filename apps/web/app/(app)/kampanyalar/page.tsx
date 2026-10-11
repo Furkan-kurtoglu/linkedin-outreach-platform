@@ -10,9 +10,9 @@ export const metadata: Metadata = { title: "Kampanyalar" };
 const STATUS = { ACTIVE: ["Aktif", "t-good"], PAUSED: ["Duraklatıldı", "t-mute"], DRAFT: ["Taslak", "t-warn"] } as const;
 const pct = (a: number, b: number) => (b ? `%${Math.round((a / b) * 100)}` : "—");
 
-export default async function Page({ searchParams }: { searchParams: Promise<{ sirket?: string; hazir?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ sirket?: string; hazir?: string; guncel?: string }> }) {
   const ctx = await requireContext();
-  const { sirket, hazir } = await searchParams;
+  const { sirket, hazir, guncel } = await searchParams;
   const companies = await prisma.company.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
   const brands = await companyBrands(ctx.workspace.id);
   // Adreste şirket yoksa sol üstte seçili şirket; "hepsi" tüm şirketleri gösterir
@@ -39,7 +39,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
         <Link className="btn primary" href="/kampanyalar/yeni">Yeni kampanya</Link>
       </div>
       {hazir != null && (
-        <p className="form-ok" role="status">{+hazir > 0 ? `${hazir} temsilci taslak olarak kuruldu. Mesajlarını inceleyip etkinleştirin.` : "Hazır temsilciler zaten kurulu."}</p>
+        <p className="form-ok" role="status">{+hazir > 0 ? `${hazir} temsilci taslak olarak kuruldu. Mesajlarını inceleyip etkinleştirin.` : +(guncel ?? 0) > 0 ? `${guncel} temsilcinin hedeflemesi ve hedef kurum listesi güncellendi.` : "Hazır temsilciler zaten kurulu."}</p>
       )}
       {companies.length > 1 && (
         <div className="row" style={{ marginBottom: 12 }}>

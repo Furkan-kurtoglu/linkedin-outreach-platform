@@ -20,6 +20,20 @@ const lines = (v: string) =>
     .map((x) => x.trim())
     .filter(Boolean);
 
+function targetingOf(g: (k: string) => string): TargetingJson {
+  return {
+    titles: lines(g("titles")),
+    excludedTitles: lines(g("excludedTitles")),
+    locations: lines(g("locations")),
+    industries: lines(g("industries")),
+    requiredCompanyKeywords: lines(g("requiredCompanyKeywords")),
+    excludedCompanyKeywords: lines(g("excludedCompanyKeywords")),
+    geoUrns: [],
+    industryIds: [],
+    engagementPostUrls: [],
+  };
+}
+
 type Ctx = Awaited<ReturnType<typeof requireContext>>;
 
 /** Sihirbaz ve hazır temsilci kurulumu aynı yolu kullanır; başarıda kampanya, hatada alan hataları döner. */
@@ -55,17 +69,7 @@ async function makeCampaign(ctx: Ctx, v: Record<string, string>): Promise<{ stat
   if (!account) errors.accountId = "Önce LinkedIn hesapları sayfasından bir hesap ekleyin.";
   if (Object.keys(errors).length || !account || !company) return { state: { errors, values: v } };
 
-  const targeting: TargetingJson = {
-    titles,
-    excludedTitles: lines(g("excludedTitles")),
-    locations: lines(g("locations")),
-    industries: lines(g("industries")),
-    requiredCompanyKeywords: lines(g("requiredCompanyKeywords")),
-    excludedCompanyKeywords: lines(g("excludedCompanyKeywords")),
-    geoUrns: [],
-    industryIds: [],
-    engagementPostUrls: [],
-  };
+  const targeting = targetingOf(g);
   const set = generateTemplates(answers, { premium: account.premium });
 
   const agent = await prisma.$transaction(async (tx) => {
@@ -79,6 +83,7 @@ async function makeCampaign(ctx: Ctx, v: Record<string, string>): Promise<{ stat
         offerContext: answers.productPhrase,
         tone: answers.tone,
         status: "DRAFT",
+        mode: g("mode") === "FIND_ONLY" ? "FIND_ONLY" : "FIND_AND_OUTREACH",
         reviewMode: "REVIEW_ALL",
         budgetSharePct: Math.min(100, Math.max(5, Math.round(+g("share") || 100))),
         targeting: targeting as unknown as Prisma.InputJsonValue,
@@ -89,6 +94,9 @@ async function makeCampaign(ctx: Ctx, v: Record<string, string>): Promise<{ stat
       },
     });
     await createStepsAndDrafts(tx, a.id, answers, set);
+    for (const name of lines(g("targetAccounts")).slice(0, 500)) {
+      await tx.targetAccount.upsert({ where: { agentId_name: { agentId: a.id, name } }, update: {}, create: { agentId: a.id, name, origin: "web" } });
+    }
     // Hariç tutulan kurumlar tüm çalışma alanında geçerlidir
     for (const c of answers.excludedCompanies) {
       await tx.suppression.upsert({
@@ -127,11 +135,27 @@ export async function createPresetAgents(): Promise<void> {
     }));
   const existing = new Set((await prisma.agent.findMany({ where: { workspaceId: ctx.workspace.id }, select: { name: true } })).map((a) => a.name));
   let created = 0;
+  let updated = 0;
   for (const p of PRESETS) {
-    if (existing.has(p.values.name ?? "")) continue;
+    if (existing.has(p.values.name ?? "")) {
+      // Aynı adlı taslak varsa hedefleme, uygunluk kuralı ve hedef kurumlar şablonla eşitlenir (mesajlara dokunulmaz)
+      const agent = await prisma.agent.findFirst({ where: { workspaceId: ctx.workspace.id, name: p.values.name } });
+      if (agent && agent.status === "DRAFT") {
+        const g = (k: string) => (p.values[k] ?? "").trim();
+        await prisma.agent.update({
+          where: { id: agent.id },
+          data: { targeting: targetingOf(g) as unknown as Prisma.InputJsonValue, fitRule: g("fitRule") || null, mode: g("mode") === "FIND_ONLY" ? "FIND_ONLY" : "FIND_AND_OUTREACH" },
+        });
+        for (const name of lines(g("targetAccounts")).slice(0, 500)) {
+          await prisma.targetAccount.upsert({ where: { agentId_name: { agentId: agent.id, name } }, update: {}, create: { agentId: agent.id, name, origin: "web" } });
+        }
+        updated++;
+      }
+      continue;
+    }
     const r = await makeCampaign(ctx, { ...p.values, companyId: company.id, companyName: company.name, accountId: account.id });
     if ("agent" in r) created++;
   }
   revalidatePath("/kampanyalar");
-  redirect(`/kampanyalar?hazir=${created}`);
+  redirect(`/kampanyalar?hazir=${created}&guncel=${updated}`);
 }

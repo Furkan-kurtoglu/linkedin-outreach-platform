@@ -33,8 +33,9 @@ export async function setStatus(form: FormData) {
   const to = form.get("to") === "ACTIVE" ? "ACTIVE" : "PAUSED";
   if (to === "ACTIVE") {
     // En az davet notu ya da bağlantıya ilk mesaj onaylı olmalı
+    // "Yalnızca bul" modunda mesaj gitmediği için onaylı mesaj aranmaz
     const approved = await prisma.template.count({ where: { status: "APPROVED", step: { agentId: agent.id, type: { in: ["INVITE", "ACCEPTED_MESSAGE", "CONNECTED_MESSAGE"] } } } });
-    if (approved === 0) back(agent.id, "mesajlar", "&uyari=onay");
+    if (approved === 0 && agent.mode !== "FIND_ONLY") back(agent.id, "mesajlar", "&uyari=onay");
     if (agent.status !== "ACTIVE") {
       const active = await prisma.agent.count({ where: { workspaceId: ctx.workspace.id, status: "ACTIVE" } });
       if (!canActivateAgent(active)) back(agent.id, "genel", "&uyari=sinir");
