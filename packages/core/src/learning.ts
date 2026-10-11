@@ -71,7 +71,14 @@ export function insights(model: Model, minN = 8): FeatureStat[] {
 
 /** Unvanın ilk iki sözcüğü, küçük harfle: "Genel Müdür Yardımcısı" -> "genel müdür". Temsilciler arası ortak anahtar. */
 export function titleGroupOf(title: string | null | undefined): string | undefined {
-  const g = (title ?? "").toLocaleLowerCase("tr-TR").replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean).slice(0, 2).join(" ");
+  const low = (w: string) => (/^[A-Z0-9]+$/.test(w) ? w.toLowerCase() : w.toLocaleLowerCase("tr-TR"));
+  const g = (title ?? "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(low)
+    .join(" ");
   return g || undefined;
 }
 

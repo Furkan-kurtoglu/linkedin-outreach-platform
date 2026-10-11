@@ -36,7 +36,7 @@ interface Sector {
 }
 
 const SECTORS: Sector[] = [
-  { id: "saglik", label: "Sağlık", aliases: ["saglik", "hastane", "klinik", "health", "medikal", "tip"], search: ["özel hastane", "tıp merkezi", "özel klinik", "estetik klinik", "diş kliniği", "private hospital", "medical center", "healthcare group"], must: ["hastane", "klinik", "tıp", "sağlık", "hospital", "clinic", "medical", "health"], not: ["devlet hastanesi", "üniversite", "belediye"], titles: ["Başhekim", "Medical Director", "Hasta Hizmetleri Müdürü", "Patient Experience Director"] },
+  { id: "saglik", label: "Sağlık", aliases: ["saglik", "hastane", "klinik", "health", "medikal", "hospital", "clinic", "tip"], search: ["özel hastane", "tıp merkezi", "özel klinik", "estetik klinik", "diş kliniği", "private hospital", "medical center", "healthcare group"], must: ["hastane", "klinik", "tıp", "sağlık", "hospital", "clinic", "medical", "health"], not: ["devlet hastanesi", "üniversite", "belediye"], titles: ["Başhekim", "Medical Director", "Hasta Hizmetleri Müdürü", "Patient Experience Director"] },
   { id: "gida", label: "Gıda ve içecek", aliases: ["gida", "yiyecek", "icecek", "food", "beverage", "fmcg"], search: ["gıda üretimi", "gıda sanayi", "içecek", "süt ürünleri", "et ve et ürünleri", "food manufacturing", "beverage company", "food and beverage"], must: ["gıda", "food", "içecek", "beverage", "süt", "dairy", "et ", "unlu", "bakery"], not: ["restoran", "kafe", "catering"], titles: ["Kalite Müdürü", "Quality Manager", "Gıda Güvenliği Müdürü", "Üretim Müdürü", "Plant Manager", "Ar-Ge Müdürü", "Tedarik Zinciri Müdürü", "Supply Chain Director", "İhracat Müdürü", "Export Manager"] },
   { id: "otomotiv", label: "Otomotiv", aliases: ["otomotiv", "arac", "araba", "automotive", "yan sanayi", "bayi"], search: ["otomotiv yan sanayi", "otomotiv bayisi", "otomotiv", "araç kiralama", "automotive supplier", "car dealership", "automotive manufacturing"], must: ["otomotiv", "automotive", "oto ", "araç", "motor", "bayi", "dealer"], not: ["oto yıkama", "oto kuaför"], titles: ["Bayi Müdürü", "Dealer Principal", "Satış Sonrası Hizmetler Müdürü", "Aftersales Manager", "Fabrika Müdürü", "Plant Manager", "Ar-Ge Müdürü", "Satın Alma Müdürü", "Filo Satış Müdürü", "Fleet Sales Manager"] },
   { id: "finans", label: "Finans ve sigorta", aliases: ["finans", "sigorta", "banka", "emeklilik", "insurance", "bank", "fintech"], search: ["sigorta şirketi", "sigorta aracılık", "emeklilik", "banka", "insurance company", "insurance broker", "fintech"], must: ["sigorta", "insurance", "banka", "bank", "finans", "emeklilik", "fintech"], not: ["muhasebe bürosu"], titles: ["Hasar Müdürü", "Claims Director", "Aktüerya Müdürü", "Ürün Müdürü", "Product Director", "Acente Satış Müdürü", "Bancassurance"] },
@@ -91,7 +91,10 @@ export interface StrategyPlan {
 export function findSector(text: string): Sector | null {
   const t = fold(text);
   if (!t) return null;
-  return SECTORS.find((s) => fold(s.label) === t || s.aliases.some((a) => t.includes(fold(a)))) ?? null;
+  const words = t.split(/[^a-z0-9]+/).filter(Boolean);
+  // Kısa takılar (ör. "tip") yalnızca tam sözcük olarak eşleşir
+  const hit = (a: string) => (a.length <= 3 ? words.includes(a) : t.includes(a));
+  return SECTORS.find((s) => fold(s.label) === t || s.aliases.some((a) => hit(fold(a)))) ?? null;
 }
 
 const uniq = (xs: string[]) => {
