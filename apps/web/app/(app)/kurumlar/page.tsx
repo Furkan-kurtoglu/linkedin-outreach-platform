@@ -4,7 +4,7 @@ import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireContext } from "@/lib/context";
 import { KIND_LABEL, SIZE_LABEL, STATUS_LABEL, institutionWhere, type InstSearch } from "@/lib/institution-filter";
-import { bulkInstitutions, importMoh, importOsm, importPaste, importSeed } from "./actions";
+import { bulkInstitutions, findCompaniesOnLinkedIn, importMoh, importOsm, importPaste, importSeed } from "./actions";
 import { SelectAll } from "./SelectAll";
 
 export const metadata: Metadata = { title: "Kurum Ar-Ge" };
@@ -17,6 +17,9 @@ const ERR: Record<string, string> = {
   moh_bicim: "Sağlık Bakanlığı sayfasının biçimi tanınmadı (değişmiş olabilir). Listeyi aşağıdan yapıştırarak ekleyin.",
   osm_erisim: "Harita servisi (OpenStreetMap) şu an yanıt vermedi. Birkaç dakika sonra tekrar deneyin.",
   bos: "Eklenecek satır bulunamadı.",
+  anahtar: "En az bir arama sözcüğü yazın.",
+  hesap: "Önce Hesaplar sayfasından bir LinkedIn hesabı bağlayın; arama o hesabın tarayıcısında yapılır.",
+  bekleyen: "Bekleyen LinkedIn aramaları var. Yerel çalışan onları bitirince yenisini başlatın.",
 };
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -41,7 +44,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const qs = (p: number) => new URLSearchParams({ ...Object.fromEntries(Object.entries(f).filter(([, v]) => v) as [string, string][]), sayfa: String(p) }).toString();
   const filtered = Object.values(f).some(Boolean);
 
-  const note = sp.eklendi != null ? `${sp.eklendi} yeni kurum eklendi${sp.toplam ? ` (kaynakta ${sp.toplam} kayıt vardı; zaten listede olanlar atlandı)` : ""}.` : sp.kampanya != null ? `${sp.kampanya} kurum kampanyanın hedef listesine eklendi${+(sp.atlanan ?? 0) ? `; ${sp.atlanan} kurum hariç tutma kuralı nedeniyle atlandı` : ""}.` : sp.islem ? `${sp.n ?? 0} kurum ${sp.islem === "haric" ? "hariç tutuldu" : sp.islem === "sil" ? "silindi" : "yeniye alındı"}.` : null;
+  const note = sp.aranacak != null ? `${sp.aranacak} arama sözcüğü ${sp.is} işe bölünerek sıraya alındı. Yerel çalışan (baslat.bat) açıkken LinkedIn'de taranır; bulunan şirketler bu listeye "LinkedIn" kaynağıyla düşer.` : sp.eklendi != null ? `${sp.eklendi} yeni kurum eklendi${sp.toplam ? ` (kaynakta ${sp.toplam} kayıt vardı; zaten listede olanlar atlandı)` : ""}.` : sp.kampanya != null ? `${sp.kampanya} kurum kampanyanın hedef listesine eklendi${+(sp.atlanan ?? 0) ? `; ${sp.atlanan} kurum hariç tutma kuralı nedeniyle atlandı` : ""}.` : sp.islem ? `${sp.n ?? 0} kurum ${sp.islem === "haric" ? "hariç tutuldu" : sp.islem === "sil" ? "silindi" : "yeniye alındı"}.` : null;
 
   return (
     <>
@@ -63,6 +66,19 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <div className="stat"><div className="sub">Sigorta</div><div className="v">{k("INSURER")}</div></div>
         <div className="stat"><div className="sub">Seçili / hariç</div><div className="v">{st("SELECTED")} / {st("EXCLUDED")}</div></div>
       </div>
+
+      <form action={findCompaniesOnLinkedIn} className="card" style={{ marginBottom: 16 }}>
+        <div className="card-h"><h2>LinkedIn'de şirket ara</h2><span className="sub">Güncel kaynak: LinkedIn şirket sayfaları</span></div>
+        <div className="card-b stack">
+          <p className="sub" style={{ margin: 0 }}>Web listeleri eskiyebilir; LinkedIn'de şirketin sayfası varsa ve hâlâ aktifse burada görünür. Her satıra bir arama sözcüğü yazın (Türkçe ve İngilizce olabilir). Bulunan şirketler havuza eklenir; sonra kampanyaya ekleyince o şirketlerdeki kurucu, müdür ve yöneticiler aranır.</p>
+          <div className="field"><label htmlFor="li-anahtar">Arama sözcükleri</label><textarea id="li-anahtar" name="anahtar" style={{ minHeight: 96 }} defaultValue={"özel klinik\nestetik klinik\ndiş kliniği\ntıp merkezi\nağız ve diş sağlığı\nsağlık grubu"} /></div>
+          <div className="grid g2">
+            <div className="field"><label htmlFor="li-tur">Tür belli değilse</label><select id="li-tur" name="tur" defaultValue="CLINIC">{Object.entries(KIND_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></div>
+            <div className="field"><label htmlFor="li-sayfa">Sözcük başına sayfa</label><select id="li-sayfa" name="sayfa" defaultValue="3">{[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n} sayfa (~{n * 10} şirket)</option>)}</select></div>
+          </div>
+          <div className="row"><SubmitButton className="btn primary" pendingText="Sıraya alınıyor…">LinkedIn'de ara</SubmitButton><span className="sub">Yalnızca şirket sayfalarını okur; kimseye davet ya da mesaj gitmez.</span></div>
+        </div>
+      </form>
 
       <details className="card" open={total === 0} style={{ marginBottom: 16 }}>
         <summary className="card-h" style={{ cursor: "pointer" }}><h2>Kaynaklardan kurum topla</h2><span className="sub">Resmî liste, harita, yapıştırma, hazır liste</span></summary>
@@ -105,7 +121,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <select name="il" defaultValue={f.il ?? ""} aria-label="İl" style={{ width: "auto" }}><option value="">Tüm iller</option>{cities.map((c) => <option key={c.city} value={c.city ?? ""}>{c.city}</option>)}</select>
           <input type="search" name="ilce" defaultValue={f.ilce} placeholder="İlçe" aria-label="İlçe" style={{ maxWidth: 140 }} />
           <select name="durum" defaultValue={f.durum ?? ""} aria-label="Durum" style={{ width: "auto" }}><option value="">Tüm durumlar</option>{Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-          <select name="kaynak" defaultValue={f.kaynak ?? ""} aria-label="Kaynak" style={{ width: "auto" }}><option value="">Tüm kaynaklar</option><option value="moh">Sağlık Bakanlığı</option><option value="osm">Harita</option><option value="paste">Yapıştırılan</option><option value="seed">Hazır liste</option></select>
+          <select name="kaynak" defaultValue={f.kaynak ?? ""} aria-label="Kaynak" style={{ width: "auto" }}><option value="">Tüm kaynaklar</option><option value="moh">Sağlık Bakanlığı</option><option value="linkedin">LinkedIn</option><option value="osm">Harita</option><option value="paste">Yapıştırılan</option><option value="seed">Hazır liste</option></select>
           <select name="boyut" defaultValue={f.boyut ?? ""} aria-label="Boyut" style={{ width: "auto" }}><option value="">Her boyut</option>{Object.entries(SIZE_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
           <button className="btn">Süz</button>
           {filtered && <Link className="link" href="/kurumlar">Temizle</Link>}
@@ -140,7 +156,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
                     <td><span className="tag t-mute">{KIND_LABEL[r.kind] ?? r.kind}</span></td>
                     <td>{[r.city, r.district].filter(Boolean).join(" / ") || "—"}</td>
                     <td>{r.size ? SIZE_LABEL[r.size] : <span className="sub">—</span>}</td>
-                    <td className="sub">{({ moh: "Sağlık Bakanlığı", osm: "Harita", paste: "Yapıştırılan", seed: "Hazır liste" } as Record<string, string>)[r.source] ?? r.source}</td>
+                    <td className="sub">{({ moh: "Sağlık Bakanlığı", linkedin: "LinkedIn", osm: "Harita", paste: "Yapıştırılan", seed: "Hazır liste" } as Record<string, string>)[r.source] ?? r.source}</td>
                     <td><span className={`tag ${r.status === "SELECTED" ? "t-good" : r.status === "EXCLUDED" ? "t-bad" : "t-mute"}`}>{STATUS_LABEL[r.status]}</span></td>
                   </tr>
                 ))}

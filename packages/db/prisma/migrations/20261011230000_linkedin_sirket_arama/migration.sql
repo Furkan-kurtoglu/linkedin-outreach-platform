@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "JobType" ADD VALUE 'DISCOVER_COMPANIES';

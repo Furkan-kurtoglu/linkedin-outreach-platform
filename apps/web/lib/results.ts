@@ -8,6 +8,7 @@ import {
   POST_TOPICS,
   canonicalProfileUrl,
   chooseCampaign,
+  companiesFromResult,
   classifyReply,
   containsFolded,
   countExternalInvites,
@@ -18,7 +19,9 @@ import {
   scoreProspect,
   splitHeadline,
   suppressesPermanently,
+  type CompanyDiscoverData,
   type ConnectionsData,
+  type InstitutionKind,
   type DiscoverData,
   type InboxData,
   type InmailData,
@@ -195,6 +198,10 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
       break;
     }
 
+    case "DISCOVER_COMPANIES":
+      await ingestCompanies(account.workspaceId, (result.data ?? { companies: [], viewed: 0, queries: [] }) as CompanyDiscoverData, payload.kind);
+      break;
+
     case "DISCOVER":
       await ingestDiscovery(account, payload.agentId, (result.data ?? { candidates: [], viewed: 0, steps: [] }) as DiscoverData, job.id);
       break;
@@ -238,6 +245,32 @@ async function handleError(account: LinkedinAccount, job: Job, error: string, me
       else await fail({ status: "PENDING", attempts, runAfter: new Date(now.getTime() + attempts * 15 * 60_000) });
     }
   }
+}
+
+/** LinkedIn şirket aramasından gelen kurumlar havuza eklenir; var olanlara yalnızca eksik bilgi yazılır. */
+async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, kind?: string) {
+  const rows = companiesFromResult(data, kind as InstitutionKind | undefined);
+  if (!rows.length) return;
+  const existing = await prisma.institution.findMany({
+    where: { workspaceId, OR: [{ key: { in: rows.map((r) => r.key) } }, { linkedinUrl: { in: rows.map((r) => r.linkedinUrl) } }] },
+    select: { id: true, key: true, linkedinUrl: true, size: true, orgType: true },
+  });
+  const byKey = new Map(existing.map((e) => [e.key, e]));
+  const byUrl = new Map(existing.filter((e) => e.linkedinUrl).map((e) => [e.linkedinUrl!, e]));
+  const fresh: Prisma.InstitutionCreateManyInput[] = [];
+  for (const r of rows) {
+    const e = byKey.get(r.key) ?? byUrl.get(r.linkedinUrl);
+    if (!e) {
+      fresh.push({ workspaceId, key: r.key, name: r.name, rawName: r.rawName, kind: r.kind, city: r.city ?? null, orgType: r.orgType ?? null, size: r.size ?? null, linkedinUrl: r.linkedinUrl, source: "linkedin" });
+      continue;
+    }
+    const patch: Prisma.InstitutionUpdateInput = {};
+    if (!e.linkedinUrl) patch.linkedinUrl = r.linkedinUrl;
+    if (!e.size && r.size) patch.size = r.size;
+    if (!e.orgType && r.orgType) patch.orgType = r.orgType;
+    if (Object.keys(patch).length) await prisma.institution.update({ where: { id: e.id }, data: patch });
+  }
+  if (fresh.length) await prisma.institution.createMany({ data: fresh, skipDuplicates: true });
 }
 
 /** Gelen kutusu: bilinen kişilerden gelen yeni mesajlar konuşmaya eklenir, akış durur. */

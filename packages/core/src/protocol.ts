@@ -12,7 +12,14 @@ export type JobType =
   | "CHECK_CONNECTIONS"
   | "CHECK_INBOX"
   | "SYNC_SENT_INVITES"
-  | "DISCOVER";
+  | "DISCOVER"
+  | "DISCOVER_COMPANIES";
+
+export interface CompanyQueryPayload {
+  label: string;
+  url: string;
+  maxPages: number;
+}
 
 export interface DiscoverStepPayload {
   source: "connections" | "accounts" | "search" | "engagers" | "import";
@@ -43,7 +50,8 @@ export type JobPayload =
   | { type: "CHECK_CONNECTIONS"; limit: number }
   | { type: "CHECK_INBOX"; limit: number }
   | { type: "SYNC_SENT_INVITES" }
-  | { type: "DISCOVER"; agentId: string; steps: DiscoverStepPayload[]; viewBudget: number };
+  | { type: "DISCOVER"; agentId: string; steps: DiscoverStepPayload[]; viewBudget: number }
+  | { type: "DISCOVER_COMPANIES"; queries: CompanyQueryPayload[]; /** Hangi türde kurum arandığı (panel kaydı için) */ kind?: string };
 
 export interface RunnerJob {
   id: string;
@@ -120,6 +128,20 @@ export interface DiscoverData {
   steps: { label: string; viewed: number; found: number }[];
 }
 
+/** LinkedIn şirket arama sonucundan okunan ham kart: ayrıştırma panelde/çekirdekte yapılır */
+export interface FoundCompany {
+  linkedinUrl: string;
+  name: string;
+  /** Kartın tüm metni (sektör, konum, takipçi, çalışan sayısı satırları) */
+  text: string;
+}
+
+export interface CompanyDiscoverData {
+  companies: FoundCompany[];
+  viewed: number;
+  queries: { label: string; found: number }[];
+}
+
 export interface InmailData {
   creditsLeft?: number;
 }
@@ -141,7 +163,7 @@ export type ErrorCode =
 export type JobResult =
   | {
       ok: true;
-      data?: VisitData | InviteData | ConnectionsData | InboxData | SentInvitesData | DiscoverData | InmailData;
+      data?: VisitData | InviteData | ConnectionsData | InboxData | SentInvitesData | DiscoverData | CompanyDiscoverData | InmailData;
     }
   | { ok: false; error: ErrorCode; message?: string };
 

@@ -1,6 +1,6 @@
 "use server";
-import { fold, institutionKey, matchesExcludedCompany, parseMohHtml, parseOverpass, parsePaste, type InstitutionDraft, type InstitutionKind } from "@hfo/core";
-import { prisma } from "@hfo/db";
+import { companyQueryUrls, fold, institutionKey, matchesExcludedCompany, parseMohHtml, parseOverpass, parsePaste, type InstitutionDraft, type InstitutionKind, type JobPayload } from "@hfo/core";
+import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
@@ -146,4 +146,33 @@ export async function bulkInstitutions(form: FormData) {
     redirect(back(`islem=sil&n=${r.count}`));
   }
   redirect(back(""));
+}
+
+/**
+ * LinkedIn şirket araması: anahtar kelimelerle şirket sayfalarını tarar, bulunanları havuza ekler.
+ * Güncel kaynak LinkedIn'in kendisidir; iş yerel çalışan açıkken çalışır.
+ */
+export async function findCompaniesOnLinkedIn(form: FormData) {
+  const ctx = await requireContext();
+  const keywords = clean(form.get("anahtar")).split(/\r?\n|;/).map((x) => x.trim()).filter(Boolean);
+  if (!keywords.length) redirect("/kurumlar?hata=anahtar");
+  const kind = clean(form.get("tur"));
+  const pages = Math.min(Math.max(Math.floor(+clean(form.get("sayfa"))) || 3, 1), 5);
+  const account = await prisma.linkedinAccount.findFirst({ where: { workspaceId: ctx.workspace.id, status: { not: "DISCONNECTED" } }, orderBy: { createdAt: "asc" }, select: { id: true } });
+  if (!account) redirect("/kurumlar?hata=hesap");
+  const open = await prisma.job.count({ where: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", status: { in: ["PENDING", "RUNNING"] } } });
+  if (open >= 3) redirect("/kurumlar?hata=bekleyen");
+  // Çalışanın sekiz dakikalık iş sınırı için her iş en çok 6 aramayı kapsar
+  const all = keywords.slice(0, 18);
+  let jobs = 0;
+  for (let i = 0; i < all.length; i += 6) {
+    const qs = companyQueryUrls(all.slice(i, i + 6), { maxPages: pages });
+    if (!qs.length) continue;
+    const payload: JobPayload = { type: "DISCOVER_COMPANIES", queries: qs, kind: kind || undefined };
+    await prisma.job.create({ data: { linkedinAccountId: account.id, type: "DISCOVER_COMPANIES", priority: 35, runAfter: new Date(), payload: payload as unknown as Prisma.InputJsonValue } });
+    jobs++;
+  }
+  await audit(ctx, "institutions.linkedin_search", { keywords: all.length, jobs, pages });
+  revalidatePath("/kurumlar");
+  redirect(`/kurumlar?aranacak=${all.length}&is=${jobs}`);
 }

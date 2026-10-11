@@ -1,5 +1,6 @@
 export * from "./text";
 export * from "./institutions";
+export * from "./companysearch";
 export * from "./names";
 export * from "./template";
 export * from "./schedule";

@@ -7,6 +7,8 @@
 import {
   canonicalProfileUrl,
   type ConnectionsData,
+  type CompanyDiscoverData,
+  type CompanyQueryPayload,
   type DiscoverCandidate,
   type DiscoverData,
   type DiscoverStepPayload,
@@ -485,4 +487,46 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
     report.push({ label: step.label, viewed: stepViewed, found: stepFound });
   }
   return { candidates, viewed, steps: report };
+}
+
+/**
+ * LinkedIn şirket aramasında sayfaları gezer; her şirket kartının adını, bağlantısını ve
+ * ham metnini toplar. Ayrıştırma panelde yapılır. Süre dolarsa o ana dek bulunanı döner.
+ */
+export async function discoverCompanies(page: Page, queries: CompanyQueryPayload[], deadlineMs = 6 * 60_000): Promise<CompanyDiscoverData> {
+  const t0 = Date.now();
+  const companies: CompanyDiscoverData["companies"] = [];
+  const seen = new Set<string>();
+  const report: CompanyDiscoverData["queries"] = [];
+  let viewed = 0;
+  for (const q of queries) {
+    let found = 0;
+    for (let p = 1; p <= q.maxPages; p++) {
+      if (Date.now() - t0 > deadlineMs) break;
+      await open(page, p === 1 ? q.url : `${q.url}&page=${p}`);
+      await page.mouse.wheel(0, 1500).catch(() => undefined);
+      await pause(1200, 2200);
+      const rows = await page.locator("main li").evaluateAll((lis) =>
+        lis
+          .map((li) => {
+            const a = Array.from(li.querySelectorAll("a[href*='/company/']")).find((x) => (x as HTMLElement).innerText?.trim()) as HTMLAnchorElement | undefined;
+            if (!a) return null;
+            return { href: a.href, name: ((a as HTMLElement).innerText ?? "").split("\n")[0]!.trim(), text: (li as HTMLElement).innerText };
+          })
+          .filter((x): x is { href: string; name: string; text: string } => !!x && !!x.name),
+      );
+      if (!rows.length) break;
+      viewed += rows.length;
+      for (const r of rows) {
+        const key = r.href.split("?")[0]!;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        companies.push({ linkedinUrl: r.href, name: r.name, text: r.text });
+        found++;
+      }
+      await pause(3500, 8000);
+    }
+    report.push({ label: q.label, found });
+  }
+  return { companies, viewed, queries: report };
 }

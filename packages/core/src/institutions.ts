@@ -16,7 +16,7 @@ export interface InstitutionDraft {
   orgType?: string;
   size?: InstitutionSize;
   website?: string;
-  source: "moh" | "osm" | "paste" | "seed";
+  source: "moh" | "osm" | "paste" | "seed" | "linkedin";
 }
 
 const trLower = (s: string) => s.toLocaleLowerCase("tr-TR");

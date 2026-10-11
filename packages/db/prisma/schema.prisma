@@ -98,6 +98,7 @@ enum JobType {
   CHECK_CONNECTIONS
   CHECK_INBOX
   DISCOVER
+  DISCOVER_COMPANIES // LinkedIn şirket aramasıyla kurum havuzunu doldurur
 }
 
 enum JobStatus {
