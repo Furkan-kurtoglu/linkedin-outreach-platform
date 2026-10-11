@@ -57,3 +57,50 @@ export function stopsOutreach(label: ReplyLabel): boolean {
 export function suppressesPermanently(label: ReplyLabel): boolean {
   return label === "ilgilenmiyor";
 }
+
+/* ---------- Gelen kutusu süzgeçleri ---------- */
+
+export type ReplyTag = "soru" | "toplanti";
+
+/** Cevabın ek niteliği: soru soruyor mu, toplantı/görüşme konuşuyor mu (kurallarla, yapay zekâsız). */
+export function replyTags(text: string): ReplyTag[] {
+  const t = fold(text);
+  const tags: ReplyTag[] = [];
+  if (text.includes("?") || /\b(nasil|neden|nedir|ne kadar|kac|hangi|kim|nerede|mi\b|mu\b)/.test(t) || /\b(how|what|why|which|who|where)\b/.test(t)) tags.push("soru");
+  if (/(toplanti|gorusme|gorusel|randevu|takvim|musait|uygun bir gun|meeting|call|demo|sunum)/.test(t)) tags.push("toplanti");
+  return tags;
+}
+
+export const INBOX_FILTERS = [
+  ["hepsi", "Hepsi"],
+  ["bekleyen", "Cevap bekleyen"],
+  ["ilgili", "İlgili"],
+  ["toplanti", "Toplantı"],
+  ["soru", "Soru"],
+  ["sonra", "Sonra"],
+  ["ilgisiz", "İlgisiz"],
+  ["belirsiz", "Belirsiz"],
+] as const;
+export type InboxFilter = (typeof INBOX_FILTERS)[number][0];
+
+/** Konuşma süzgece uyuyor mu? `label` kişi için kayıtlı etiket, `lastIsInbound` son mesaj karşıdan mı. */
+export function matchesInboxFilter(f: InboxFilter, c: { label: ReplyLabel; lastInboundText: string; lastIsInbound: boolean }): boolean {
+  switch (f) {
+    case "hepsi":
+      return true;
+    case "bekleyen":
+      return c.lastIsInbound;
+    case "ilgili":
+      return c.label === "ilgileniyor";
+    case "toplanti":
+      return replyTags(c.lastInboundText).includes("toplanti");
+    case "soru":
+      return replyTags(c.lastInboundText).includes("soru");
+    case "sonra":
+      return c.label === "sonra";
+    case "ilgisiz":
+      return c.label === "ilgilenmiyor" || c.label === "yanlis_kisi";
+    case "belirsiz":
+      return c.label === "diger";
+  }
+}

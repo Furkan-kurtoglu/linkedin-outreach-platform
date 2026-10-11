@@ -78,3 +78,20 @@ describe("günlük seri", () => {
     expect(r.labels).toEqual(["10.10", "11.10", "12.10"]);
   });
 });
+
+import { matchesInboxFilter, replyTags } from "./index";
+describe("gelen kutusu süzgeçleri", () => {
+  it("soru ve toplantı etiketleri", () => {
+    expect(replyTags("Fiyatı nedir?")).toContain("soru");
+    expect(replyTags("Perşembe görüşebiliriz, takvim gönderin")).toContain("toplanti");
+    expect(replyTags("Teşekkürler")).toEqual([]);
+  });
+  it("süzgeçler", () => {
+    const c = { label: "ilgileniyor" as const, lastInboundText: "Salı günü görüşelim", lastIsInbound: true };
+    expect(matchesInboxFilter("ilgili", c)).toBe(true);
+    expect(matchesInboxFilter("toplanti", c)).toBe(true);
+    expect(matchesInboxFilter("bekleyen", { ...c, lastIsInbound: false })).toBe(false);
+    expect(matchesInboxFilter("ilgisiz", { ...c, label: "yanlis_kisi" })).toBe(true);
+    expect(matchesInboxFilter("hepsi", c)).toBe(true);
+  });
+});
