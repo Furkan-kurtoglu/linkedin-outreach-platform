@@ -149,7 +149,7 @@ async function main() {
 
   const cloud = args.includes("--bulut");
   const ctx = cloud ? await launchCloud() : await launch();
-  const page = ctx.pages()[0] ?? (await ctx.newPage());
+  let page = ctx.pages()[0] ?? (await ctx.newPage());
   let stopping = false;
   const stop = async () => {
     if (stopping) return;
@@ -241,6 +241,12 @@ async function main() {
         if (err.code === "transient" || err.code === "linkedin_warning") await shot(page, job.payload.type);
         result = { ok: false, error: err.code, message: err.message };
         log(`  sonuç: hata (${err.code}) ${err.message}`);
+        // Zaman aşımında eski iş arka planda sürüp aynı sekmeyi kullanmasın: sekmeyi kapatıp yenisini aç
+        if (/zaman aşımı/.test(err.message)) {
+          const old = page;
+          page = await ctx.newPage();
+          await old.close().catch(() => undefined);
+        }
       }
       if (result.ok) log("  sonuç: tamam");
       if (sending) lastSendAt = Date.now();
