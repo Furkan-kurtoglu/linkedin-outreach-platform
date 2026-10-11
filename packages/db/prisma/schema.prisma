@@ -2,7 +2,9 @@
 // Her kayıt bir çalışma alanına (workspace) bağlıdır: her kullanıcı yalnızca kendi verisini görür.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Vercel sunucuları (rhel-openssl-3.0.x) ve geliştirme bilgisayarı
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
