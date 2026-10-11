@@ -25,6 +25,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Locator, Page } from "playwright";
+import { LOG_DIR } from "../config";
 import { anyText, click, containsText, firstVisible, guard, JobError, open, pause, relativeToDate, typeText } from "./util";
 
 /* ---------- Kendi profilim ---------- */
@@ -452,16 +453,34 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
       await open(page, url);
       await page.mouse.wheel(0, 1500).catch(() => undefined);
       await pause(1200, 2200);
-      const rows = await retryNav(page, () => page.locator("main li").evaluateAll((lis) =>
-        lis
-          .map((li) => {
-            const a = li.querySelector("a[href*='/in/']") as HTMLAnchorElement | null;
-            if (!a) return null;
-            const nameEl = a.querySelector("span[aria-hidden='true']") as HTMLElement | null;
-            return { href: a.href, name: (nameEl?.innerText ?? a.innerText ?? "").split("\n")[0]!.trim(), text: (li as HTMLElement).innerText };
-          })
-          .filter((x): x is { href: string; name: string; text: string } => !!x && !!x.name),
-      )).catch(() => null);
+      // Sayfa düzeni sık değiştiği için "li" yerine şirket bağlantılarından yola çıkılır:
+      // her /company/ bağlantısının, yalnızca o şirketi içeren en büyük kapsayıcısı kart sayılır.
+      const rows = await retryNav(page, () =>
+        page.evaluate(() => {
+          const root = document.querySelector("main") ?? document.body;
+          const links = Array.from(root.querySelectorAll("a[href*='/company/']")) as HTMLAnchorElement[];
+          const out: { href: string; name: string; text: string }[] = [];
+          const seen = new Set<string>();
+          for (const a of links) {
+            const path = new URL(a.href).pathname.split("/").slice(0, 3).join("/");
+            if (seen.has(path)) continue;
+            const label = (a.innerText || a.getAttribute("aria-label") || "").split("\n").map((x) => x.trim()).find(Boolean) ?? "";
+            let card: HTMLElement = a;
+            for (let i = 0; i < 6 && card.parentElement && card.parentElement !== root; i++) {
+              const par = card.parentElement;
+              const others = Array.from(par.querySelectorAll("a[href*='/company/']")).filter((x) => new URL((x as HTMLAnchorElement).href).pathname.split("/").slice(0, 3).join("/") !== path);
+              if (others.length || (par.innerText ?? "").length > 700) break;
+              card = par;
+            }
+            const name = label || (card.innerText ?? "").split("\n").map((x) => x.trim()).find(Boolean) || "";
+            if (!name) continue;
+            seen.add(path);
+            out.push({ href: a.href, name, text: card.innerText ?? "" });
+          }
+          return out;
+        }),
+      ).catch(() => null);
+      if (!rows?.length && p === 1) await dumpDebug(page, "sirket-arama-bos");
       if (!rows?.length) break;
       viewed += rows.length;
       stepViewed += rows.length;
@@ -490,6 +509,28 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
     report.push({ label: step.label, viewed: stepViewed, found: stepFound });
   }
   return { candidates, viewed, steps: report };
+}
+
+/** Beklenmedik boş sonuçta sayfanın ne gösterdiğini kayıtlar klasörüne yazar (düzeltme için). */
+async function dumpDebug(page: Page, name: string): Promise<void> {
+  try {
+    const info = await page.evaluate(() => {
+      const root = document.querySelector("main") ?? document.body;
+      const links = Array.from(root.querySelectorAll("a")).map((a) => (a as HTMLAnchorElement).href).filter(Boolean);
+      return {
+        title: document.title,
+        text: (root as HTMLElement).innerText.slice(0, 2500),
+        linkCount: links.length,
+        companyLinks: links.filter((h) => h.includes("/company/")).slice(0, 15),
+        sampleLinks: links.slice(0, 25),
+        listItems: root.querySelectorAll("li").length,
+        firstHtml: root.innerHTML.slice(0, 3000),
+      };
+    });
+    await writeFile(join(LOG_DIR, `${new Date().toISOString().replace(/[:.]/g, "-")}-${name}.txt`), `${page.url()}\n\n${JSON.stringify(info, null, 2)}`);
+  } catch {
+    /* hata ayıklama çıktısı isteğe bağlıdır */
+  }
 }
 
 /** LinkedIn sayfası okunurken yeniden yönlendirirse ("Execution context was destroyed") sayfa oturunca bir kez daha dener. */
