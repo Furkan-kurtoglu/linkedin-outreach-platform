@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
 import { createStepsAndDrafts } from "@/lib/campaign";
 import type { TargetingJson } from "@/lib/convert";
+import { companyBrands } from "@/lib/company";
 import { PRESETS } from "./presets";
 
 export interface WizardState {
@@ -119,6 +120,7 @@ export async function createPresetAgents(): Promise<void> {
   const account = await prisma.linkedinAccount.findFirst({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" } });
   if (!account) redirect("/kampanyalar/yeni?uyari=hesap");
   const company =
+    (await prisma.company.findFirst({ where: { workspaceId: ctx.workspace.id, id: (await companyBrands(ctx.workspace.id)).active?.id } })) ??
     (await prisma.company.findFirst({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" } })) ??
     (await prisma.company.create({
       data: { workspaceId: ctx.workspace.id, name: "HeAlthFintel", website: "https://www.healthfintel.com.tr/", description: "Sağlık ve sigorta arasındaki dijital ve şeffaf köprü" },

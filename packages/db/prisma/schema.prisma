@@ -171,6 +171,8 @@ model Company {
   website     String?
   /// Şirketin tek cümlelik tanımı; yeni kampanya sihirbazını doldurmak için kullanılır
   description String?
+  /// Yüklenen logo (data URI, en çok ~100 KB); /logo/<id> adresinden sunulur
+  logo        String?
   createdAt   DateTime @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)

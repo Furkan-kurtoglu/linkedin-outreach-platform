@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { switchCompany } from "@/app/(app)/sirketler/actions";
 
 const ITEMS: ({ href: string; label: string; badge?: "queue" | "inbox" } | { group: string })[] = [
   { href: "/", label: "Genel bakış" },
@@ -19,11 +20,26 @@ const ITEMS: ({ href: string; label: string; badge?: "queue" | "inbox" } | { gro
   { href: "/ayarlar", label: "Ayarlar" },
 ];
 
-export function Nav({ counts, runner, userName }: { counts: { queue: number; inbox: number }; runner: { ok: boolean; text: string }; userName: string }) {
+interface Brand {
+  id: string;
+  name: string;
+  logoV: number;
+}
+
+function Mark({ b }: { b: Brand }) {
+  return b.logoV ? <img className="brand-img" src={`/logo/${b.id}?v=${b.logoV}`} alt="" width={28} height={28} /> : <i>{b.name.trim().charAt(0).toLocaleUpperCase("tr-TR") || "?"}</i>;
+}
+
+export function Nav({ brands, counts, runner, userName }: { brands: { list: Brand[]; active: Brand | null }; counts: { queue: number; inbox: number }; runner: { ok: boolean; text: string }; userName: string }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const [pick, setPick] = useState(false);
+  const active = brands.active;
   // Sayfa değişince çekmece kapanır; açıkken Esc kapatır ve arka plan kaymaz
-  useEffect(() => setOpen(false), [path]);
+  useEffect(() => {
+    setOpen(false);
+    setPick(false);
+  }, [path]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
@@ -34,11 +50,11 @@ export function Nav({ counts, runner, userName }: { counts: { queue: number; inb
       document.body.classList.remove("lock");
     };
   }, [open]);
-  const active = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`) || (href === "/kampanyalar" && path.startsWith("/kisiler/")));
+  const isActive = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(`${href}/`) || (href === "/kampanyalar" && path.startsWith("/kisiler/")));
   return (
     <>
     <header className="topbar">
-      <div className="logo"><i>H</i>HeAlthFintel</div>
+      <div className="logo">{active ? <><Mark b={active} /><span className="brand-name">{active.name}</span></> : <span className="brand-name">Şirket seçilmedi</span>}</div>
       <button type="button" className="menu-btn" aria-expanded={open} aria-controls="ana-menu" onClick={() => setOpen((v) => !v)}>
         <span className="sr">{open ? "Menüyü kapat" : "Menüyü aç"}</span>
         <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -48,8 +64,31 @@ export function Nav({ counts, runner, userName }: { counts: { queue: number; inb
     </header>
     <div className="scrim" data-open={open} onClick={() => setOpen(false)} aria-hidden="true" />
     <nav className="side" id="ana-menu" data-open={open} aria-label="Ana menü">
-      <div className="logo desk">
-        <i>H</i>HeAlthFintel
+      <div className="brand">
+        {active ? (
+          <button type="button" className="logo brand-btn" aria-expanded={pick} aria-haspopup="true" disabled={brands.list.length < 2} onClick={() => setPick((v) => !v)} title={brands.list.length < 2 ? undefined : "Şirketi değiştir"}>
+            <Mark b={active} />
+            <span className="brand-name">{active.name}</span>
+            {brands.list.length > 1 && <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 5l4 4 4-4" /></svg>}
+          </button>
+        ) : (
+          <Link className="logo brand-btn" href="/sirketler"><i>+</i><span className="brand-name">Şirket ekle</span></Link>
+        )}
+        {pick && (
+          <div className="brand-menu" role="menu">
+            {brands.list.map((b) => (
+              <form key={b.id} action={switchCompany}>
+                <input type="hidden" name="id" value={b.id} />
+                <input type="hidden" name="back" value={path} />
+                <button role="menuitemradio" aria-checked={b.id === active?.id} className="brand-item">
+                  <Mark b={b} />
+                  <span className="brand-name">{b.name}</span>
+                </button>
+              </form>
+            ))}
+            <Link className="brand-item" href="/sirketler">Şirketleri yönet</Link>
+          </div>
+        )}
       </div>
       {ITEMS.map((it) =>
         "group" in it ? (
@@ -57,7 +96,7 @@ export function Nav({ counts, runner, userName }: { counts: { queue: number; inb
             {it.group}
           </div>
         ) : (
-          <Link key={it.href} className="nav" href={it.href} aria-current={active(it.href) ? "page" : undefined}>
+          <Link key={it.href} className="nav" href={it.href} aria-current={isActive(it.href) ? "page" : undefined}>
             {it.label}
             {it.badge && counts[it.badge] > 0 && <span className="badge on">{counts[it.badge]}</span>}
           </Link>

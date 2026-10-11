@@ -57,7 +57,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
               )}
               <details>
                 <summary className="link">Şirket bilgilerini düzenle</summary>
-                <div style={{ marginTop: 12, maxWidth: 560 }}><CompanyForm company={{ id: c.id, name: c.name, website: c.website, description: c.description }} /></div>
+                <div style={{ marginTop: 12, maxWidth: 560 }}><CompanyForm company={{ id: c.id, name: c.name, website: c.website, description: c.description, logoV: c.logo ? c.logo.length : 0 }} /></div>
               </details>
               <form action={deleteCompany}>
                 <input type="hidden" name="id" value={c.id} />

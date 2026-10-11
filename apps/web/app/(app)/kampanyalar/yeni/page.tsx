@@ -2,6 +2,7 @@ import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireContext } from "@/lib/context";
+import { companyBrands } from "@/lib/company";
 import { SubmitButton } from "@/components/SubmitButton";
 import { createPresetAgents } from "./actions";
 import { WizardForm } from "./WizardForm";
@@ -14,7 +15,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ h
   const preset = PRESETS.find((p) => p.id === hazir);
   const ctx = await requireContext();
   const companies = await prisma.company.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
-  const company = companies.find((c) => c.id === sirket) ?? companies[0];
+  const brands = await companyBrands(ctx.workspace.id);
+  const company = companies.find((c) => c.id === sirket) ?? companies.find((c) => c.id === brands.active?.id) ?? companies[0];
   const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId: ctx.workspace.id }, select: { id: true, displayName: true } });
   return (
     <>

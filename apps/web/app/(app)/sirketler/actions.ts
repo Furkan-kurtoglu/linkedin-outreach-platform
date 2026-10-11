@@ -1,8 +1,10 @@
 "use server";
 import { prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
+import { COMPANY_COOKIE } from "@/lib/company";
 
 const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
@@ -18,6 +20,20 @@ function parseWebsite(raw: string): { ok: true; value: string | null } | { ok: f
   }
 }
 
+const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
+const LOGO_MAX = 100 * 1024;
+
+/** Yüklenen logo dosyası: undefined = değişmesin, null = kaldır, metin = yeni data URI */
+async function readLogo(form: FormData): Promise<{ ok: true; value: string | null | undefined } | { ok: false; error: string }> {
+  if (form.get("removeLogo")) return { ok: true, value: null };
+  const f = form.get("logo");
+  if (!(f instanceof File) || f.size === 0) return { ok: true, value: undefined };
+  if (!LOGO_TYPES.includes(f.type)) return { ok: false, error: "Logo PNG, JPG, WebP veya SVG olmalı." };
+  if (f.size > LOGO_MAX) return { ok: false, error: "Logo en çok 100 KB olabilir; daha küçük bir dosya seçin." };
+  const buf = Buffer.from(await f.arrayBuffer());
+  return { ok: true, value: `data:${f.type};base64,${buf.toString("base64")}` };
+}
+
 export interface CompanyState {
   error?: string;
 }
@@ -29,11 +45,14 @@ export async function createCompany(_: CompanyState, form: FormData): Promise<Co
   if (name.length > 80) return { error: "Şirket adı 80 karakteri geçemez." };
   const web = parseWebsite(clean(form.get("website")));
   if (!web.ok) return { error: "Web sitesi adresi geçersiz." };
+  const logo = await readLogo(form);
+  if (!logo.ok) return { error: logo.error };
   const exists = await prisma.company.findUnique({ where: { workspaceId_name: { workspaceId: ctx.workspace.id, name } } });
   if (exists) return { error: "Bu adla bir şirket zaten var." };
   const c = await prisma.company.create({
-    data: { workspaceId: ctx.workspace.id, name, website: web.value, description: clean(form.get("description")).slice(0, 400) || null },
+    data: { workspaceId: ctx.workspace.id, name, website: web.value, description: clean(form.get("description")).slice(0, 400) || null, logo: logo.value ?? null },
   });
+  (await cookies()).set(COMPANY_COOKIE, c.id, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax", secure: true });
   await audit(ctx, "company.create", { companyId: c.id, name });
   revalidatePath("/sirketler");
   redirect("/sirketler?eklendi=1");
@@ -48,9 +67,11 @@ export async function updateCompany(_: CompanyState, form: FormData): Promise<Co
   if (name.length < 2 || name.length > 80) return { error: "Şirket adı 2–80 karakter olmalı." };
   const web = parseWebsite(clean(form.get("website")));
   if (!web.ok) return { error: "Web sitesi adresi geçersiz." };
+  const logo = await readLogo(form);
+  if (!logo.ok) return { error: logo.error };
   const clash = await prisma.company.findFirst({ where: { workspaceId: ctx.workspace.id, name, NOT: { id } } });
   if (clash) return { error: "Bu adla başka bir şirket var." };
-  await prisma.company.update({ where: { id }, data: { name, website: web.value, description: clean(form.get("description")).slice(0, 400) || null } });
+  await prisma.company.update({ where: { id }, data: { name, website: web.value, description: clean(form.get("description")).slice(0, 400) || null, ...(logo.value !== undefined ? { logo: logo.value } : {}) } });
   await audit(ctx, "company.update", { companyId: id, name });
   revalidatePath("/sirketler");
   redirect("/sirketler?kaydedildi=1");
@@ -66,4 +87,15 @@ export async function deleteCompany(form: FormData) {
   await audit(ctx, "company.delete", { name: company.name });
   revalidatePath("/sirketler");
   redirect("/sirketler?silindi=1");
+}
+
+/** Sol üstteki şirket seçici: aktif şirketi çereze yazar ve geldiği sayfaya döner. */
+export async function switchCompany(form: FormData) {
+  const ctx = await requireContext();
+  const id = clean(form.get("id"));
+  const back = clean(form.get("back"));
+  const company = await prisma.company.findFirst({ where: { id, workspaceId: ctx.workspace.id }, select: { id: true } });
+  if (company) (await cookies()).set(COMPANY_COOKIE, company.id, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax", secure: true });
+  revalidatePath("/", "layout");
+  redirect(/^\/(?!\/)/.test(back) ? back : "/");
 }

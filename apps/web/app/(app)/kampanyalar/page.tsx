@@ -2,6 +2,7 @@ import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireContext } from "@/lib/context";
+import { companyBrands } from "@/lib/company";
 import { MAX_ACTIVE_AGENTS } from "@hfo/core";
 
 export const metadata: Metadata = { title: "Kampanyalar" };
@@ -13,7 +14,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
   const ctx = await requireContext();
   const { sirket, hazir } = await searchParams;
   const companies = await prisma.company.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" }, select: { id: true, name: true } });
-  const filter = companies.find((c) => c.id === sirket);
+  const brands = await companyBrands(ctx.workspace.id);
+  // Adreste şirket yoksa sol üstte seçili şirket; "hepsi" tüm şirketleri gösterir
+  const filter = sirket === "hepsi" ? undefined : companies.find((c) => c.id === (sirket ?? brands.active?.id));
   const agents = await prisma.agent.findMany({ where: { workspaceId: ctx.workspace.id, ...(filter ? { companyId: filter.id } : {}) }, orderBy: { createdAt: "asc" }, include: { segments: true } });
   const activeTotal = await prisma.agent.count({ where: { workspaceId: ctx.workspace.id, status: "ACTIVE" } });
   const nameOf = new Map(companies.map((c) => [c.id, c.name]));
@@ -41,7 +44,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ s
       {companies.length > 1 && (
         <div className="row" style={{ marginBottom: 12 }}>
           <span className="sub">Şirket:</span>
-          <Link className={`btn sm${filter ? "" : " primary"}`} href="/kampanyalar">Hepsi</Link>
+          <Link className={`btn sm${filter ? "" : " primary"}`} href="/kampanyalar?sirket=hepsi">Hepsi</Link>
           {companies.map((c) => (
             <Link key={c.id} className={`btn sm${filter?.id === c.id ? " primary" : ""}`} href={`/kampanyalar?sirket=${c.id}`}>{c.name}</Link>
           ))}
