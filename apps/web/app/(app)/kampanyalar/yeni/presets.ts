@@ -36,7 +36,7 @@ export const PRESETS: Preset[] = [
       benefits:
         "hasta randevudan önce poliçesine göre tahmini cepten ödeme tutarını görüyor\nQR kodla veznesiz kabul, kabul adımını yaklaşık 1 dakikaya indirmeyi hedefliyor\nSGK ve özel sigorta sorguları eşzamanlı yürüyor; manuel veri girişini ve fatura retlerini azaltmayı hedefliyor\nHBYS değişmeden, ara katman olarak mevcut sisteme bağlanıyor",
       figures: "reddedilen dosya başına yaklaşık 118 USD yeniden işleme ve itiraz maliyeti doğuyor",
-      excludedCompanies: "Acıbadem\nAcıbadem Sağlık Grubu\nAcibadem Healthcare Group\nAvicenna\nMedicana",
+      excludedCompanies: "Acıbadem -Bupa\nAcıbadem Sağlık Grubu\nAcibadem Healthcare Group\nAvicenna\nMedicana",
       titles: "Hastane Müdürü\nHospital Director\nHospital Manager\nGenel Müdür\nGeneral Manager\nGenel Müdür Yardımcısı\nDeputy General Manager\nCEO\nManaging Director\nBaşhekim\nChief Medical Officer\nMedical Director\nTıbbi Hizmetler Müdürü\nHasta Hizmetleri\nPatient Services\nPatient Experience\nHasta Kabul\nPatient Admissions\nProvizyon\nAnlaşmalı Kurumlar\nSigorta İlişkileri\nInsurance Relations\nProvider Relations\nContracting\nMali İşler\nFinans Direktörü\nChief Financial Officer\nGelir Yönetimi\nRevenue Cycle\nFaturalama\nBilgi İşlem\nChief Information Officer\nHead of Digital\nDijital Dönüşüm\nDigital Transformation\nİş Geliştirme\nBusiness Development\nStrateji\nOperasyon Direktörü\nChief Operating Officer",
       targetAccounts: "Memorial Sağlık Grubu\nMemorial Şişli Hastanesi\nMemorial Bahçelievler Hastanesi\nMemorial Ataşehir Hastanesi\nMedipol Mega Hastanesi\nMedicana Health Group\nLiv Hospital\nAmerikan Hastanesi\nFlorence Nightingale Hastaneleri\nMedical Park Hastaneleri\nVM Medical Park\nHisar Intercontinental Hospital\nKolan International Hospital\nKolan British Hospital\nMedistate Kavacık Hastanesi\nTema Hastanesi\nEmsey Hospital\nTaksim Alman Hastanesi\nSurp Agop Hastanesi\nBatı Bahat Hastanesi\nDünya Göz Hastaneleri\nEthica Hospital",
       mode: "FIND_ONLY",
@@ -64,9 +64,9 @@ export const PRESETS: Preset[] = [
       benefits:
         "poliçe doğrulama ve provizyon onayını hastane kabulüyle eşzamanlı yürütmeyi hedefliyor\nmanuel onay ve tekrar inceleme yükünü azaltmayı hedefliyor\nrutin vakaları poliçe kapsamına uygun kurumlara yönlendirerek hasar maliyetlerini iyileştirmeye yardımcı olmayı hedefliyor\nkarar vermiyor, karar destekliyor: nihai onay sigorta şirketinde kalıyor",
       figures: "işlem başına yaklaşık 8,57 USD manuel onay maliyeti oluşuyor",
-      excludedCompanies: "Acıbadem\nAcıbadem Sağlık Grubu",
+      excludedCompanies: "Acıbadem -Bupa\nAcıbadem Sağlık Grubu",
       titles: "Genel Müdür\nGeneral Manager\nGenel Müdür Yardımcısı\nDeputy General Manager\nCEO\nChief Executive Officer\nCOO\nChief Operating Officer\nCTO\nChief Technology Officer\nCIO\nChief Medical Officer\nTıbbi Danışman\nMedical Advisor\nDirektör\nDirector\nHead of Health\nSağlık Sigortaları\nHealth Insurance\nSağlık Operasyon\nHealth Operations\nHasar ve Tazminat\nClaims\nProvizyon\nSağlık Ağı\nProvider Network\nProvider Management\nAnlaşmalı Kurumlar\nUnderwriting\nÜrün Geliştirme\nProduct Development\nProduct Manager\nDijital Dönüşüm\nDigital Transformation\nİnovasyon\nInnovation\nİş Geliştirme\nBusiness Development\nStrateji\nPartnerships",
-      targetAccounts: "Allianz Sigorta\nAnadolu Sigorta\nAxa Sigorta\nTürkiye Sigorta\nMapfre Sigorta\nAksigorta\nHDI Sigorta\nGenerali Sigorta\nSompo Sigorta\nNeova Sigorta\nAnkara Sigorta\nDoğa Sigorta\nRay Sigorta\nGulf Sigorta\nHalk Sigorta\nQNB Sigorta\nAnadolu Hayat Emeklilik\nAllianz Yaşam ve Emeklilik\nAxa Hayat ve Emeklilik",
+      targetAccounts: "Allianz Sigorta\nBupa Acıbadem Sigorta\nAnadolu Sigorta\nAxa Sigorta\nTürkiye Sigorta\nMapfre Sigorta\nAksigorta\nHDI Sigorta\nGenerali Sigorta\nSompo Sigorta\nNeova Sigorta\nAnkara Sigorta\nDoğa Sigorta\nRay Sigorta\nGulf Sigorta\nHalk Sigorta\nQNB Sigorta\nAnadolu Hayat Emeklilik\nAllianz Yaşam ve Emeklilik\nAxa Hayat ve Emeklilik",
       mode: "FIND_ONLY",
       excludedTitles: "Stajyer\nAsistan\nSatış Temsilcisi\nAcente",
       locations: "İstanbul",
@@ -91,7 +91,7 @@ export const PRESETS: Preset[] = [
       problem: "sigorta ve fiyat belirsizliği yüzünden kaçan hastalar ile telefonla yürüyen randevu ve kabul işleri",
       benefits:
         "hasta randevudan önce hizmet fiyatını ve poliçesine göre tahmini cepten ödemeyi görüyor\nklinik kendi hekim, hizmet ve fiyat bilgisini bir portaldan kendisi giriyor\ncheck-up paketleri ve tetkikler için talep üzerine randevu alınabiliyor\nQR kodla hızlı kabul; sigorta doğrulaması kabul anında yapılıyor",
-      excludedCompanies: "Acıbadem\nAcıbadem Sağlık Grubu",
+      excludedCompanies: "Acıbadem -Bupa\nAcıbadem Sağlık Grubu",
       titles: "Kurucu\nKurucu Ortak\nFounder\nCo-Founder\nOwner\nOrtak\nPartner\nKlinik Müdürü\nClinic Manager\nClinic Director\nKlinik Sahibi\nGenel Müdür\nGeneral Manager\nManaging Director\nCEO\nOperasyon Müdürü\nOperations Manager\nHasta İlişkileri\nPatient Relations\nPatient Coordinator\nMedikal Direktör\nMedical Director\nBaşhekim\nPractice Manager\nİş Geliştirme\nBusiness Development\nPazarlama Müdürü\nMarketing Manager",
       targetAccounts: "Estethica\nEstetik International\nDüzey Göz Merkezi\nSuperplast Estetik Cerrahi Merkezi\nMetropolDoctors",
       mode: "FIND_ONLY",

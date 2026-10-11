@@ -2,7 +2,7 @@
  * Kural tabanlı kişi değerlendirme. Yapay zekâ kullanmaz, ücretsizdir ve her
  * zaman aynı sonucu verir. Emin olamadığı kişileri "belirsiz" olarak kullanıcıya sorar.
  */
-import { containsFolded } from "./text";
+import { containsFolded, matchesExcludedCompany } from "./text";
 import { preferredBonus } from "./agentrules";
 
 export interface ProspectInput {
@@ -72,7 +72,7 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const orgText = [p.company, p.about].filter(Boolean).join(" ");
 
   // Kesin eleme kuralları
-  const exCompany = t.excludedCompanies.find((c) => p.company && containsFolded(p.company, c));
+  const exCompany = t.excludedCompanies.find((c) => p.company && matchesExcludedCompany(p.company, c));
   if (exCompany) return { score: 0, verdict: "elendi", reasons: [`Hariç tutulan kurum: ${exCompany}.`] };
 
   const exKeyword = anyIn(p.company, t.excludedCompanyKeywords);

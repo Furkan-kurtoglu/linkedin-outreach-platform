@@ -52,3 +52,13 @@ export function lowerFirst(s: string): string {
 export function stripEnd(s: string): string {
   return s.trim().replace(/[.!?…]+$/, "");
 }
+
+/**
+ * Hariç kurum kuralı eşleşiyor mu? Kural "Acıbadem -Bupa" biçiminde yazılırsa kurum adında
+ * Acıbadem geçer ama Bupa geçmiyorsa eşleşir (Bupa Acıbadem Sigorta hariç sayılmaz).
+ */
+export function matchesExcludedCompany(company: string, rule: string): boolean {
+  const [base = "", ...except] = rule.split(/\s+-/);
+  if (!containsFolded(company, base)) return false;
+  return !except.some((x) => containsFolded(company, x));
+}

@@ -8,6 +8,7 @@ const ITEMS: ({ href: string; label: string; badge?: "queue" | "inbox" } | { gro
   { href: "/", label: "Genel bakış" },
   { group: "Çalışma" },
   { href: "/sirketler", label: "Şirketler" },
+  { href: "/kurumlar", label: "Kurum Ar-Ge" },
   { href: "/kampanyalar", label: "Kampanyalar" },
   { href: "/analitik", label: "Analitik" },
   { href: "/kisi-bulma", label: "Kişi bulma" },

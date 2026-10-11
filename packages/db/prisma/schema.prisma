@@ -154,6 +154,7 @@ model Workspace {
   agents           Agent[]
   prospects        Prospect[]
   suppressions     Suppression[]
+  institutions     Institution[]
   auditLogs        AuditLog[]
   files            FileAsset[]
   opportunities    Opportunity[]
@@ -388,6 +389,8 @@ model TargetAccount {
   /// Elle eklendi, şirket aramasından seçildi ya da içe aktarıldı
   origin      String   @default("manual")
   createdAt   DateTime @default(now())
+  /// Kişi aramasında en son ne zaman taranmış; sıradaki turda en eski taranan önce gelir
+  lastSearchedAt DateTime?
 
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
@@ -638,4 +641,36 @@ enum UncertainPolicy {
 enum AgentMode {
   FIND_AND_OUTREACH // bul ve ulaş
   FIND_ONLY // yalnızca bul ve puanla; hiçbir şey gönderme
+}
+
+/// Kurum Ar-Ge havuzu: resmî listeler, haritadan ve elle toplanan hedef kurumlar
+model Institution {
+  id          String   @id @default(cuid())
+  workspaceId String
+  /// Tekilleştirme anahtarı: katlanmış ad + il
+  key         String
+  /// Görünen ad (ÖZEL ön eki atılmış, düzgün büyük/küçük harf)
+  name        String
+  rawName     String?
+  /// HOSPITAL, MEDICAL_CENTER, CLINIC, DENTAL, INSURER, OTHER
+  kind        String
+  city        String?
+  district    String?
+  /// Kaynaktaki kuruluş tipi (ör. Özel Genel Hastane)
+  orgType     String?
+  /// SMALL, MEDIUM, LARGE (biliniyorsa)
+  size        String?
+  website     String?
+  linkedinUrl String?
+  /// moh, osm, paste, seed
+  source      String
+  /// NEW, SELECTED, EXCLUDED
+  status      String   @default("NEW")
+  note        String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId, kind])
 }

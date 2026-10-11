@@ -540,7 +540,13 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
     });
     if (lastDiscover && now.getTime() - lastDiscover.createdAt.getTime() < 20 * HOUR) continue;
     const t = readTargeting(agent.targeting);
-    const accounts = await prisma.targetAccount.findMany({ where: { agentId: agent.id }, select: { name: true } });
+    // Hedef kurum listesi uzun olabilir: her turda en uzun süredir taranmayan 40 kurum alınır, böylece liste sırayla döner
+    const accounts = await prisma.targetAccount.findMany({
+      where: { agentId: agent.id },
+      orderBy: [{ lastSearchedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
+      take: 40,
+      select: { id: true, name: true },
+    });
     const steps = planDiscovery({
       titles: t.titles,
       geoUrns: t.geoUrns,
@@ -550,6 +556,7 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
       engagementPostUrls: t.engagementPostUrls,
     }).filter((s): s is typeof s & { url: string } => !!s.url);
     if (!steps.length) continue;
+    if (accounts.length) await prisma.targetAccount.updateMany({ where: { id: { in: accounts.map((a) => a.id) } }, data: { lastSearchedAt: now } });
     out.push(
       job({
         ...base,

@@ -1,0 +1,135 @@
+"use server";
+import { fold, institutionKey, matchesExcludedCompany, parseMohHtml, parseOverpass, parsePaste, type InstitutionDraft, type InstitutionKind } from "@hfo/core";
+import { prisma } from "@hfo/db";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { audit, requireContext } from "@/lib/context";
+import { institutionWhere, type InstSearch } from "@/lib/institution-filter";
+import { SEED } from "@/lib/institution-seed";
+
+const MOH_URL = "https://shgmozelhasdb.saglik.gov.tr/TR-53567/ozel-hastane-listesi-faal.html";
+const UA = "HeAlthFintelOutreach/1.0 (kurum listesi; iletisim: healthfintel.com.tr)";
+const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim();
+
+/** Aynı kurumu bir kez tutar; var olanlara dokunmaz. Eklenen sayıyı döner. */
+async function save(workspaceId: string, drafts: InstitutionDraft[]): Promise<number> {
+  const rows = new Map<string, { workspaceId: string; key: string; name: string; rawName: string; kind: string; city: string | null; district: string | null; orgType: string | null; size: string | null; website: string | null; source: string }>();
+  for (const d of drafts) {
+    const key = institutionKey(d.name, d.city);
+    if (!key.startsWith("|") && !rows.has(key)) {
+      rows.set(key, { workspaceId, key, name: d.name, rawName: d.rawName, kind: d.kind, city: d.city ?? null, district: d.district ?? null, orgType: d.orgType ?? null, size: d.size ?? null, website: d.website ?? null, source: d.source });
+    }
+  }
+  const list = [...rows.values()];
+  let added = 0;
+  for (let i = 0; i < list.length; i += 500) {
+    added += (await prisma.institution.createMany({ data: list.slice(i, i + 500), skipDuplicates: true })).count;
+  }
+  return added;
+}
+
+const done = (kaynak: string, added: number, total: number) => {
+  revalidatePath("/kurumlar");
+  redirect(`/kurumlar?eklendi=${added}&toplam=${total}&kaynak=${kaynak}`);
+};
+
+/** Sağlık Bakanlığı faal özel hastane listesi (resmî, herkese açık sayfa) */
+export async function importMoh(form: FormData) {
+  const ctx = await requireContext();
+  const il = clean(form.get("il"));
+  const res = await fetch(MOH_URL, { headers: { "user-agent": UA, accept: "text/html" }, signal: AbortSignal.timeout(25_000), cache: "no-store" }).catch(() => null);
+  if (!res?.ok) redirect("/kurumlar?hata=moh_erisim");
+  const all = parseMohHtml(await res.text());
+  if (!all.length) redirect("/kurumlar?hata=moh_bicim");
+  const drafts = il ? all.filter((d) => fold(d.city ?? "") === fold(il)) : all;
+  const added = await save(ctx.workspace.id, drafts);
+  await audit(ctx, "institutions.import", { kaynak: "moh", il, added });
+  done("moh", added, drafts.length);
+}
+
+/** OpenStreetMap (Overpass): hastane ve klinikler; kamu görünenler ayıklanır */
+export async function importOsm(form: FormData) {
+  const ctx = await requireContext();
+  const il = clean(form.get("il")) || "İstanbul";
+  const dental = !!form.get("dental");
+  const kinds = ['nwr["amenity"="hospital"]["name"](area.a);', 'nwr["amenity"="clinic"]["name"](area.a);', 'nwr["healthcare"~"^(hospital|clinic|centre)$"]["name"](area.a);', ...(dental ? ['nwr["amenity"="dentist"]["name"](area.a);'] : [])];
+  const query = `[out:json][timeout:50];area["name"="${il.replace(/["\\]/g, "")}"]["boundary"="administrative"]["admin_level"="4"]->.a;(${kinds.join("")});out tags center;`;
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    headers: { "user-agent": UA, "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data: query }),
+    signal: AbortSignal.timeout(55_000),
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res?.ok) redirect("/kurumlar?hata=osm_erisim");
+  const json = (await res.json().catch(() => null)) as { elements?: { tags?: Record<string, string> }[] } | null;
+  if (!json) redirect("/kurumlar?hata=osm_erisim");
+  const drafts = parseOverpass(json, il, { dental });
+  const added = await save(ctx.workspace.id, drafts);
+  await audit(ctx, "institutions.import", { kaynak: "osm", il, added });
+  done("osm", added, drafts.length);
+}
+
+/** Yapıştırılan liste (Excel sütunları ya da satır satır) */
+export async function importPaste(form: FormData) {
+  const ctx = await requireContext();
+  const kind = clean(form.get("tur"));
+  const drafts = parsePaste(clean(form.get("liste")).slice(0, 400_000), { city: clean(form.get("il")) || undefined, kind: (["HOSPITAL", "MEDICAL_CENTER", "CLINIC", "DENTAL", "INSURER"].includes(kind) ? kind : undefined) as InstitutionKind | undefined });
+  if (!drafts.length) redirect("/kurumlar?hata=bos");
+  const added = await save(ctx.workspace.id, drafts);
+  await audit(ctx, "institutions.import", { kaynak: "paste", added });
+  done("paste", added, drafts.length);
+}
+
+/** Bilinen büyük gruplar ve sigortacılar */
+export async function importSeed() {
+  const ctx = await requireContext();
+  const added = await save(ctx.workspace.id, SEED);
+  await audit(ctx, "institutions.import", { kaynak: "seed", added });
+  done("seed", added, SEED.length);
+}
+
+/** Seçili (ya da filtredeki tüm) kurumlar için toplu işlem */
+export async function bulkInstitutions(form: FormData) {
+  const ctx = await requireContext();
+  const ws = ctx.workspace.id;
+  const op = clean(form.get("op"));
+  const sp: InstSearch = {};
+  const base: Record<string, string> = {};
+  for (const k of ["q", "tur", "ilce", "durum", "kaynak", "il", "boyut"] as const) {
+    const v = clean(form.get(`f_${k}`));
+    if (v) {
+      sp[k] = v;
+      base[k] = v;
+    }
+  }
+  const back = (extra: string) => `/kurumlar?${new URLSearchParams({ ...base, ...Object.fromEntries(new URLSearchParams(extra)) }).toString()}`;
+  const scopeAll = clean(form.get("scope")) === "filtre";
+  const ids = form.getAll("ids").map(String);
+  if (!scopeAll && !ids.length) redirect(back("uyari=secim"));
+  const where = scopeAll ? institutionWhere(ws, sp) : { workspaceId: ws, id: { in: ids } };
+
+  if (op === "kampanya") {
+    const agent = await prisma.agent.findFirst({ where: { id: clean(form.get("agentId")), workspaceId: ws }, select: { id: true } });
+    if (!agent) redirect(back("uyari=kampanya"));
+    const rows = await prisma.institution.findMany({ where: { AND: [where, { status: { not: "EXCLUDED" } }] }, select: { id: true, name: true }, take: 3000 });
+    const rules = (await prisma.suppression.findMany({ where: { workspaceId: ws, kind: "company" }, select: { value: true } })).map((s) => s.value);
+    const ok = rows.filter((r) => !rules.some((rule) => matchesExcludedCompany(r.name, rule)));
+    const created = await prisma.targetAccount.createMany({ data: ok.map((r) => ({ agentId: agent.id, name: r.name, origin: "kurum" })), skipDuplicates: true });
+    await prisma.institution.updateMany({ where: { id: { in: ok.map((r) => r.id) } }, data: { status: "SELECTED" } });
+    await audit(ctx, "institutions.to_campaign", { agentId: agent.id, added: created.count, skipped: rows.length - ok.length });
+    revalidatePath("/kurumlar");
+    redirect(back(`kampanya=${created.count}&atlanan=${rows.length - ok.length}`));
+  }
+  if (op === "haric" || op === "yeni") {
+    const r = await prisma.institution.updateMany({ where, data: { status: op === "haric" ? "EXCLUDED" : "NEW" } });
+    revalidatePath("/kurumlar");
+    redirect(back(`islem=${op}&n=${r.count}`));
+  }
+  if (op === "sil") {
+    const r = await prisma.institution.deleteMany({ where });
+    revalidatePath("/kurumlar");
+    redirect(back(`islem=sil&n=${r.count}`));
+  }
+  redirect(back(""));
+}
