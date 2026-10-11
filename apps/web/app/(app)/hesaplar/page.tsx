@@ -1,4 +1,4 @@
-import { resolveDays, type DaySchedule } from "@hfo/core";
+import { dailyPlan, resolveDays, type DaySchedule } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import { SubmitButton } from "@/components/SubmitButton";
@@ -17,13 +17,24 @@ const STATUS: Record<string, { text: string; tone: string }> = {
   DISCONNECTED: { text: "Bağlı değil", tone: "t-mute" },
 };
 
+function Meter({ label, used, max, note }: { label: string; used: number; max?: number; note: string }) {
+  const pct = max ? Math.min(100, Math.round((used / max) * 100)) : 0;
+  return (
+    <div>
+      <div className="row between"><span>{label}</span><span style={{ font: "500 14px var(--mono)" }}>{used}{max ? `/${max}` : ""}</span></div>
+      <div className="bar" role="progressbar" aria-valuenow={used} aria-valuemin={0} aria-valuemax={max ?? used} aria-label={label}><i style={{ width: `${Math.max(used ? 2 : 0, pct)}%`, background: pct >= 100 ? "var(--bad)" : pct >= 85 ? "var(--warn)" : undefined }} /></div>
+      <div className="sub">{note}</div>
+    </div>
+  );
+}
+
 const fmt = (d: Date) => d.toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" });
 
 export default async function Page() {
   const ctx = await requireContext();
   const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { createdAt: "asc" } });
   const weekAgo = new Date(Date.now() - 7 * 86_400_000);
-  const dayStart = new Date(new Date().setHours(0, 0, 0, 0));
+  const dayAgo = new Date(Date.now() - 86_400_000);
 
   return (
     <>
@@ -50,11 +61,16 @@ export default async function Page() {
           const cfg = toScheduleConfig(a);
           const s = (a.schedule ?? {}) as { mode?: "auto" | "manual" };
           const days: DaySchedule[] = resolveDays(cfg);
-          const [invWeek, msgToday, pending] = await Promise.all([
+          const [invWeek, inv24, msg24, pending, oldest] = await Promise.all([
             prisma.job.count({ where: { linkedinAccountId: a.id, type: "SEND_INVITE", status: "DONE", finishedAt: { gte: weekAgo } } }),
-            prisma.job.count({ where: { linkedinAccountId: a.id, type: { in: ["SEND_MESSAGE", "SEND_INMAIL"] }, status: "DONE", finishedAt: { gte: dayStart } } }),
+            prisma.job.count({ where: { linkedinAccountId: a.id, type: "SEND_INVITE", status: "DONE", finishedAt: { gte: dayAgo } } }),
+            prisma.job.count({ where: { linkedinAccountId: a.id, type: { in: ["SEND_MESSAGE", "SEND_INMAIL"] }, status: "DONE", finishedAt: { gte: dayAgo } } }),
             prisma.agentProspect.count({ where: { stage: "INVITE_SENT", agent: { linkedinAccountId: a.id } } }),
+            prisma.agentProspect.findFirst({ where: { stage: "INVITE_SENT", inviteSentAt: { not: null }, agent: { linkedinAccountId: a.id } }, orderBy: { inviteSentAt: "asc" }, select: { inviteSentAt: true } }),
           ]);
+          const msgToday = msg24;
+          const todayQuota = dailyPlan(cfg).get(new Date(Date.now() + cfg.utcOffsetMin * 60_000).getUTCDay()) ?? 0;
+          const oldestDays = oldest?.inviteSentAt ? Math.floor((Date.now() - oldest.inviteSentAt.getTime()) / 86_400_000) : null;
           const st = STATUS[a.status]!;
           const seen = a.runnerLastSeenAt ? Math.round((Date.now() - a.runnerLastSeenAt.getTime()) / 60_000) : null;
           return (
@@ -70,10 +86,12 @@ export default async function Page() {
                     <span className={`tag ${st.tone}`}>{st.text}</span>
                   </div>
                   <div className="card-b stack">
-                    <div className="grid g3">
-                      <div><div className="sub">Bu hafta davet</div><div style={{ font: "500 18px var(--mono)" }}>{invWeek + a.externalInvites7d}/{a.weeklyInvites}</div></div>
-                      <div><div className="sub">Bugün mesaj</div><div style={{ font: "500 18px var(--mono)" }}>{msgToday}/{a.dailyMessageLimit}</div></div>
-                      <div><div className="sub">Bekleyen davet</div><div style={{ font: "500 18px var(--mono)" }}>{pending}</div></div>
+                    <div className="stack" style={{ gap: 10 }}>
+                      <h3 style={{ margin: 0 }}>Etkinlik sınırları</h3>
+                      <Meter label="Son 24 saatte davet" used={inv24} max={todayQuota || undefined} note="Bugünün hedefine göre" />
+                      <Meter label="Son 24 saatte mesaj" used={msg24} max={a.dailyMessageLimit} note="Günlük mesaj sınırına göre; davetten ayrıdır" />
+                      <Meter label="Bu hafta davet" used={invWeek + a.externalInvites7d} max={a.weeklyInvites} note="Son 7 gün; LinkedIn'den elle gönderilenler dahil" />
+                      <div className="row between"><span className="sub">Bekleyen davet</span><span style={{ font: "500 14px var(--mono)" }}>{pending}{oldestDays != null ? ` · en eskisi ${oldestDays} gün` : ""}</span></div>
                     </div>
                     {(a.externalInvites7d > 0 || a.inmailCredits != null) && (
                       <p className="help" style={{ margin: 0 }}>
@@ -90,6 +108,7 @@ export default async function Page() {
                         <span className="help">Kabulde giden mesajlar, takipler ve mevcut bağlantılara mesajlar. Davet hedefinden ayrıdır.</span>
                       </div>
                       <label className="check"><input type="checkbox" name="premium" defaultChecked={a.premium} /><span><b>Premium hesap</b><div className="sub">Çalışan bağlanınca kendisi de algılar.</div></span></label>
+                      <label className="check"><input type="checkbox" name="autoWithdraw" defaultChecked={a.autoWithdraw} /><span><b>Eski bekleyen davetleri temizle</b><div className="sub">Kampanyanın belirlediği gün sayısını (varsayılan 21) aşan, kabul edilmemiş davetler otomatik geri çekilir. Kapalıyken geri çekme yapılmaz.</div></span></label>
                       <label className="check"><input type="checkbox" name="warmup" defaultChecked={a.warmupEnabled} /><span><b>Isınma</b><div className="sub">İlk hafta hedefin üçte biri, ikinci hafta üçte ikisi gönderilir.</div></span></label>
                       <div className="row"><SubmitButton className="btn">Kaydet</SubmitButton></div>
                     </form>
@@ -119,7 +138,7 @@ export default async function Page() {
                     <div className="card-b">
                       <ul className="checks">
                         <li><span className={`dot ${a.lastWarning && a.status === "PAUSED" ? "no" : "ok"}`} />{a.lastWarning && a.status === "PAUSED" ? a.lastWarning : "LinkedIn uyarısı yok"}</li>
-                        <li><span className={`dot ${pending > 150 ? "warn" : "ok"}`} />{pending} bekleyen davet; {21} günü geçenler otomatik geri çekilir</li>
+                        <li><span className={`dot ${pending > 150 ? "warn" : "ok"}`} />{pending} bekleyen davet; {a.autoWithdraw ? "süresi dolanlar otomatik geri çekilir" : "otomatik temizlik kapalı"}</li>
                       </ul>
                     </div>
                   </div>

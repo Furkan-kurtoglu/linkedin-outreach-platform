@@ -86,8 +86,9 @@ export async function saveLimits(form: FormData) {
   const premium = form.get("premium") === "on";
   const warmupEnabled = form.get("warmup") === "on";
   const displayName = String(form.get("displayName") ?? "").trim() || acc.displayName;
-  await prisma.linkedinAccount.update({ where: { id: acc.id }, data: { dailyMessageLimit, premium, warmupEnabled, displayName } });
-  await audit(ctx, "account.limits", { dailyMessageLimit, premium, warmupEnabled });
+  const autoWithdraw = form.get("autoWithdraw") === "on";
+  await prisma.linkedinAccount.update({ where: { id: acc.id }, data: { dailyMessageLimit, premium, warmupEnabled, displayName, autoWithdraw } });
+  await audit(ctx, "account.limits", { dailyMessageLimit, premium, warmupEnabled, autoWithdraw });
   revalidatePath("/hesaplar");
 }
 
