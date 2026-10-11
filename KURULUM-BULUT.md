@@ -1,5 +1,7 @@
 # Bulut çalışan: bilgisayar kapalıyken arama
 
+> **Durum (11.10.2026):** İlk denemede LinkedIn, GitHub sunucusundan gelen oturum çerezini kabul etmedi ("LinkedIn oturumu kapandı"). Zamanlı çalışma bu yüzden kapatıldı; yalnızca elle başlatılabilir. Güvenilir yol bilgisayardaki çalışandır (`baslat.bat`).
+
 Bulut çalışan, GitHub'ın ücretsiz sunucusunda ekransız bir Chrome açıp LinkedIn'de **yalnızca arama** işlerini yapar:
 şirket bulma, şirket ayrıntılarını okuma, hedef şirketlerdeki kişileri bulma. Davet ve mesaj gönderimi
 bulutta **yapılmaz**; onlar bilgisayarınızdaki çalışanda kalır.

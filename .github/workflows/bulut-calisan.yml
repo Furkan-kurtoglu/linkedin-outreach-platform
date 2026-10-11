@@ -5,9 +5,8 @@ name: Bulut çalışan
 # Çalışması için depo gizli değişkenleri gerekir: HFO_PANEL, HFO_TOKEN, LI_AT (bkz. KURULUM-BULUT.md).
 # Gizli değişkenler yoksa iş hemen bitirilir ve dakika harcamaz.
 on:
-  schedule:
-    # UTC: 03:00, 06:00, 09:00 (Türkiye saati). Özel depoda aylık 2000 ücretsiz dakikaya sığar.
-    - cron: "0 0,3,6 * * *"
+  # Zamanlama kapalı: ilk denemede LinkedIn, veri merkezi adresinden gelen oturumu geçersiz saydı ("oturum kapandı").
+  # Yalnızca elle başlatılabilir; kullanmadan önce KURULUM-BULUT.md'deki uyarıya bakın.
   workflow_dispatch:
 
 concurrency:
