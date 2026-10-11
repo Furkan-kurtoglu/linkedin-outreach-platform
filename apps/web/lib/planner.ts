@@ -415,7 +415,7 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
 
   // Ziyaretler davet saatleriyle aynı pencerelere yayılır
   const visitTimes = planInviteTimes({ now, count: visitJobs.length, config });
-  visitJobs.slice(0, visitTimes.length).forEach(({ cand }, i) =>
+  visitJobs.slice(0, visitTimes.length).forEach(({ cand, agent }, i) =>
     newJobs.push(
       job({
         linkedinAccountId: account.id,
@@ -423,7 +423,12 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
         status: "PENDING",
         priority: 15,
         runAfter: visitTimes[i]!,
-        payload: { type: "VISIT_PROFILE", profileUrl: cand.prospect.linkedinUrl },
+        payload: {
+          type: "VISIT_PROFILE",
+          profileUrl: cand.prospect.linkedinUrl,
+          readPost: (agent.firstLineEnabled && agent.firstLineSources.includes("post")) || undefined,
+          readEducation: (agent.firstLineEnabled && agent.firstLineSources.includes("school")) || undefined,
+        },
         agentProspectId: cand.ap.id,
       }),
     ),

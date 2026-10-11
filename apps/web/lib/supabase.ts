@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { env } from "./env";
@@ -9,7 +9,7 @@ export async function supabaseServer() {
   return createServerClient(env.supabaseUrl(), env.supabaseAnonKey(), {
     cookies: {
       getAll: () => store.getAll(),
-      setAll: (list) => {
+      setAll: (list: { name: string; value: string; options: CookieOptions }[]) => {
         try {
           for (const { name, value, options } of list) store.set(name, value, options);
         } catch {

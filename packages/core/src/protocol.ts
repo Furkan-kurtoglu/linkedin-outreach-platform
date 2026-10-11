@@ -28,7 +28,14 @@ export interface StepRef {
 }
 
 export type JobPayload =
-  | { type: "VISIT_PROFILE"; profileUrl: string }
+  | {
+      type: "VISIT_PROFILE";
+      profileUrl: string;
+      /** Kişiye özel ilk cümle için son paylaşımı oku (yalnızca seçenek açıksa) */
+      readPost?: boolean;
+      /** Ortak okul için eğitim bilgisini oku (yalnızca seçenek açıksa) */
+      readEducation?: boolean;
+    }
   | ({ type: "SEND_INVITE"; profileUrl: string; note?: string } & StepRef)
   | ({ type: "SEND_MESSAGE"; profileUrl: string; text: string; attachment?: { fileId: string; name: string }; viaOpenProfile?: boolean } & StepRef)
   | ({ type: "SEND_INMAIL"; profileUrl: string; subject: string; text: string } & StepRef)
