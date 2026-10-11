@@ -10,8 +10,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const agent = await prisma.agent.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!agent) return new Response("Bulunamadı", { status: 404 });
-  const filtre = new URL(req.url).searchParams.get("filtre") ?? undefined;
-  const rows = await personRows(filterWhere(agent.id, filtre, ctx.workspace.id), 10_000);
+  const url = new URL(req.url);
+  const filtre = url.searchParams.get("filtre") ?? undefined;
+  const rows = await personRows(filterWhere(agent.id, filtre, ctx.workspace.id, url.searchParams.get("ara") ?? undefined), 10_000);
   const csv = toCsv(
     [
       { key: "fullName", title: "Ad Soyad" },

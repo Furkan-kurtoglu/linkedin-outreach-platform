@@ -13,7 +13,15 @@ export const FILTERS = [
   ["bitti", "Biten", ["FINISHED", "WITHDRAWN", "SKIPPED"]],
 ] as const satisfies readonly (readonly [string, string, readonly ProspectStage[] | undefined])[];
 
-export function filterWhere(agentId: string | undefined, filtre: string | undefined, workspaceId: string): Prisma.AgentProspectWhereInput {
+export function filterWhere(agentId: string | undefined, filtre: string | undefined, workspaceId: string, q?: string): Prisma.AgentProspectWhereInput {
+  const where = baseWhere(agentId, filtre, workspaceId);
+  const term = q?.trim().slice(0, 80);
+  if (!term) return where;
+  const has = { contains: term, mode: "insensitive" as const };
+  return { AND: [where, { prospect: { OR: [{ fullName: has }, { company: has }, { title: has }] } }] };
+}
+
+function baseWhere(agentId: string | undefined, filtre: string | undefined, workspaceId: string): Prisma.AgentProspectWhereInput {
   const f = FILTERS.find(([k]) => k === filtre) ?? FILTERS[0];
   const base: Prisma.AgentProspectWhereInput = agentId ? { agentId } : { agent: { workspaceId } };
   if (f[0] === "birinci") return { ...base, OR: [{ branch: "CONNECTED" }, { prospect: { degree: 1 } }] };
@@ -30,11 +38,11 @@ const JOB_TEXT: Record<string, string> = {
   WITHDRAW_INVITE: "Daveti geri çekme",
 };
 
-export async function personRows(where: Prisma.AgentProspectWhereInput, take: number, skip = 0): Promise<PersonRow[]> {
+export async function personRows(where: Prisma.AgentProspectWhereInput, take: number, skip = 0, sort: "puan" | "yeni" = "puan"): Promise<PersonRow[]> {
   const aps = await prisma.agentProspect.findMany({
     where,
     include: { prospect: true, agent: { select: { withdrawAfterDays: true, segments: { select: { id: true, name: true } } } } },
-    orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
+    orderBy: sort === "yeni" ? [{ createdAt: "desc" }] : [{ fitScore: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }],
     take,
     skip,
   });
