@@ -126,7 +126,7 @@ export async function createPresetAgents(): Promise<void> {
   const existing = new Set((await prisma.agent.findMany({ where: { workspaceId: ctx.workspace.id }, select: { name: true } })).map((a) => a.name));
   let created = 0;
   for (const p of PRESETS) {
-    if (existing.has(p.values.name)) continue;
+    if (existing.has(p.values.name ?? "")) continue;
     const r = await makeCampaign(ctx, { ...p.values, companyId: company.id, companyName: company.name, accountId: account.id });
     if ("agent" in r) created++;
   }
