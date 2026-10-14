@@ -43,7 +43,7 @@ describe("LinkedIn şirket kartı", () => {
       ],
     });
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ name: "Alfa Klinik", city: "Istanbul", orgType: "Hastaneler ve Sağlık" });
+    expect(rows[0]).toMatchObject({ name: "Alfa Klinik", city: "İstanbul", orgType: "Hastaneler ve Sağlık" });
   });
   it("arama bağlantıları Türkiye süzgeciyle ve en çok 6", () => {
     const q = companyQueryUrls(["özel klinik", "Özel Klinik", "tıp merkezi", "a", "b", "c", "d", "e"]);

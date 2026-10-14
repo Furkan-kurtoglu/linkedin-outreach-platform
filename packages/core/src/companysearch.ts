@@ -77,7 +77,8 @@ export function parseCompanyCard(c: FoundCompany): ParsedCompany | null {
       if (last) out.city = last.split("/")[0]!.trim();
     }
   }
-  if (!out.industry && lines[0] && !/[•·|]/.test(lines[0]) && lines[0].length < 60 && !/takip|follow|çalışan|employees/i.test(lines[0])) out.industry = lines[0];
+  if (!out.industry && lines[0] && !/[•·|,\/]/.test(lines[0]) && lines[0].length < 60 && !/takip|follow|çalışan|employees/i.test(lines[0])) out.industry = lines[0];
+  if (out.city) out.city = TR_PROVINCES.find((p) => fold(p) === fold(out.city!)) ?? out.city;
   out.size = sizeFromEmployees(out.employees);
   return out;
 }
