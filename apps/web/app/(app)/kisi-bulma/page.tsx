@@ -7,7 +7,7 @@ import { UndoBanner } from "@/components/UndoBanner";
 import { requireContext } from "@/lib/context";
 import { personRows } from "@/lib/people";
 import { bulkReview } from "./review";
-import { discoverNow, importProfiles } from "./actions";
+import { discoverNow, importProfiles, rescoreReview } from "./actions";
 
 export const metadata: Metadata = { title: "Kişi bulma" };
 
@@ -88,7 +88,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <>
           <UndoBanner auditId={sp.geri} workspaceId={ws.id} back="/kisi-bulma?sekme=karar" />
           {sp.eklendi && <p className="form-ok" style={{ marginBottom: 12 }}>{sp.eklendi} kişi eklendi. Profil ziyaretinde bilgileri tamamlanır.</p>}
-          <p className="lede">Kurallar bu kişiler için kesin karar veremedi. Uygun saydıklarınız kampanyada sıraya girer.</p>
+          {sp.elendi && <p className="form-ok" style={{ marginBottom: 12 }}>{sp.elendi} kişi kurumu bilinmediği ya da sektör dışı olduğu için elendi.</p>}
+          <div className="row between" style={{ marginBottom: 12 }}>
+            <p className="lede" style={{ margin: 0 }}>Kurallar bu kişiler için kesin karar veremedi. Uygun saydıklarınız kampanyada sıraya girer.</p>
+            <form action={rescoreReview}><SubmitButton className="btn sm" pendingText="Eleniyor…">Hedef dışıları ele</SubmitButton></form>
+          </div>
           <form action={bulkReview}>
             <div className="row" style={{ marginBottom: 10 }}>
               <span className="sub">Seçilenler:</span>

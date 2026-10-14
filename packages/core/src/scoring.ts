@@ -134,6 +134,11 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
     }
   }
 
+  // Kurum bilgisi yok ya da sektör dışı: kişi hedef dışındadır, karar listesine bile girmez
+  if (t.requiredCompanyKeywords.length && !requiredOk) {
+    return { score: Math.min(30, score), verdict: "elendi", reasons: [...reasons, p.company ? "Kurum hedef sektör dışında." : "Kurum bilgisi yok; hedef dışı sayıldı."] };
+  }
+
   // Karar
   let verdict: Verdict;
   if (!titleHit) verdict = score >= 40 ? "belirsiz" : "elendi";

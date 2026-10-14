@@ -1,9 +1,10 @@
 "use server";
-import { canonicalProfileUrl } from "@hfo/core";
+import { canonicalProfileUrl, scoreProspect } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
 import { enqueueDiscover } from "@/lib/discover-queue";
+import { toTargeting } from "@/lib/convert";
 import { urlHash } from "@/lib/results";
 
 /** Aktif kampanyalar için hemen tarama başlatır (günlük otomatik taramayı beklemeden). */
@@ -42,4 +43,26 @@ export async function importProfiles(form: FormData) {
   }
   await audit(ctx, "people.import", { agentId: agent.id, count: added });
   redirect(`/kisi-bulma?sekme=karar&eklendi=${added}`);
+}
+
+/** Karar bekleyenleri güncel kurallarla yeniden puanlar; kurumu bilinmeyen ya da sektör dışı olanlar elenir. */
+export async function rescoreReview() {
+  const ctx = await requireContext();
+  const ws = ctx.workspace.id;
+  const excluded = (await prisma.suppression.findMany({ where: { workspaceId: ws, kind: "company" }, select: { value: true } })).map((x) => x.value);
+  const agents = await prisma.agent.findMany({ where: { workspaceId: ws }, include: { segments: true } });
+  let n = 0;
+  for (const a of agents) {
+    const targeting = toTargeting(a, a.segments, excluded);
+    const rows = await prisma.agentProspect.findMany({ where: { agentId: a.id, stage: "NEEDS_REVIEW" }, include: { prospect: true } });
+    for (const r of rows) {
+      if (r.prospect.source === "IMPORT") continue; // elle içe aktarılanların bilgisi profil ziyaretinde tamamlanır
+      const sc = scoreProspect({ fullName: r.prospect.fullName, title: r.prospect.title ?? undefined, company: r.prospect.company ?? undefined, location: r.prospect.location ?? undefined, about: r.prospect.headline ?? undefined }, targeting);
+      if (sc.verdict !== "elendi") continue;
+      await prisma.agentProspect.update({ where: { id: r.id }, data: { stage: "SKIPPED", fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: sc.reasons[sc.reasons.length - 1] } });
+      n++;
+    }
+  }
+  await audit(ctx, "review.rescore", { eliminated: n });
+  redirect(`/kisi-bulma?sekme=karar&elendi=${n}`);
 }

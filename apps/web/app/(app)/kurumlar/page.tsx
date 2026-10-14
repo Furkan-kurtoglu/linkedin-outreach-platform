@@ -196,7 +196,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           {Object.entries(f).map(([key, v]) => v && <input key={key} type="hidden" name={`f_${key}`} value={v} />)}
           <div className="bulk" style={{ position: "sticky", top: 8, zIndex: 5 }}>
             <span><b>{matching}</b> kurum{filtered ? " bu süzgeçte" : ""}</span>
-            <label className="row" style={{ gap: 6 }}><input type="checkbox" name="scope" value="filtre" /> Filtredeki tümüne uygula ({Math.min(matching, 3000)})</label>
+            <label className="row" style={{ gap: 6 }}><input type="checkbox" name="scope" value="filtre" /> Süzgeçteki tüm {Math.min(matching, 3000)} kurumu seç (yalnızca bu sayfadakileri değil)</label>
             <select name="agentId" aria-label="Kampanya" style={{ width: "auto", color: "var(--fg)" }} defaultValue="">
               <option value="" disabled>Kampanya seç…</option>
               {agents.map((a) => { const ks = readTargeting(a.targeting).institutionKinds; return <option key={a.id} value={a.id}>{a.name} — {ks.length ? ks.map((k) => KIND_LABEL[k] ?? k).join(", ") : "tür sınırı yok (Hedefleme'den seçin)"}</option>; })}

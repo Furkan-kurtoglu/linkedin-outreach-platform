@@ -7,6 +7,7 @@ import { MAX_ACTIVE_AGENTS } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import { setStatus } from "./actions";
 import { FlowTab } from "./tabs/Flow";
+import { InstitutionsTab } from "./tabs/Institutions";
 import { MessagesTab } from "./tabs/Messages";
 import { PeopleTab } from "./tabs/People";
 import { OverviewTab } from "./tabs/Overview";
@@ -17,6 +18,7 @@ export const metadata: Metadata = { title: "Kampanya" };
 const TABS = [
   ["genel", "Genel bakış"],
   ["kisiler", "Kişiler"],
+  ["kurumlar", "Kurumlar"],
   ["akis", "Akış"],
   ["mesajlar", "Mesajlar"],
   ["ayarlar", "Ayarlar"],
@@ -35,6 +37,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const section: Section = (SECTIONS.find(([k]) => k === (legacy?.[1] ?? sp.bolum))?.[0] ?? "genel") as Section;
   const optionsOn = [c.firstLineEnabled, c.calendarEnabled, c.englishEnabled, c.openProfileEnabled, c.inmailEnabled].filter(Boolean).length;
   const company = c.companyId ? await prisma.company.findUnique({ where: { id: c.companyId }, select: { name: true } }) : null;
+  const accountCount = await prisma.targetAccount.count({ where: { agentId: c.id } });
   const reviewCount = await prisma.agentProspect.count({ where: { agentId: c.id, stage: "NEEDS_REVIEW" } });
   const [statusLabel, tone] = ({ ACTIVE: ["Aktif", "t-good"], PAUSED: ["Duraklatıldı", "t-mute"], DRAFT: ["Taslak", "t-warn"] } as const)[c.status];
 
@@ -78,6 +81,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <Link key={k} className="tab" role="tab" aria-selected={tab === k} href={`/kampanyalar/${c.id}?sekme=${k}`}>
             {l}
             {k === "ayarlar" && optionsOn > 0 && <> <span className="badge">{optionsOn}</span></>}
+            {k === "kurumlar" && accountCount > 0 && <> <span className="badge">{accountCount}</span></>}
             {k === "kisiler" && reviewCount > 0 && <> <span className="badge">{reviewCount}</span></>}
           </Link>
         ))}
@@ -85,6 +89,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       {tab === "genel" && <OverviewTab campaign={c} sp={sp} />}
       {tab === "akis" && <FlowTab campaign={c} sp={sp} />}
       {tab === "kisiler" && <PeopleTab campaign={c} sp={sp} />}
+      {tab === "kurumlar" && <InstitutionsTab campaign={c} sp={sp} />}
       {tab === "mesajlar" && <MessagesTab campaign={c} sp={sp} />}
       {tab === "ayarlar" && <SettingsTab campaign={c} sp={sp} section={section} />}
     </>
