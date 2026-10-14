@@ -5,6 +5,7 @@
 import { institutionKey, kindFromText, looksPublic, type InstitutionDraft, type InstitutionKind, type InstitutionSize } from "./institutions";
 import type { CompanyDetail, CompanyDiscoverData, FoundCompany } from "./protocol";
 import { fold } from "./text";
+import { TR_PROVINCES } from "./provinces";
 
 /** Türkiye'nin LinkedIn konum kimliği (şirket merkezi süzgeci) */
 export const TURKEY_GEO_URN = "102105699";
@@ -50,7 +51,7 @@ function industryAndCity(line: string): { industry?: string; city?: string } {
 
 export function parseCompanyCard(c: FoundCompany): ParsedCompany | null {
   const url = canonicalCompanyUrl(c.linkedinUrl);
-  const name = c.name.replace(/\s+/g, " ").trim();
+  const name = c.name.replace(/\s+/g, " ").replace(/^©\s*\d{4}\s*/, "").trim();
   if (!url || name.length < 2) return null;
   const lines = c.text.split("\n").map((l) => l.trim()).filter((l) => l && l !== name);
   const out: ParsedCompany = { name, linkedinUrl: url };
@@ -67,6 +68,16 @@ export function parseCompanyCard(c: FoundCompany): ParsedCompany | null {
     else if (one) out.employees = num(one[1]!);
     else if (!out.industry && /[•·|]/.test(l)) Object.assign(out, industryAndCity(l));
   }
+  if (!out.city) {
+    // Yeni kart düzeni: ad, sektör, konum ("Güzeloba, Antalya" / "Kırklareli/Merkez") ayrı satırlarda
+    const loc = lines.find((l) => /^[^\d•·|:;!?]{2,50}$/.test(l) && /,|\//.test(l) && !/takip|follow/i.test(l) && l.split(/\s+/).length <= 6);
+    if (loc) {
+      const parts = loc.split(",").map((x) => x.trim()).filter((x) => x && !/^(türkiye|turkey)$/i.test(x));
+      const last = parts[parts.length - 1];
+      if (last) out.city = last.split("/")[0]!.trim();
+    }
+  }
+  if (!out.industry && lines[0] && !/[•·|]/.test(lines[0]) && lines[0].length < 60 && !/takip|follow|çalışan|employees/i.test(lines[0])) out.industry = lines[0];
   out.size = sizeFromEmployees(out.employees);
   return out;
 }
@@ -96,9 +107,14 @@ export interface CompanyIngestRow extends InstitutionDraft {
 export function companiesFromResult(data: CompanyDiscoverData, fallbackKind?: InstitutionKind): CompanyIngestRow[] {
   const seen = new Set<string>();
   const out: CompanyIngestRow[] = [];
+  // Aramada il adı geçtiyse başka ilin şirketleri alınmaz (LinkedIn il sözcüğünü süzgeç olarak kullanmaz)
+  const labels = data.queries.map((q) => fold(q.label)).join(" ");
+  const wanted = new Set(TR_PROVINCES.filter((p) => labels.includes(fold(p))).map((p) => fold(p)));
   for (const c of data.companies) {
     const parsed = parseCompanyCard(c);
     if (!parsed) continue;
+    if (wanted.size && parsed.city && !wanted.has(fold(parsed.city))) continue;
+    if (/psikolog|meslek hizmet birimi/i.test(parsed.name)) continue;
     const draft = companyToDraft(parsed, fallbackKind);
     if (!draft) continue;
     const key = institutionKey(draft.name, draft.city);

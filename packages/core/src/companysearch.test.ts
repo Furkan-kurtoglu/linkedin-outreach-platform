@@ -32,6 +32,19 @@ describe("LinkedIn şirket kartı", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ kind: "DENTAL", city: "Ankara", source: "linkedin" });
   });
+  it("yeni kart düzeninde konumu okur, aranan il dışını ve psikolog kayıtlarını eler", () => {
+    const rows = companiesFromResult({
+      viewed: 3,
+      queries: [{ label: "özel klinik İstanbul", found: 3 }],
+      companies: [
+        { name: "Alfa Klinik", linkedinUrl: "https://www.linkedin.com/company/alfa/", text: "Alfa Klinik\n\nHastaneler ve Sağlık\n\nCekmekoy, Istanbul\n\nTakip Et\n\n309 takipçi" },
+        { name: "DCT Klinik", linkedinUrl: "https://www.linkedin.com/company/dct/", text: "DCT Klinik\n\nHastaneler ve Sağlık\n\nGüzeloba, Antalya\n\nTakip Et" },
+        { name: "Klinik Psikolog Ayşe", linkedinUrl: "https://www.linkedin.com/company/ay/", text: "x\n\nRuh Sağlığı\n\nBakırköy, İstanbul" },
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ name: "Alfa Klinik", city: "Istanbul", orgType: "Hastaneler ve Sağlık" });
+  });
   it("arama bağlantıları Türkiye süzgeciyle ve en çok 6", () => {
     const q = companyQueryUrls(["özel klinik", "Özel Klinik", "tıp merkezi", "a", "b", "c", "d", "e"]);
     expect(q).toHaveLength(6);
