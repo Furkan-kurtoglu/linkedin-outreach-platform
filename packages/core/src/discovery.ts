@@ -202,6 +202,16 @@ export function planDiscovery(input: DiscoveryPlanInput): DiscoveryStep[] {
   return steps;
 }
 
+/** Tek işte çok adım sekiz dakikalık sınıra takılır: kurum adımları 4'er, geniş aramalar 2'şer işe bölünür. */
+export function chunkDiscoverySteps<T extends { source: string }>(steps: T[]): T[][] {
+  const accounts = steps.filter((s) => s.source === "accounts");
+  const others = steps.filter((s) => s.source !== "accounts");
+  const out: T[][] = [];
+  for (let i = 0; i < accounts.length; i += 4) out.push(accounts.slice(i, i + 4));
+  for (let i = 0; i < others.length; i += 2) out.push(others.slice(i, i + 2));
+  return out;
+}
+
 /* ---------- Önceliklendirme ---------- */
 
 export interface PriorityInput {

@@ -1,13 +1,17 @@
 import "server-only";
-import { planDiscovery, profileViewBudget, type JobPayload } from "@hfo/core";
+import { chunkDiscoverySteps, planDiscovery, profileViewBudget, type JobPayload } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { readTargeting } from "./convert";
 
 /** Temsilcinin hedef kurumlarındaki unvanları taramak için kişi bulma işi kuyruğa alır (açık iş varsa atlar). */
-export async function enqueueDiscover(agentId: string, onlyAccounts?: string[]): Promise<boolean> {
+export async function enqueueDiscover(agentId: string, onlyAccounts?: string[], opts: { replace?: boolean } = {}): Promise<boolean> {
   const a = await prisma.agent.findUnique({ where: { id: agentId }, include: { linkedinAccount: true, targetAccounts: true } });
   if (!a) return false;
   // Tüm tarama bir kez sıraya alınır; yalnızca yeni eklenen kurumlar için (onlyAccounts) açık tarama varken de eklenir
+  if (opts.replace) {
+    // Eski planla kuyruğa alınmış, henüz başlamamış taramalar iptal edilip güncel planla yeniden kurulur
+    await prisma.job.updateMany({ where: { linkedinAccountId: a.linkedinAccountId, type: "DISCOVER", status: "PENDING", payload: { path: ["agentId"], equals: a.id } }, data: { status: "CANCELLED" } });
+  }
   if (!onlyAccounts) {
     const open = await prisma.job.count({ where: { linkedinAccountId: a.linkedinAccountId, type: "DISCOVER", status: { in: ["PENDING", "RUNNING"] }, payload: { path: ["agentId"], equals: a.id } } });
     if (open) return false;
@@ -17,11 +21,7 @@ export async function enqueueDiscover(agentId: string, onlyAccounts?: string[]):
   if (!steps.length) return false;
   // Tek işte yüzlerce adım sekiz dakikalık sınıra takılır; adımlar küçük işlere bölünür
   // (kurum adımları 4'er, geniş aramalar 2'şer) ve sırayla çalışır.
-  const accounts = steps.filter((s) => s.source === "accounts");
-  const others = onlyAccounts ? [] : steps.filter((s) => s.source !== "accounts");
-  const chunks: (typeof steps)[] = [];
-  for (let i = 0; i < accounts.length; i += 4) chunks.push(accounts.slice(i, i + 4));
-  for (let i = 0; i < others.length; i += 2) chunks.push(others.slice(i, i + 2));
+  const chunks = onlyAccounts ? chunkDiscoverySteps(steps.filter((s) => s.source === "accounts")) : chunkDiscoverySteps(steps);
   const budget = profileViewBudget(a.linkedinAccount.premium);
   for (const chunk of chunks) {
     const payload: JobPayload = { type: "DISCOVER", agentId: a.id, steps: chunk, viewBudget: budget };

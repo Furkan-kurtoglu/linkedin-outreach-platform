@@ -1,26 +1,17 @@
 "use server";
-import { canonicalProfileUrl, planDiscovery, profileViewBudget, type JobPayload } from "@hfo/core";
-import { prisma, Prisma } from "@hfo/db";
+import { canonicalProfileUrl } from "@hfo/core";
+import { prisma } from "@hfo/db";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
-import { readTargeting } from "@/lib/convert";
+import { enqueueDiscover } from "@/lib/discover-queue";
 import { urlHash } from "@/lib/results";
 
 /** Aktif kampanyalar için hemen tarama başlatır (günlük otomatik taramayı beklemeden). */
 export async function discoverNow() {
   const ctx = await requireContext();
-  const agents = await prisma.agent.findMany({ where: { workspaceId: ctx.workspace.id, status: { in: ["ACTIVE", "DRAFT"] } }, include: { linkedinAccount: true, targetAccounts: true } });
+  const agents = await prisma.agent.findMany({ where: { workspaceId: ctx.workspace.id, status: { in: ["ACTIVE", "DRAFT"] } }, select: { id: true } });
   let n = 0;
-  for (const a of agents) {
-    const open = await prisma.job.count({ where: { linkedinAccountId: a.linkedinAccountId, type: "DISCOVER", status: { in: ["PENDING", "RUNNING"] }, payload: { path: ["agentId"], equals: a.id } } });
-    if (open) continue;
-    const t = readTargeting(a.targeting);
-    const steps = planDiscovery({ titles: t.titles, geoUrns: t.geoUrns, industryIds: t.industryIds, targetAccounts: a.targetAccounts.map((x) => x.name), includeConnections: a.includeConnections, engagementPostUrls: t.engagementPostUrls }).filter((s): s is typeof s & { url: string } => !!s.url);
-    if (!steps.length) continue;
-    const payload: JobPayload = { type: "DISCOVER", agentId: a.id, steps, viewBudget: profileViewBudget(a.linkedinAccount.premium) };
-    await prisma.job.create({ data: { linkedinAccountId: a.linkedinAccountId, type: "DISCOVER", priority: 40, runAfter: new Date(), payload: payload as unknown as Prisma.InputJsonValue } });
-    n++;
-  }
+  for (const a of agents) if (await enqueueDiscover(a.id, undefined, { replace: true })) n++;
   await audit(ctx, "discover.now", { campaigns: n });
   redirect(`/kisi-bulma?baslatildi=${n}`);
 }

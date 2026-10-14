@@ -12,6 +12,7 @@ import {
   hasWindow,
   restrictToWindow,
   chooseLanguage,
+  chunkDiscoverySteps,
   fold,
   dispatchTime,
   invitesRemainingToday,
@@ -557,14 +558,16 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
     }).filter((s): s is typeof s & { url: string } => !!s.url);
     if (!steps.length) continue;
     if (accounts.length) await prisma.targetAccount.updateMany({ where: { id: { in: accounts.map((a) => a.id) } }, data: { lastSearchedAt: now } });
-    out.push(
-      job({
-        ...base,
-        type: "DISCOVER",
-        priority: 40,
-        payload: { type: "DISCOVER", agentId: agent.id, steps, viewBudget: profileViewBudget(account.premium) },
-      }),
-    );
+    for (const chunk of chunkDiscoverySteps(steps)) {
+      out.push(
+        job({
+          ...base,
+          type: "DISCOVER",
+          priority: 40,
+          payload: { type: "DISCOVER", agentId: agent.id, steps: chunk, viewBudget: profileViewBudget(account.premium) },
+        }),
+      );
+    }
   }
   return out;
 }
