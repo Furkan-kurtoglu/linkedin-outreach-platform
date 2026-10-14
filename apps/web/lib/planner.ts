@@ -530,7 +530,7 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
   if (await due("SYNC_SENT_INVITES", 20 * HOUR)) out.push(job({ ...base, type: "SYNC_SENT_INVITES", priority: 30, payload: { type: "SYNC_SENT_INVITES" } }));
 
   // Kişi bulma sürekli çalışır: kampanyada bekleyen kişi tamponu (üç haftalık davet hakkı) dolmadıkça,
-  // önceki tur bittikten 45 dk sonra yeni tur başlar; günde en çok 6 tur (LinkedIn'i yormamak için).
+  // önceki tur bittikten 3 saat sonra yeni tur başlar; günde en çok 3 tur (LinkedIn'i yormamak için).
   for (const agent of agents) {
     const queued = await prisma.agentProspect.count({ where: { agentId: agent.id, stage: "QUEUED" } });
     const target = Math.ceil((account.weeklyInvites * agent.budgetSharePct) / 100) * 3;
@@ -539,9 +539,9 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
     if (await prisma.job.count({ where: { ...forAgent, status: { in: [...OPEN_JOB] } } })) continue;
     const lastDiscover = await prisma.job.findFirst({ where: forAgent, orderBy: { createdAt: "desc" }, select: { createdAt: true, finishedAt: true } });
     const lastAt = lastDiscover ? (lastDiscover.finishedAt ?? lastDiscover.createdAt) : null;
-    if (lastAt && now.getTime() - lastAt.getTime() < 45 * 60_000) continue;
+    if (lastAt && now.getTime() - lastAt.getTime() < 3 * HOUR) continue;
     const rounds = await prisma.job.count({ where: { ...forAgent, createdAt: { gte: new Date(now.getTime() - DAY) } } });
-    if (rounds >= 6 * 8) continue; // bir tur birkaç işe bölünür (en çok ~8)
+    if (rounds >= 3 * 8) continue; // bir tur birkaç işe bölünür (en çok ~8)
     const t = readTargeting(agent.targeting);
     // Hedef kurum listesi uzun olabilir: her turda en uzun süredir taranmayan 40 kurum alınır, böylece liste sırayla döner
     const accounts = await prisma.targetAccount.findMany({

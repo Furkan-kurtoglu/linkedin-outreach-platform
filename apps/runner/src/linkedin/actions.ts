@@ -546,7 +546,7 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
         });
         stepFound++;
       }
-      await pause(3500, 8000);
+      await pause(14_000, 28_000);
     }
     report.push({ label: step.label, viewed: stepViewed, found: stepFound });
   }
@@ -671,7 +671,7 @@ export async function discoverCompanies(page: Page, queries: CompanyQueryPayload
         companies.push({ linkedinUrl: r.href, name: r.name, text: r.text });
         found++;
       }
-      await pause(3500, 8000);
+      await pause(14_000, 28_000);
     }
     report.push({ label: q.label, found });
   }
@@ -715,7 +715,7 @@ export async function enrichCompanies(page: Page, companies: { id: string; url: 
       }),
     )).catch(() => [] as { label: string; value: string }[]);
     items.push(parseAboutPairs(c.id, pairs));
-    await pause(3500, 8000);
+    await pause(14_000, 28_000);
   }
   return { items };
 }
