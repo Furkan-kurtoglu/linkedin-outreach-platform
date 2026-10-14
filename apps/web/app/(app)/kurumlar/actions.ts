@@ -53,7 +53,12 @@ export async function importMoh(form: FormData) {
 }
 
 /** OpenStreetMap (Overpass): hastane ve klinikler; kamu görünenler ayıklanır */
-const OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"];
+const OVERPASS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+];
 const BBOX: Record<string, string> = { istanbul: "40.80,28.00,41.60,29.95" };
 
 export async function importOsm(form: FormData) {
@@ -66,22 +71,36 @@ export async function importOsm(form: FormData) {
   const scope = box ? `(${box})` : "(area.a)";
   const area = box ? "" : `area["name"="${il.replace(/["\\]/g, "")}"]["boundary"="administrative"]["admin_level"="4"]->.a;`;
   const query = `[out:json][timeout:25];${area}(nwr["amenity"~"^(${amenity})$"]["name"]${scope};);out tags;`;
-  let json: { elements?: { tags?: Record<string, string> }[] } | null = null;
+  type OverpassJson = { elements?: { tags?: Record<string, string> }[] };
   const trace: string[] = [];
-  for (const url of OVERPASS) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "user-agent": UA, "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
-      body: new URLSearchParams({ data: query }),
-      signal: AbortSignal.timeout(27_000),
-      cache: "no-store",
-    }).catch((e: unknown) => ({ ok: false as const, status: 0, err: e instanceof Error ? e.name : "hata" }));
-    if (res.ok) {
-      json = (await (res as Response).json().catch(() => null)) as typeof json;
-      if (json) break;
-      trace.push(`${new URL(url).host}: yanıt okunamadı`);
-    } else trace.push(`${new URL(url).host}: ${"err" in res ? res.err : (res as Response).status}`);
-  }
+  // Aynalar paralel denenir: ilk geçerli yanıt kazanır
+  const one = async (url: string): Promise<OverpassJson> => {
+    const host = new URL(url).host;
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "user-agent": UA, "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
+        body: new URLSearchParams({ data: query }),
+        signal: AbortSignal.timeout(40_000),
+        cache: "no-store",
+      });
+    } catch (e) {
+      trace.push(`${host}: ${e instanceof Error ? e.name : "hata"}`);
+      throw e;
+    }
+    if (!res.ok) {
+      trace.push(`${host}: ${res.status}`);
+      throw new Error(String(res.status));
+    }
+    const j = (await res.json().catch(() => null)) as OverpassJson | null;
+    if (!j?.elements) {
+      trace.push(`${host}: yanıt okunamadı`);
+      throw new Error("bad");
+    }
+    return j;
+  };
+  const json: OverpassJson | null = await Promise.any(OVERPASS.map(one)).catch(() => null);
   if (!json) redirect(`/kurumlar?hata=osm_erisim&ayrinti=${encodeURIComponent(trace.join(" | "))}`);
   const drafts = parseOverpass(json, il, { dental });
   const added = await save(ctx.workspace.id, drafts);
