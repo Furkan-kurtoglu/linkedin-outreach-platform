@@ -267,7 +267,7 @@ async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, k
   if (!rows.length) return;
   const existing = await prisma.institution.findMany({
     where: { workspaceId, OR: [{ key: { in: rows.map((r) => r.key) } }, { linkedinUrl: { in: rows.map((r) => r.linkedinUrl) } }] },
-    select: { id: true, key: true, linkedinUrl: true, size: true, orgType: true },
+    select: { id: true, key: true, linkedinUrl: true, size: true, orgType: true, city: true },
   });
   const byKey = new Map(existing.map((e) => [e.key, e]));
   const byUrl = new Map(existing.filter((e) => e.linkedinUrl).map((e) => [e.linkedinUrl!, e]));
@@ -280,6 +280,7 @@ async function ingestCompanies(workspaceId: string, data: CompanyDiscoverData, k
     }
     const patch: Prisma.InstitutionUpdateInput = {};
     if (!e.linkedinUrl) patch.linkedinUrl = r.linkedinUrl;
+    if (!e.city && r.city) patch.city = r.city;
     if (!e.size && r.size) patch.size = r.size;
     if (!e.orgType && r.orgType) patch.orgType = r.orgType;
     if (Object.keys(patch).length) await prisma.institution.update({ where: { id: e.id }, data: patch });
