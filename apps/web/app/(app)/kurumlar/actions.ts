@@ -4,7 +4,7 @@ import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext } from "@/lib/context";
-import { enqueueEnrichment } from "@/lib/discover-queue";
+import { enqueueDiscover, enqueueEnrichment } from "@/lib/discover-queue";
 import { applyCompanyExclusions } from "@/lib/institution-exclusions";
 import { KIND_LABEL, institutionWhere, type InstSearch } from "@/lib/institution-filter";
 import { readTargeting } from "@/lib/convert";
@@ -129,7 +129,7 @@ export async function bulkInstitutions(form: FormData) {
   const where = scopeAll ? institutionWhere(ws, sp) : { workspaceId: ws, id: { in: ids } };
 
   if (op === "kampanya") {
-    const agent = await prisma.agent.findFirst({ where: { id: clean(form.get("agentId")), workspaceId: ws }, select: { id: true, targeting: true } });
+    const agent = await prisma.agent.findFirst({ where: { id: clean(form.get("agentId")), workspaceId: ws }, select: { id: true, targeting: true, status: true } });
     if (!agent) redirect(back("uyari=kampanya"));
     const rows = await prisma.institution.findMany({ where: { AND: [where, { status: { not: "EXCLUDED" } }] }, select: { id: true, name: true, kind: true }, take: 3000 });
     const allowed = readTargeting(agent.targeting).institutionKinds as string[];
@@ -142,9 +142,11 @@ export async function bulkInstitutions(form: FormData) {
     const ok = matching.filter((r) => !rules.some((rule) => matchesExcludedCompany(r.name, rule)));
     const created = await prisma.targetAccount.createMany({ data: ok.map((r) => ({ agentId: agent.id, name: r.name, origin: "kurum" })), skipDuplicates: true });
     await prisma.institution.updateMany({ where: { id: { in: ok.map((r) => r.id) } }, data: { status: "SELECTED" } });
+    // Etkin kampanyada kişi taraması eklenen kurumlar için hemen sıraya girer (açık tarama varsa o bitince)
+    const started = agent.status === "ACTIVE" && created.count > 0 ? await enqueueDiscover(agent.id, ok.map((r) => r.name)) : false;
     await audit(ctx, "institutions.to_campaign", { agentId: agent.id, added: created.count, skipped: matching.length - ok.length, wrongKind });
     revalidatePath("/kurumlar");
-    redirect(back(`kampanya=${created.count}&atlanan=${matching.length - ok.length}&tur_uyumsuz=${wrongKind}`));
+    redirect(back(`kampanya=${created.count}&atlanan=${matching.length - ok.length}&tur_uyumsuz=${wrongKind}&tarama=${started ? "basladi" : agent.status === "ACTIVE" ? "bekliyor" : "duraklatilmis"}`));
   }
   if (op === "haric" || op === "yeni") {
     const r = await prisma.institution.updateMany({ where, data: { status: op === "haric" ? "EXCLUDED" : "NEW" } });

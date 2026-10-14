@@ -440,6 +440,19 @@ export async function readInbox(page: Page, limit: number, myName: string | unde
 
 /* ---------- Kişi bulma ---------- */
 
+
+const GENERIC = new Set(["ozel", "hastanesi", "hastane", "hospital", "klinigi", "klinik", "clinic", "medical", "center", "merkezi", "merkez", "tip", "saglik", "as", "a", "s", "ltd", "sti", "sirketi", "ve", "ticaret", "sanayi", "grubu", "group", "sigorta", "hayat", "emeklilik"]);
+const norm = (x: string) => x.toLocaleLowerCase("tr-TR").replace(/ı/g, "i").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+
+/** "Hedef kurum · X" adımında sonuç, kurum adının ayırt edici sözcüklerini kartta taşımıyorsa başka şirketin kişisidir. */
+function mentionsCompany(text: string, label: string): boolean {
+  const name = label.split("·").slice(1).join("·");
+  const core = norm(name).split(" ").filter((w) => w.length > 1 && !GENERIC.has(w));
+  if (!core.length) return true;
+  const hay = ` ${norm(text)} `;
+  return core.every((w) => hay.includes(` ${w}`));
+}
+
 export async function discover(page: Page, steps: DiscoverStepPayload[], viewBudget: number): Promise<DiscoverData> {
   const candidates: DiscoverCandidate[] = [];
   const report: DiscoverData["steps"] = [];
@@ -468,6 +481,7 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
       viewed += rows.length;
       stepViewed += rows.length;
       for (const r of rows) {
+        if (step.source === "accounts" && !mentionsCompany(r.text, step.label)) continue;
         const url = canonicalProfileUrl(r.href);
         if (!url || /linkedin member|linkedin üyesi/i.test(r.name)) continue;
         const lines = r.text.split("\n").map((l) => l.trim()).filter((l) => l && l !== r.name && !/^(view|profili görüntüle)/i.test(l) && l !== "•");

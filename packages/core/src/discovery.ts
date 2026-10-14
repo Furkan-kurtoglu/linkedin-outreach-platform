@@ -172,11 +172,17 @@ export function planDiscovery(input: DiscoveryPlanInput): DiscoveryStep[] {
       });
     }
   }
+  // Kurum içi arama: LinkedIn'in metin alanında "unvanlar VE kurum adı" aranır. (Serbest metinli
+  // `company=` parametresi LinkedIn'de süzgeç değildir ve sonucu sıfırlar; uzun VEYA listeleri de.)
+  const topTitles = input.titles.map((t) => t.trim()).filter(Boolean).slice(0, 10);
+  const titleGroup = topTitles.length ? `(${topTitles.map((t) => `"${t.replace(/"/g, "")}"`).join(" OR ")})` : "";
   for (const company of input.targetAccounts) {
+    const name = company.replace(/"/g, "").trim();
+    if (!name) continue;
     steps.push({
       source: "accounts",
-      label: `Hedef kurum · ${company}`,
-      url: buildPeopleSearchUrl({ keywords: tq.join(" OR "), company, geoUrns: input.geoUrns, network: [1, 2, 3] }),
+      label: `Hedef kurum · ${name}`,
+      url: buildPeopleSearchUrl({ keywords: titleGroup ? `${titleGroup} AND "${name}"` : `"${name}"`, geoUrns: input.geoUrns }),
       maxPages: 2,
     });
   }
