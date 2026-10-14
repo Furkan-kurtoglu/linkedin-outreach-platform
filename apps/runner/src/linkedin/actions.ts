@@ -471,7 +471,8 @@ async function readPeople(page: Page): Promise<{ href: string; name: string; tex
         // Birden çok kişiyi kapsayan dış kapsayıcılar elenir
         const others = new Set(links.map((x) => new URL(x.href).pathname.split("/").slice(0, 3).join("/")));
         if (others.size > 6) continue;
-        const name = (a.innerText ?? "").split("\n").map((x) => x.trim()).find(Boolean) ?? "";
+        // Kart başlığı "Ad Soyad • 2." gibi gelebilir: derece eki addan ayrılır
+        const name = ((a.innerText ?? "").split("\n").map((x) => x.trim()).find(Boolean) ?? "").replace(/\s*[•·]\s*(?:1|2|3)(?:\.|st|nd|rd|\+)?.*$/, "").trim();
         if (!name) continue;
         const cur = best.get(path);
         if (!cur || text.length < cur.text.length) best.set(path, { href: a.href, name, text });
