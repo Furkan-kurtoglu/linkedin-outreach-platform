@@ -25,6 +25,15 @@ export function containsFolded(haystack: string, needle: string): boolean {
   return n.length > 0 && fold(haystack).includes(n);
 }
 
+/** Kısa kısaltmalar (CTO, CEO, IT...) başka sözcüğün içinde sayılmaz: "Director" CTO değildir. Uzun ifadeler düz aranır. */
+export function containsFoldedWord(haystack: string, needle: string): boolean {
+  const n = fold(needle);
+  if (!n) return false;
+  const h = fold(haystack);
+  if (n.length > 4 || /\s/.test(n)) return h.includes(n);
+  return new RegExp(`(^|[^a-z0-9])${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(h);
+}
+
 /** Cümle sonunu düzeltir: boşlukları kırpar, sonda nokta yoksa ekler. */
 export function sentence(s: string): string {
   const t = s.trim().replace(/\s+/g, " ");

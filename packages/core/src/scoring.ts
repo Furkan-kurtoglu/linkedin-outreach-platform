@@ -2,7 +2,7 @@
  * Kural tabanlı kişi değerlendirme. Yapay zekâ kullanmaz, ücretsizdir ve her
  * zaman aynı sonucu verir. Emin olamadığı kişileri "belirsiz" olarak kullanıcıya sorar.
  */
-import { containsFolded, matchesExcludedCompany } from "./text";
+import { containsFolded, containsFoldedWord, matchesExcludedCompany } from "./text";
 import { preferredBonus } from "./agentrules";
 
 export interface ProspectInput {
@@ -64,6 +64,9 @@ export const PUBLIC_HOSPITAL_KEYWORDS = [
 /** Sigorta tarafında aracı kurumları ayırt eden ifadeler. */
 export const INTERMEDIARY_KEYWORDS = ["acente", "acentesi", "aracılık", "broker", "brokerlik", "agency"];
 
+const anyInWord = (text: string | undefined, list: string[]) =>
+  text ? list.find((k) => containsFoldedWord(text, k)) : undefined;
+
 const anyIn = (text: string | undefined, list: string[]) =>
   text ? list.find((k) => containsFolded(text, k)) : undefined;
 
@@ -78,13 +81,13 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const exKeyword = anyIn(p.company, t.excludedCompanyKeywords);
   if (exKeyword) return { score: 5, verdict: "elendi", reasons: [`Kurum adında "${exKeyword}" geçiyor; kural dışı.`] };
 
-  const exTitle = anyIn(p.title, t.excludedTitles);
+  const exTitle = anyInWord(p.title, t.excludedTitles);
   if (exTitle) return { score: 5, verdict: "elendi", reasons: [`Hariç unvan: ${exTitle}.`] };
 
   let score = 0;
 
   // Unvan (en fazla 45 puan)
-  const titleHit = anyIn(p.title, t.titles);
+  const titleHit = anyInWord(p.title, t.titles);
   if (titleHit) {
     score += 45;
     reasons.push(`Unvanda "${titleHit}" geçiyor.`);

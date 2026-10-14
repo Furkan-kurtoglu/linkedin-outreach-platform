@@ -224,3 +224,12 @@ describe("yapay zekâ yardımcısı", () => {
     expect(seenUrl).toContain("models/gemini-2.5-flash:generateContent");
   });
 });
+
+import { containsFoldedWord } from "./text";
+describe("kısa unvan kısaltmaları", () => {
+  it("Director içinde CTO eşleşmez, tek başına eşleşir", () => {
+    expect(containsFoldedWord("Director of Sales", "CTO")).toBe(false);
+    expect(containsFoldedWord("Co-founder & CTO", "cto")).toBe(true);
+    expect(containsFoldedWord("Genel Müdür Yardımcısı", "genel müdür")).toBe(true);
+  });
+});
