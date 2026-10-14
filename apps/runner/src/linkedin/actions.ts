@@ -453,34 +453,17 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
       await open(page, url);
       await page.mouse.wheel(0, 1500).catch(() => undefined);
       await pause(1200, 2200);
-      // Sayfa düzeni sık değiştiği için "li" yerine şirket bağlantılarından yola çıkılır:
-      // her /company/ bağlantısının, yalnızca o şirketi içeren en büyük kapsayıcısı kart sayılır.
-      const rows = await retryNav(page, () =>
-        page.evaluate(() => {
-          const root = document.querySelector("main") ?? document.body;
-          const links = Array.from(root.querySelectorAll("a[href*='/company/']")) as HTMLAnchorElement[];
-          const out: { href: string; name: string; text: string }[] = [];
-          const seen = new Set<string>();
-          for (const a of links) {
-            const path = new URL(a.href).pathname.split("/").slice(0, 3).join("/");
-            if (seen.has(path)) continue;
-            const label = (a.innerText || a.getAttribute("aria-label") || "").split("\n").map((x) => x.trim()).find(Boolean) ?? "";
-            let card: HTMLElement = a;
-            for (let i = 0; i < 6 && card.parentElement && card.parentElement !== root; i++) {
-              const par = card.parentElement;
-              const others = Array.from(par.querySelectorAll("a[href*='/company/']")).filter((x) => new URL((x as HTMLAnchorElement).href).pathname.split("/").slice(0, 3).join("/") !== path);
-              if (others.length || (par.innerText ?? "").length > 700) break;
-              card = par;
-            }
-            const name = label || (card.innerText ?? "").split("\n").map((x) => x.trim()).find(Boolean) || "";
-            if (!name) continue;
-            seen.add(path);
-            out.push({ href: a.href, name, text: card.innerText ?? "" });
-          }
-          return out;
-        }),
-      ).catch(() => null);
-      if (!rows?.length && p === 1) await dumpDebug(page, "sirket-arama-bos");
+      const rows = await retryNav(page, () => page.locator("main li").evaluateAll((lis) =>
+        lis
+          .map((li) => {
+            const a = li.querySelector("a[href*='/in/']") as HTMLAnchorElement | null;
+            if (!a) return null;
+            const nameEl = a.querySelector("span[aria-hidden='true']") as HTMLElement | null;
+            return { href: a.href, name: (nameEl?.innerText ?? a.innerText ?? "").split("\n")[0]!.trim(), text: (li as HTMLElement).innerText };
+          })
+          .filter((x): x is { href: string; name: string; text: string } => !!x && !!x.name),
+      )).catch(() => null);
+      if (!rows?.length && p === 1) await dumpDebug(page, "kisi-arama-bos");
       if (!rows?.length) break;
       viewed += rows.length;
       stepViewed += rows.length;
@@ -557,23 +540,70 @@ export async function discoverCompanies(page: Page, queries: CompanyQueryPayload
   const seen = new Set<string>();
   const report: CompanyDiscoverData["queries"] = [];
   let viewed = 0;
+  const readCards = () =>
+    retryNav(page, () =>
+        page.evaluate(() => {
+          const root = document.querySelector("main") ?? document.body;
+          const links = Array.from(root.querySelectorAll("a[href*='/company/']")) as HTMLAnchorElement[];
+          const out: { href: string; name: string; text: string }[] = [];
+          const seen = new Set<string>();
+          for (const a of links) {
+            const path = new URL(a.href).pathname.split("/").slice(0, 3).join("/");
+            if (seen.has(path)) continue;
+            const label = (a.innerText || a.getAttribute("aria-label") || "").split("\n").map((x) => x.trim()).find(Boolean) ?? "";
+            let card: HTMLElement = a;
+            for (let i = 0; i < 6 && card.parentElement && card.parentElement !== root; i++) {
+              const par = card.parentElement;
+              const others = Array.from(par.querySelectorAll("a[href*='/company/']")).filter((x) => new URL((x as HTMLAnchorElement).href).pathname.split("/").slice(0, 3).join("/") !== path);
+              if (others.length || (par.innerText ?? "").length > 700) break;
+              card = par;
+            }
+            const name = label || (card.innerText ?? "").split("\n").map((x) => x.trim()).find(Boolean) || "";
+            if (!name) continue;
+            seen.add(path);
+            out.push({ href: a.href, name, text: card.innerText ?? "" });
+          }
+          return out;
+        }),
+    ).catch(() => null);
   for (const q of queries) {
     let found = 0;
+    let pageBase = q.url;
     for (let p = 1; p <= q.maxPages; p++) {
       if (Date.now() - t0 > deadlineMs) break;
-      await open(page, p === 1 ? q.url : `${q.url}&page=${p}`);
+      await open(page, p === 1 ? pageBase : `${pageBase}&page=${p}`);
       await page.mouse.wheel(0, 1500).catch(() => undefined);
       await pause(1200, 2200);
-      const rows = await page.locator("main li").evaluateAll((lis) =>
-        lis
-          .map((li) => {
-            const a = Array.from(li.querySelectorAll("a[href*='/company/']")).find((x) => (x as HTMLElement).innerText?.trim()) as HTMLAnchorElement | undefined;
-            if (!a) return null;
-            return { href: a.href, name: ((a as HTMLElement).innerText ?? "").split("\n")[0]!.trim(), text: (li as HTMLElement).innerText };
-          })
-          .filter((x): x is { href: string; name: string; text: string } => !!x && !!x.name),
-      );
-      if (!rows.length) break;
+      // Sayfa düzeni sık değiştiği için "li" yerine şirket bağlantılarından yola çıkılır:
+      // her /company/ bağlantısının, yalnızca o şirketi içeren en büyük kapsayıcısı kart sayılır.
+      let rows = await readCards();
+      if (!rows?.length && p === 1) {
+        // Sonuç yoksa önce konum süzgecini, sonra anahtar kelimedeki son sözcüğü (il adı) çıkarıp dener
+        const u = new URL(q.url);
+        const variants: string[] = [];
+        const noGeo = new URL(u);
+        noGeo.searchParams.delete("companyHqGeo");
+        variants.push(noGeo.toString());
+        const words = (u.searchParams.get("keywords") ?? "").split(" ");
+        if (words.length > 1) {
+          const short = new URL(noGeo);
+          short.searchParams.set("keywords", words.slice(0, -1).join(" "));
+          variants.push(short.toString());
+        }
+        for (const v of variants) {
+          await dumpDebug(page, "sirket-arama-bos");
+          await open(page, v);
+          await page.mouse.wheel(0, 1500).catch(() => undefined);
+          await pause(1200, 2200);
+          rows = await readCards();
+          if (rows?.length) {
+            pageBase = v;
+            break;
+          }
+        }
+      }
+      if (!rows?.length && p === 1) await dumpDebug(page, "sirket-arama-bos");
+      if (!rows?.length) break;
       viewed += rows.length;
       for (const r of rows) {
         const key = r.href.split("?")[0]!;
