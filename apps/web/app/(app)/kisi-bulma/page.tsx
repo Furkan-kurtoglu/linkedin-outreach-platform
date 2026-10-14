@@ -36,7 +36,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       <div className="head">
         <div>
           <h1>Kişi bulma</h1>
-          <p className="lede" style={{ margin: 0 }}>Önce mevcut bağlantılarınız, sonra hedef kurumlarınızdaki doğru unvanlar, en son geniş arama. Bulunan herkes kampanya kurallarıyla puanlanır. Tarama, yerel çalışan açıkken günde bir kez kendiliğinden yapılır.</p>
+          <p className="lede" style={{ margin: 0 }}>Önce mevcut bağlantılarınız, sonra hedef kurumlarınızdaki doğru unvanlar, en son geniş arama. Bulunan herkes kampanya kurallarıyla puanlanır. Tarama, yerel çalışan açıkken sürekli ve kendiliğinden yapılır; bekleyen kişi tamponu dolunca durur.</p>
         </div>
         <form action={discoverNow}><SubmitButton pendingText="Başlatılıyor…" disabled={!agents.length}>{pending ? "Sıradakileri yenile ve tara" : "Şimdi tara"}</SubmitButton></form>
       </div>
@@ -62,10 +62,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
         <>
           <div className="grid g3">
             {([
-              ["Bağlantılarım", src("CONNECTIONS"), "Davet gerekmez, doğrudan mesaj gider. İlk önce bunlar taranır.", "Her gün"],
-              ["Hedef kurum listesi", src("ACCOUNTS"), `Önce kurum, sonra o kurumdaki doğru unvan. ${agents.reduce((t, a) => t + a._count.targetAccounts, 0)} kurum listede.`, "Her gün"],
-              ["LinkedIn araması", src("SEARCH"), "Önce 2. derece, sonra 3. derece aranır.", "Her gün"],
-              ["Gönderi etkileşimleri", src("ENGAGERS"), "Kampanyanın gelişmiş ayarlarına eklediğiniz gönderileri beğenen ve yorumlayanlar.", "Her gün"],
+              ["Bağlantılarım", src("CONNECTIONS"), "Davet gerekmez, doğrudan mesaj gider. İlk önce bunlar taranır.", "Sürekli"],
+              ["Hedef kurum listesi", src("ACCOUNTS"), `Önce kurum, sonra o kurumdaki doğru unvan. ${agents.reduce((t, a) => t + a._count.targetAccounts, 0)} kurum listede.`, "Sürekli"],
+              ["LinkedIn araması", src("SEARCH"), "Önce 2. derece, sonra 3. derece aranır.", "Sürekli"],
+              ["Gönderi etkileşimleri", src("ENGAGERS"), "Kampanyanın gelişmiş ayarlarına eklediğiniz gönderileri beğenen ve yorumlayanlar.", "Sürekli"],
               ["İçe aktarma", src("IMPORT"), "Fuar, etkinlik ya da elinizdeki profil linkleri.", "Elle"],
             ] as const).map(([n, c, d, f]) => (
               <div className="card" key={n}>

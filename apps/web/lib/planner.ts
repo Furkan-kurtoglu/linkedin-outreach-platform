@@ -529,17 +529,19 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
     out.push(job({ ...base, type: "CHECK_INBOX", priority: 2, payload: { type: "CHECK_INBOX", limit: 20 } }));
   if (await due("SYNC_SENT_INVITES", 20 * HOUR)) out.push(job({ ...base, type: "SYNC_SENT_INVITES", priority: 30, payload: { type: "SYNC_SENT_INVITES" } }));
 
-  // Kişi bulma: kampanyada bekleyen kişi azaldıysa günde bir tarama
+  // Kişi bulma sürekli çalışır: kampanyada bekleyen kişi tamponu (üç haftalık davet hakkı) dolmadıkça,
+  // önceki tur bittikten 45 dk sonra yeni tur başlar; günde en çok 6 tur (LinkedIn'i yormamak için).
   for (const agent of agents) {
     const queued = await prisma.agentProspect.count({ where: { agentId: agent.id, stage: "QUEUED" } });
-    const target = Math.ceil((account.weeklyInvites * agent.budgetSharePct) / 100);
+    const target = Math.ceil((account.weeklyInvites * agent.budgetSharePct) / 100) * 3;
     if (queued >= target) continue;
-    const lastDiscover = await prisma.job.findFirst({
-      where: { linkedinAccountId: account.id, type: "DISCOVER", payload: { path: ["agentId"], equals: agent.id } },
-      orderBy: { createdAt: "desc" },
-      select: { createdAt: true },
-    });
-    if (lastDiscover && now.getTime() - lastDiscover.createdAt.getTime() < 20 * HOUR) continue;
+    const forAgent = { linkedinAccountId: account.id, type: "DISCOVER" as const, payload: { path: ["agentId"], equals: agent.id } };
+    if (await prisma.job.count({ where: { ...forAgent, status: { in: [...OPEN_JOB] } } })) continue;
+    const lastDiscover = await prisma.job.findFirst({ where: forAgent, orderBy: { createdAt: "desc" }, select: { createdAt: true, finishedAt: true } });
+    const lastAt = lastDiscover ? (lastDiscover.finishedAt ?? lastDiscover.createdAt) : null;
+    if (lastAt && now.getTime() - lastAt.getTime() < 45 * 60_000) continue;
+    const rounds = await prisma.job.count({ where: { ...forAgent, createdAt: { gte: new Date(now.getTime() - DAY) } } });
+    if (rounds >= 6 * 8) continue; // bir tur birkaç işe bölünür (en çok ~8)
     const t = readTargeting(agent.targeting);
     // Hedef kurum listesi uzun olabilir: her turda en uzun süredir taranmayan 40 kurum alınır, böylece liste sırayla döner
     const accounts = await prisma.targetAccount.findMany({
