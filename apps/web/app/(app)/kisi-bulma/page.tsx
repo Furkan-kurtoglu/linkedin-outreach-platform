@@ -38,7 +38,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <h1>Kişi bulma</h1>
           <p className="lede" style={{ margin: 0 }}>Önce mevcut bağlantılarınız, sonra hedef kurumlarınızdaki doğru unvanlar, en son geniş arama. Bulunan herkes kampanya kurallarıyla puanlanır. Tarama, yerel çalışan açıkken günde bir kez kendiliğinden yapılır.</p>
         </div>
-        <form action={discoverNow}><SubmitButton pendingText="Başlatılıyor…" disabled={!agents.length || pending > 0}>{pending ? "Tarama sırada" : "Şimdi tara"}</SubmitButton></form>
+        <form action={discoverNow}><SubmitButton pendingText="Başlatılıyor…" disabled={!agents.length}>{pending ? "Sıradakileri yenile ve tara" : "Şimdi tara"}</SubmitButton></form>
       </div>
       {!runnerOn && (
         <div className="banner warning" role="status" style={{ marginBottom: 16 }}>
