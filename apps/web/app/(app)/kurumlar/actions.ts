@@ -136,6 +136,17 @@ export async function bulkInstitutions(form: FormData) {
     const kindsInSel = [...new Set(rows.map((r) => r.kind))];
     // Tür güvenliği: kampanyanın hedef türleri varsa yalnızca onlar; yoksa karışık tür eklenemez
     if (!allowed.length && kindsInSel.length > 1) redirect(back(`uyari=karisik&turler=${encodeURIComponent(kindsInSel.map((k) => KIND_LABEL[k] ?? k).join(", "))}`));
+    // Tür sınırı olmayan kampanyada da, listesinde zaten başka türde kurum varsa farklı tür eklenmez
+    if (!allowed.length && kindsInSel.length === 1) {
+      const have = await prisma.targetAccount.findMany({ where: { agentId: agent.id, origin: "kurum" }, select: { name: true }, take: 5000 });
+      if (have.length) {
+        const known = await prisma.institution.findMany({ where: { workspaceId: ws, name: { in: have.map((h) => h.name) } }, select: { kind: true }, distinct: ["kind"] });
+        const haveKinds = known.map((k) => k.kind).filter((k) => k !== "OTHER");
+        if (haveKinds.length && !haveKinds.includes(kindsInSel[0]!)) {
+          redirect(back(`uyari=tur_farkli&turler=${encodeURIComponent(kindsInSel.map((k) => KIND_LABEL[k] ?? k).join(", "))}&mevcut=${encodeURIComponent(haveKinds.map((k) => KIND_LABEL[k] ?? k).join(", "))}`));
+        }
+      }
+    }
     const matching = allowed.length ? rows.filter((r) => allowed.includes(r.kind)) : rows;
     const wrongKind = rows.length - matching.length;
     const rules = (await prisma.suppression.findMany({ where: { workspaceId: ws, kind: "company" }, select: { value: true } })).map((s) => s.value);

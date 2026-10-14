@@ -80,6 +80,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       {sp.hata && <div className="banner warning" role="alert"><span className="dot warn" style={{ marginTop: 6 }} /><div className="txt"><b>{ERR[sp.hata] ?? "İşlem tamamlanamadı."}</b>{sp.ayrinti && <p>Ayrıntı: {sp.ayrinti}</p>}</div></div>}
       {sp.uyari === "secim" && <div className="banner warning" role="alert"><div className="txt"><b>Önce tablodan kurum seçin ya da "filtredeki tümü" kutusunu işaretleyin.</b></div></div>}
       {sp.uyari === "karisik" && <div className="banner warning" role="alert"><div className="txt"><b>Seçimde birden çok tür var ({sp.turler}); tür sınırı olmayan bir kampanyaya karışık liste eklenemez.</b><p>Önce yukarıdan tek bir türe süzün ya da kampanyanın Hedefleme sekmesinde hedef kurum türlerini seçin.</p></div></div>}
+      {sp.uyari === "tur_farkli" && <div className="banner warning" role="alert"><div className="txt"><b>Bu kampanyanın listesinde zaten {sp.mevcut} var; seçtiğiniz kurumlar {sp.turler}.</b><p>Farklı türdeki kurumlara başka bir mesaj gitmesin diye eklenmedi. Başka bir kampanya seçin ya da kampanyanın Hedefleme sekmesinde hedef kurum türlerini seçin.</p></div></div>}
       {sp.uyari === "kampanya" && <div className="banner warning" role="alert"><div className="txt"><b>Bir kampanya seçin.</b></div></div>}
 
       <div className="stat5" style={{ marginBottom: 16 }}>
@@ -198,7 +199,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
             <label className="row" style={{ gap: 6 }}><input type="checkbox" name="scope" value="filtre" /> Filtredeki tümüne uygula ({Math.min(matching, 3000)})</label>
             <select name="agentId" aria-label="Kampanya" style={{ width: "auto", color: "var(--fg)" }} defaultValue="">
               <option value="" disabled>Kampanya seç…</option>
-              {agents.map((a) => { const ks = readTargeting(a.targeting).institutionKinds; return <option key={a.id} value={a.id}>{a.name} — {ks.length ? ks.map((k) => KIND_LABEL[k] ?? k).join(", ") : "tür sınırı yok"}</option>; })}
+              {agents.map((a) => { const ks = readTargeting(a.targeting).institutionKinds; return <option key={a.id} value={a.id}>{a.name} — {ks.length ? ks.map((k) => KIND_LABEL[k] ?? k).join(", ") : "tür sınırı yok (Hedefleme'den seçin)"}</option>; })}
             </select>
             <button name="op" value="kampanya" className="btn sm">Kampanyaya ekle</button>
             <button name="op" value="haric" className="btn sm">Hariç tut</button>
