@@ -193,6 +193,9 @@ async function main() {
   if (cloud) log("Bulut modu: yalnızca arama işleri alınır (davet ve mesaj gönderilmez).");
   log("Çalışıyor. Bu pencereyi ve Chrome'u açık bırakın; bilgisayar uykuya geçerse işler açılınca devam eder.");
 
+  // Uzun işler sırasında poll yapılmadığı için panel çalışanı "kapalı" sanmasın: her dakika sinyal
+  setInterval(() => void api.hello(VERSION, PLATFORM).catch(() => undefined), 60_000).unref();
+
   while (!stopping) {
     if (Date.now() > deadline) {
       log("Bulut süresi doldu; kapatılıyor.");
