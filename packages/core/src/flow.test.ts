@@ -75,7 +75,7 @@ describe("arama planı", () => {
   it("kurum içi aramada kurum adı anahtar kelimeye yazılır, serbest metinli company parametresi kullanılmaz", () => {
     const steps = planDiscovery({ titles: ["Başhekim", "CEO"], geoUrns: [], industryIds: [], targetAccounts: ["Özel Levent Hastanesi"], includeConnections: false, engagementPostUrls: [] });
     const acc = steps.find((s) => s.source === "accounts")!;
-    expect(decodeURIComponent(acc.url!)).toContain('("Başhekim" OR "CEO") AND "Özel Levent Hastanesi"');
+    expect(decodeURIComponent(acc.url!).replace(/\+/g, " ")).toContain('("Başhekim" OR "CEO") AND "Özel Levent Hastanesi"');
     expect(acc.url).not.toContain("company=");
   });
 });
