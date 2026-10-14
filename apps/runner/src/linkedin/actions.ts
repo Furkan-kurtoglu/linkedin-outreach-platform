@@ -44,10 +44,19 @@ export async function isLoggedIn(page: Page): Promise<boolean> {
   return url.includes("linkedin.com/feed") && !/(login|authwall|checkpoint)/.test(url);
 }
 
+/** Profil adı: önce h1; LinkedIn'in yeni arayüzünde h1 yoksa sayfa başlığından ("Ad Soyad | LinkedIn") */
+async function profileName(page: Page, timeout: number): Promise<string | undefined> {
+  const h1 = (await page.locator("main h1, h1").first().innerText({ timeout }).catch(() => ""))?.trim();
+  if (h1) return h1;
+  const title = (await page.title().catch(() => "")).replace(/^\(\d+\)\s*/, "");
+  const name = title.split(/\s+[|\-–]\s+/)[0]?.trim();
+  return name && !/^linkedin$/i.test(name) ? name : undefined;
+}
+
 export async function readSelf(page: Page): Promise<SelfInfo> {
   await open(page, "https://www.linkedin.com/in/me/");
   const profileUrl = canonicalProfileUrl(page.url()) ?? undefined;
-  const fullName = (await page.locator("main h1").first().innerText({ timeout: 10_000 }).catch(() => ""))?.trim() || undefined;
+  const fullName = await profileName(page, 10_000);
   const premium = await page
     .locator("main")
     .getByText(containsText("Premium"))
@@ -76,7 +85,7 @@ const DEGREE_RE = /(?:^|\s|·|•)(1|2|3)(?:\.|st|nd|rd|th)(?:\s|$)/;
 export async function visitProfile(page: Page, url: string, opts: { readPost?: boolean; readEducation?: boolean; mySchools: string[] }): Promise<VisitData> {
   await open(page, url);
   const top = page.locator("main section").first();
-  const fullName = (await page.locator("main h1").first().innerText({ timeout: 15_000 }).catch(() => ""))?.trim() || undefined;
+  const fullName = await profileName(page, 15_000);
   if (!fullName) throw new JobError("transient", "Profil sayfası okunamadı.");
   const topText = (await top.innerText().catch(() => "")) ?? "";
   const lines = topText.split("\n").map((l) => l.trim()).filter(Boolean);
