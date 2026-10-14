@@ -453,6 +453,34 @@ function mentionsCompany(text: string, label: string): boolean {
   return core.every((w) => hay.includes(` ${w}`));
 }
 
+/**
+ * Kişi arama sonuçlarını okur. LinkedIn düzeni sık değiştiği için sonuç kartları `li` yerine
+ * `role=listitem` / `li` kapsayıcılarındaki ilk profil bağlantısından alınır; aynı kişi için en küçük kart seçilir.
+ */
+async function readPeople(page: Page): Promise<{ href: string; name: string; text: string }[] | null> {
+  return retryNav(page, () =>
+    page.evaluate(() => {
+      const root = document.querySelector("main") ?? document.body;
+      const best = new Map<string, { href: string; name: string; text: string }>();
+      for (const el of Array.from(root.querySelectorAll("[role='listitem'], li")) as HTMLElement[]) {
+        const links = Array.from(el.querySelectorAll("a[href*='/in/']")) as HTMLAnchorElement[];
+        const a = links.find((x) => (x.innerText ?? "").trim());
+        if (!a) continue;
+        const path = new URL(a.href).pathname.split("/").slice(0, 3).join("/");
+        const text = el.innerText ?? "";
+        // Birden çok kişiyi kapsayan dış kapsayıcılar elenir
+        const others = new Set(links.map((x) => new URL(x.href).pathname.split("/").slice(0, 3).join("/")));
+        if (others.size > 6) continue;
+        const name = (a.innerText ?? "").split("\n").map((x) => x.trim()).find(Boolean) ?? "";
+        if (!name) continue;
+        const cur = best.get(path);
+        if (!cur || text.length < cur.text.length) best.set(path, { href: a.href, name, text });
+      }
+      return Array.from(best.values());
+    }),
+  ).catch(() => null);
+}
+
 export async function discover(page: Page, steps: DiscoverStepPayload[], viewBudget: number): Promise<DiscoverData> {
   const candidates: DiscoverCandidate[] = [];
   const report: DiscoverData["steps"] = [];
@@ -461,21 +489,28 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
     if (viewed >= viewBudget) break;
     let stepViewed = 0;
     let stepFound = 0;
+    let pageBase = step.url;
     for (let p = 1; p <= step.maxPages && viewed < viewBudget; p++) {
-      const url = p === 1 ? step.url : `${step.url}&page=${p}`;
+      const url = p === 1 ? pageBase : `${pageBase}&page=${p}`;
       await open(page, url);
       await page.mouse.wheel(0, 1500).catch(() => undefined);
       await pause(1200, 2200);
-      const rows = await retryNav(page, () => page.locator("main li").evaluateAll((lis) =>
-        lis
-          .map((li) => {
-            const a = li.querySelector("a[href*='/in/']") as HTMLAnchorElement | null;
-            if (!a) return null;
-            const nameEl = a.querySelector("span[aria-hidden='true']") as HTMLElement | null;
-            return { href: a.href, name: (nameEl?.innerText ?? a.innerText ?? "").split("\n")[0]!.trim(), text: (li as HTMLElement).innerText };
-          })
-          .filter((x): x is { href: string; name: string; text: string } => !!x && !!x.name),
-      )).catch(() => null);
+      let rows = await readPeople(page);
+      // Kurum adımında unvan + kurum birlikte sonuç vermezse yalnızca kurum adıyla aranır (unvanı panel puanlar)
+      if (!rows?.length && p === 1 && step.source === "accounts") {
+        const kw = new URL(step.url).searchParams.get("keywords") ?? "";
+        const name = /AND ("[^"]+")\s*$/.exec(kw)?.[1];
+        if (name) {
+          await dumpDebug(page, "kisi-arama-bos");
+          const alt = new URL(step.url);
+          alt.searchParams.set("keywords", name);
+          await open(page, alt.toString());
+          await page.mouse.wheel(0, 1500).catch(() => undefined);
+          await pause(1200, 2200);
+          rows = await readPeople(page);
+          if (rows?.length) pageBase = alt.toString();
+        }
+      }
       if (!rows?.length && p === 1) await dumpDebug(page, "kisi-arama-bos");
       if (!rows?.length) break;
       viewed += rows.length;
