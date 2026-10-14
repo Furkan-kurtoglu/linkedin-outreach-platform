@@ -17,7 +17,14 @@ export async function enqueueDiscover(agentId: string, onlyAccounts?: string[], 
     if (open) return false;
   }
   const t = readTargeting(a.targeting);
-  const steps = planDiscovery({ titles: t.titles, geoUrns: t.geoUrns, industryIds: t.industryIds, targetAccounts: onlyAccounts ?? a.targetAccounts.map((x) => x.name), includeConnections: onlyAccounts ? false : a.includeConnections, engagementPostUrls: onlyAccounts ? [] : t.engagementPostUrls }).filter((s): s is typeof s & { url: string } => !!s.url);
+  // Uzun hedef listesinde her turda en uzun süredir taranmayan 40 kurum alınır (LinkedIn'i yormamak için); liste sırayla döner
+  let names = onlyAccounts;
+  if (!names) {
+    const next = [...a.targetAccounts].sort((x, y) => (x.lastSearchedAt?.getTime() ?? 0) - (y.lastSearchedAt?.getTime() ?? 0)).slice(0, 40);
+    names = next.map((x) => x.name);
+    if (next.length) await prisma.targetAccount.updateMany({ where: { id: { in: next.map((x) => x.id) } }, data: { lastSearchedAt: new Date() } });
+  }
+  const steps = planDiscovery({ titles: t.titles, geoUrns: t.geoUrns, industryIds: t.industryIds, targetAccounts: names, includeConnections: onlyAccounts ? false : a.includeConnections, engagementPostUrls: onlyAccounts ? [] : t.engagementPostUrls }).filter((s): s is typeof s & { url: string } => !!s.url);
   if (!steps.length) return false;
   // Tek işte yüzlerce adım sekiz dakikalık sınıra takılır; adımlar küçük işlere bölünür
   // (kurum adımları 4'er, geniş aramalar 2'şer) ve sırayla çalışır.
