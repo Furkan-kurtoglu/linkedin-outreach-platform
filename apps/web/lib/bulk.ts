@@ -2,6 +2,7 @@ import "server-only";
 import { prisma, type ProspectStage } from "@hfo/db";
 import { audit, type Ctx } from "./context";
 import { urlHash } from "./results";
+import { planAccount } from "./planner";
 
 export type Snapshot = { id: string; stage: ProspectStage; skipReason: string | null }[];
 
@@ -51,6 +52,11 @@ export async function applyBulk(ctx: Ctx, op: string, rawIds: string[], agentId?
     }
     await prisma.agentProspect.updateMany({ where: { id: { in: aps.map((a) => a.id) } }, data: { stage: "SKIPPED", skipReason: "Kalıcı olarak listeden çıkarıldı." } });
     await cancelJobs(aps.map((a) => a.id), "Kişi listeden çıkarıldı.");
+  }
+  // Uygun sayılanların (ya da zaten sırada olanların) taslakları beklemeden hazırlanır
+  if (op === "ok") {
+    const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId: ctx.workspace.id, status: { in: ["CONNECTED", "NEEDS_LOGIN"] } }, select: { id: true } });
+    for (const a of accounts) await planAccount(a.id, { force: true }).catch(() => undefined);
   }
   const log = await audit(ctx, `people.${op}`, { agentId, count: aps.length }, { snap, addedCompanies, addedPeople });
   return log.id;
