@@ -233,3 +233,16 @@ describe("kısa unvan kısaltmaları", () => {
     expect(containsFoldedWord("Genel Müdür Yardımcısı", "genel müdür")).toBe(true);
   });
 });
+
+describe("yönetici olmayan ve hekim unvanları", () => {
+  const t = { titles: ["Genel Müdür", "Başhekim"], excludedTitles: [], locations: [], industries: [], excludedCompanies: [], excludedCompanyKeywords: [], requiredCompanyKeywords: [], segments: [] };
+  it("uzman doktor elenir", () => {
+    expect(scoreProspect({ fullName: "A B", title: "Uzman Doktor", company: "X Hastanesi" }, t).verdict).toBe("elendi");
+  });
+  it("unvanı yönetici olmayan (faturalandırma) elenir", () => {
+    expect(scoreProspect({ fullName: "A B", title: "Faturalandırma Sorumlusu", company: "X Hastanesi" }, t).verdict).toBe("elendi");
+  });
+  it("genel müdür elenmez", () => {
+    expect(scoreProspect({ fullName: "A B", title: "Genel Müdür", company: "X Hastanesi" }, t).verdict).not.toBe("elendi");
+  });
+});

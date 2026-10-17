@@ -2,7 +2,7 @@
  * Kural tabanlı kişi değerlendirme. Yapay zekâ kullanmaz, ücretsizdir ve her
  * zaman aynı sonucu verir. Emin olamadığı kişileri "belirsiz" olarak kullanıcıya sorar.
  */
-import { containsFolded, containsFoldedWord, matchesExcludedCompany } from "./text";
+import { fold, containsFolded, containsFoldedWord, matchesExcludedCompany } from "./text";
 import { preferredBonus } from "./agentrules";
 
 export interface ProspectInput {
@@ -70,6 +70,10 @@ const anyInWord = (text: string | undefined, list: string[]) =>
 const anyIn = (text: string | undefined, list: string[]) =>
   text ? list.find((k) => containsFolded(text, k)) : undefined;
 
+/** Hekim/klinik personeli unvanları: yönetici sözcüğü yoksa karar verici sayılmaz. */
+const CLINICIAN_RE = /(^|[^a-z0-9])(doktor|dr|uzm|op|prof|doc|md|physician|surgeon|cerrah|hemsire|nurse|dis hekimi|pratisyen|asistan)([^a-z0-9]|$)/;
+const MANAGER_RE = /(mudur|direktor|director|baskan|genel|chief|manager|head of|kurucu|founder|ceo|owner|sahib|basmudur|yonetici|basekim|bashekim|vp |partner)/;
+
 export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const reasons: string[] = [];
   const orgText = [p.company, p.about].filter(Boolean).join(" ");
@@ -83,6 +87,11 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
 
   const exTitle = anyInWord(p.title, t.excludedTitles);
   if (exTitle) return { score: 5, verdict: "elendi", reasons: [`Hariç unvan: ${exTitle}.`] };
+
+  const foldedTitle = fold(p.title ?? "");
+  if (foldedTitle && CLINICIAN_RE.test(foldedTitle) && !MANAGER_RE.test(foldedTitle)) {
+    return { score: 5, verdict: "elendi", reasons: ["Hekim/klinik personeli; karar verici yönetici değil."] };
+  }
 
   let score = 0;
 
@@ -141,7 +150,7 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
 
   // Karar
   let verdict: Verdict;
-  if (!titleHit) verdict = score >= 40 ? "belirsiz" : "elendi";
+  if (!titleHit) return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Yönetici/karar verici unvanı yok; listeye alınmadı."] };
   else if (!requiredOk || !segment) verdict = "belirsiz";
   else verdict = score >= 75 ? "uygun" : "belirsiz";
 
