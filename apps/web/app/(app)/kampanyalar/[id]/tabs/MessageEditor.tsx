@@ -74,6 +74,7 @@ export function MessageEditor(props: {
   const [aiPending, startAi] = useTransition();
   const [state, action, pending] = useActionState<SaveTemplateState, FormData>(saveTemplate, {});
   const ta = useRef<HTMLTextAreaElement>(null);
+  const approveRef = useRef<HTMLInputElement>(null);
   const caret = useRef<number | null>(null);
 
   useEffect(() => {
@@ -260,8 +261,10 @@ export function MessageEditor(props: {
             </div>
 
             <div className="row" style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-              <button className="btn primary" name="approve" value="1" disabled={pending || blocking || !text.trim()}>Bu sürümü onayla</button>
-              <button className="btn" name="approve" value="0" disabled={pending || !text.trim()}>Taslak kaydet</button>
+              {/* Gönderen düğmenin değeri sunucu eylemine her tarayıcıda ulaşmıyordu (onay "taslak" kaydoluyordu); değer gizli alandan gider */}
+              <input type="hidden" name="approve" ref={approveRef} defaultValue="0" />
+              <button className="btn primary" disabled={pending || blocking || !text.trim()} onClick={() => { if (approveRef.current) approveRef.current.value = "1"; }}>Bu sürümü onayla</button>
+              <button className="btn" disabled={pending || !text.trim()} onClick={() => { if (approveRef.current) approveRef.current.value = "0"; }}>Taslak kaydet</button>
               {variant === "A" && approved && !segmentId && (
                 <button type="button" className="btn quiet" onClick={() => setVariant(String.fromCharCode(65 + variants.length))} disabled={variants.length >= 3}>
                   A/B varyantı ekle
