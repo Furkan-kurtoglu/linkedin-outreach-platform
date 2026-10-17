@@ -303,7 +303,7 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
 
       switch (action.kind) {
         case "visit":
-          if (inviteStep) bucket.visits.push({ ap, prospect: p, step: inviteStep, company: p.company ?? undefined, priority });
+          if (inviteStep) bucket.visits.push({ ap, prospect: p, step: inviteStep, company: p.company ?? undefined, priority, note: () => renderStep({ agent, ws, account, excludedCompanies, step: inviteStep, templates, ap, prospect: p }) });
           break;
         case "invite": {
           const step = stepById.get(action.stepId);
@@ -331,7 +331,8 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
             priority: prio,
             dueAt: now,
             make: () => {
-              const at = dispatchTime(kind, now, agentConfig, quiet);
+              // Onay isteyen taslaklar, pencere kapalı olsa da hazırlanır; gönderim sonraki açık saate kalır.
+              const at = dispatchTime(kind, now, agentConfig, quiet) ?? (needsApproval(agent.reviewMode, isFirst) ? nextOpenSlot(now, agentConfig, quiet) : null);
               if (!at) return null;
               const r = renderStep({ agent, ws, account, excludedCompanies, step, templates, ap, prospect: p });
               if (!r.templateId) return null; // onaylı metin yoksa bekler; panelde uyarı görünür
@@ -463,6 +464,44 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
         agentProspectId: cand.ap.id,
       }),
     );
+
+  /* ---------- Onay taslakları: saat ve günlük kota dışında da hazırlanır ---------- */
+  // Onay isteyen kampanyalarda "Uygun say" denen kişilerin davet taslakları, bugün gönderim saati
+  // olmasa bile onay kuyruğuna düşer; onaylanınca bir sonraki açık saatte gider.
+  {
+    const DRAFT_CAP = 40;
+    let room = DRAFT_CAP - (await prisma.job.count({ where: { linkedinAccountId: account.id, type: "SEND_INVITE", status: "AWAITING_APPROVAL" } })) - newJobs.filter((j) => j.type === "SEND_INVITE" && j.status === "AWAITING_APPROVAL").length;
+    for (const agent of agents) {
+      const b = perAgent.get(agent.id);
+      if (!b || room <= 0 || !needsApproval(agent.reviewMode, true)) continue;
+      const taken = new Set(newJobs.map((j) => j.agentProspectId));
+      const at = nextOpenSlot(now, restrictToWindow(config, windowOf(agent)), quiet) ?? new Date(now.getTime() + DAY);
+      const perCompany = new Map<string, number>();
+      const rest = [...b.invites, ...b.visits].filter((c) => !taken.has(c.ap.id)).sort((x, y) => y.priority - x.priority);
+      for (const cand of rest) {
+        if (room <= 0) break;
+        const key = fold(cand.company ?? cand.ap.id);
+        if ((perCompany.get(key) ?? 0) >= Math.max(1, agent.maxPerCompany)) continue;
+        const r = cand.note?.();
+        if (!r?.templateId) continue; // onaylı davet notu yoksa taslak yok; panelde uyarı görünür
+        perCompany.set(key, (perCompany.get(key) ?? 0) + 1);
+        room--;
+        newJobs.push(
+          job({
+            linkedinAccountId: account.id,
+            type: "SEND_INVITE",
+            status: "AWAITING_APPROVAL",
+            priority: PRIORITY.invite,
+            runAfter: at,
+            payload: { type: "SEND_INVITE", profileUrl: cand.prospect.linkedinUrl, note: r.text, stepId: cand.step.id, templateId: r.templateId },
+            draftText: r.text,
+            agentProspectId: cand.ap.id,
+            lastError: r.ok ? undefined : r.issues.join(" "),
+          }),
+        );
+      }
+    }
+  }
 
   /* ---------- Mesajlar: günlük sınır, öncelikli olan önce ---------- */
   const { today: todaysMessages } = pickMessagesForToday(messageCands, messagesLeft);
