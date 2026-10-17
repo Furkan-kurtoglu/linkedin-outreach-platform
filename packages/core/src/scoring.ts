@@ -71,7 +71,7 @@ const anyIn = (text: string | undefined, list: string[]) =>
   text ? list.find((k) => containsFolded(text, k)) : undefined;
 
 /** Hekim/klinik personeli unvanları: yönetici sözcüğü yoksa karar verici sayılmaz. */
-const CLINICIAN_RE = /(^|[^a-z0-9])(doktor|dr|uzm|op|prof|doc|md|physician|surgeon|cerrah|hemsire|nurse|dis hekimi|pratisyen|asistan|tekniker|teknisyen|technician|diyetisyen|dietisyen|dietitian|psikolog|psychologist|fizyoterapist|fizyoterapi|physiotherapist|terapist|therapist|eczaci|pharmacist|laborant|radyolog|radyoloji teknik|ebe|odyolog|ergoterapist|sekreter|receptionist|danisman)([^a-z0-9]|$)/;
+const CLINICIAN_RE = /(^|[^a-z0-9])(dr|uzm|op|prof|doc|md|ebe|nurse)([^a-z0-9]|$)|(^|[^a-z0-9])(doktor|physician|surgeon|cerrah|hemsire|dis hekimi|pratisyen|asistan|tekniker|teknisyen|technician|diyetisyen|dietisyen|dietitian|psikolog|psychologist|fizyoterapi|physiotherap|terapist|therapist|eczaci|pharmacist|laborant|radyolog|odyolog|ergoterapist|sekreter|receptionist|danisman)/
 const MANAGER_RE = /(mudur|direktor|director|baskan|genel mudur|general manager|chief|manager|head of|kurucu|founder|ceo|owner|sahib|basmudur|yonetici|basekim|bashekim|vp |partner)/;
 
 export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
