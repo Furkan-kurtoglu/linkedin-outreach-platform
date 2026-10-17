@@ -246,3 +246,11 @@ describe("yönetici olmayan ve hekim unvanları", () => {
     expect(scoreProspect({ fullName: "A B", title: "Genel Müdür", company: "X Hastanesi" }, t).verdict).not.toBe("elendi");
   });
 });
+
+describe("alakasız sağlık meslekleri", () => {
+  const t = { titles: ["Genel Müdür", "Hasta Hizmetleri"], excludedTitles: [], locations: [], industries: [], excludedCompanies: [], excludedCompanyKeywords: [], requiredCompanyKeywords: [], segments: [] };
+  for (const title of ["Tekniker", "Diyetisyen", "Psikolog", "Fizyoterapist", "Hasta Hizmetleri Danışmanı"])
+    it(`${title} elenir`, () => {
+      expect(scoreProspect({ fullName: "A B", title, company: "X Hastanesi" }, t).verdict).toBe("elendi");
+    });
+});

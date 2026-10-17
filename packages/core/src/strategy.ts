@@ -68,7 +68,7 @@ const FUNC_TITLES: Record<StrategyFunction, { orta: string[]; buyuk: string[] }>
 const OWNER_TITLES = ["Kurucu", "Founder", "Co-Founder", "Kurucu Ortak", "Sahibi", "Owner", "Yönetim Kurulu Başkanı", "Chairman", "CEO", "Genel Müdür", "General Manager", "Managing Director", "İcra Kurulu Başkanı"];
 
 /** Hiçbir sektörde istenmeyen unvanlar */
-export const UNIVERSAL_EXCLUDED_TITLES = ["Stajyer", "Intern", "Öğrenci", "Student", "Freelance", "Serbest Çalışan", "Yönetici Asistanı", "Executive Assistant", "Recruiter", "İşe Alım", "Emekli", "Retired"];
+export const UNIVERSAL_EXCLUDED_TITLES = ["Stajyer", "Intern", "Öğrenci", "Student", "Freelance", "Serbest Çalışan", "Yönetici Asistanı", "Executive Assistant", "Recruiter", "İşe Alım", "Emekli", "Retired", "Tekniker", "Teknisyen", "Diyetisyen", "Psikolog", "Fizyoterapist", "Hemşire", "Eczacı", "Laborant", "Sekreter"];
 
 export interface StrategyInput {
   sector: string;
