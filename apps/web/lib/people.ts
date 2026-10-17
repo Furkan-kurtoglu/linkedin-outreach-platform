@@ -10,7 +10,8 @@ export const FILTERS = [
   ["davet", "Davet gitti", ["INVITE_SENT"]],
   ["baglandi", "Bağlandı", ["CONNECTED", "MESSAGED", "INMAIL_SENT"]],
   ["cevap", "Cevap verdi", ["REPLIED"]],
-  ["bitti", "Biten", ["FINISHED", "WITHDRAWN", "SKIPPED"]],
+  ["bitti", "Biten", ["FINISHED", "WITHDRAWN"]],
+  ["elenen", "Elenenler", ["SKIPPED"]],
 ] as const satisfies readonly (readonly [string, string, readonly ProspectStage[] | undefined])[];
 
 export function filterWhere(agentId: string | undefined, filtre: string | undefined, workspaceId: string, q?: string): Prisma.AgentProspectWhereInput {
@@ -24,8 +25,9 @@ export function filterWhere(agentId: string | undefined, filtre: string | undefi
 function baseWhere(agentId: string | undefined, filtre: string | undefined, workspaceId: string): Prisma.AgentProspectWhereInput {
   const f = FILTERS.find(([k]) => k === filtre) ?? FILTERS[0];
   const base: Prisma.AgentProspectWhereInput = agentId ? { agentId } : { agent: { workspaceId } };
-  if (f[0] === "birinci") return { ...base, OR: [{ branch: "CONNECTED" }, { prospect: { degree: 1 } }] };
-  return f[2] ? { ...base, stage: { in: [...f[2]] } } : base;
+  // Elenen/atlanan kişiler ana listeleri kirletmesin; yalnızca "Elenenler" sekmesinde görünür
+  if (f[0] === "birinci") return { AND: [base, { stage: { not: "SKIPPED" } }, { OR: [{ branch: "CONNECTED" }, { prospect: { degree: 1 } }] }] };
+  return f[2] ? { ...base, stage: { in: [...f[2]] } } : { ...base, stage: { not: "SKIPPED" } };
 }
 
 const fmt = (d: Date) => d.toLocaleString("tr-TR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" });
