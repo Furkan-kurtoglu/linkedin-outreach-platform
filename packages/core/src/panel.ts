@@ -36,7 +36,17 @@ export const RUNNER_OFFLINE_MINUTES = 20;
 
 export function deriveAlerts(a: AccountHealth, now: Date): DerivedAlert[] {
   const out: DerivedAlert[] = [];
-  if (a.status === "NEEDS_LOGIN" || a.status === "DISCONNECTED") {
+  const seenAgo = a.runnerLastSeenAt ? (now.getTime() - a.runnerLastSeenAt.getTime()) / 60_000 : Infinity;
+  // Çalışan kapalıysa "oturum kapandı" denmez: oturum bilgisi eski olabilir, asıl sorun çalışanın açık olmaması
+  const runnerGone = a.status === "NEEDS_LOGIN" && a.runnerLastSeenAt && seenAgo > RUNNER_OFFLINE_MINUTES;
+  if (runnerGone) {
+    out.push({
+      kind: "RUNNER_OFFLINE",
+      severity: "error",
+      message: `Çalışan ${seenAgo >= 120 ? `${Math.round(seenAgo / 60)} saattir` : `${Math.round(seenAgo)} dakikadır`} kapalı; gönderimler ve kişi bulma bekliyor.`,
+      action: "Bilgisayarda Baslat'ı çalıştırın. LinkedIn oturumu çoğu zaman açık kalır; giriş gerekirse çalışan penceresi söyler.",
+    });
+  } else if (a.status === "NEEDS_LOGIN" || a.status === "DISCONNECTED") {
     out.push({
       kind: "SESSION_EXPIRED",
       severity: "error",
@@ -52,7 +62,6 @@ export function deriveAlerts(a: AccountHealth, now: Date): DerivedAlert[] {
       action: "LinkedIn'deki uyarıyı kendiniz kontrol edin. Süre dolunca gönderim düşük hızla devam eder.",
     });
   }
-  const seenAgo = a.runnerLastSeenAt ? (now.getTime() - a.runnerLastSeenAt.getTime()) / 60_000 : Infinity;
   if (a.status === "CONNECTED" && a.inSendingWindow && seenAgo > RUNNER_OFFLINE_MINUTES) {
     out.push({
       kind: "RUNNER_OFFLINE",
