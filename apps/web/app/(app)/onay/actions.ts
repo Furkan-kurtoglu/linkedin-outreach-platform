@@ -2,8 +2,10 @@
 import { checkMessage, nextOpenSlot, type JobPayload } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { audit, requireContext, type Ctx } from "@/lib/context";
 import { toRules, toScheduleConfig } from "@/lib/convert";
+import { planAccount } from "@/lib/planner";
 
 export interface QueueState {
   error?: string;
@@ -66,4 +68,28 @@ export async function approveAll() {
   for (const j of jobs) if (!(await approveOne(ctx, j.id))) n++;
   await audit(ctx, "queue.approveAll", { count: n });
   revalidatePath("/", "layout");
+}
+
+/** Seçilen taslakları toplu onaylar; kural hatası olanlar atlanır ve sayılır. */
+export async function approveSelected(form: FormData) {
+  const ctx = await requireContext();
+  const ids = form.getAll("ids").map(String).slice(0, 300);
+  let n = 0;
+  let failed = 0;
+  for (const id of ids) {
+    if (await approveOne(ctx, id)) failed++;
+    else n++;
+  }
+  await audit(ctx, "queue.approveSelected", { count: n, failed });
+  revalidatePath("/", "layout");
+  redirect(`/onay?onaylandi=${n}&hatali=${failed}`);
+}
+
+/** Onaylı metinlerden taslakları hemen hazırlar (çalışanın açılmasını beklemeden). */
+export async function prepareDrafts() {
+  const ctx = await requireContext();
+  const accounts = await prisma.linkedinAccount.findMany({ where: { workspaceId: ctx.workspace.id, status: { in: ["CONNECTED", "NEEDS_LOGIN"] } }, select: { id: true } });
+  for (const a of accounts) await planAccount(a.id, { force: true });
+  revalidatePath("/", "layout");
+  redirect("/onay?hazirlandi=1");
 }

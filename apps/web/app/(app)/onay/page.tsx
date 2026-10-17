@@ -4,7 +4,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireContext } from "@/lib/context";
-import { approveAll } from "./actions";
+import { planAccount } from "@/lib/planner";
+import { approveAll, approveSelected, prepareDrafts } from "./actions";
+import { SelectAllJobs } from "./SelectAllJobs";
 import { QueueItem } from "./QueueItem";
 
 export const metadata: Metadata = { title: "Onay kuyruğu" };
@@ -13,8 +15,13 @@ const LABEL: Record<string, string> = { SEND_INVITE: "Davet notu", SEND_MESSAGE:
 const fmt = (d: Date) => d.toLocaleString("tr-TR", { weekday: "short", hour: "2-digit", minute: "2-digit", timeZone: "Europe/Istanbul" });
 const initials = (n: string) => n.split(/\s+/).map((x) => x[0]).slice(0, 2).join("");
 
-export default async function Page() {
+export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const sp = await searchParams;
   const ctx = await requireContext();
+  // Çalışan kapalı olsa da taslaklar burada hazırlanır (en fazla 2 dakikada bir)
+  const accs = await prisma.linkedinAccount.findMany({ where: { workspaceId: ctx.workspace.id, status: { in: ["CONNECTED", "NEEDS_LOGIN"] } }, select: { id: true } });
+  for (const a of accs) await planAccount(a.id).catch(() => undefined);
+  const reviewWaiting = await prisma.agentProspect.count({ where: { agent: { workspaceId: ctx.workspace.id }, stage: "NEEDS_REVIEW" } });
   const jobs = await prisma.job.findMany({
     where: { status: "AWAITING_APPROVAL", linkedinAccount: { workspaceId: ctx.workspace.id } },
     orderBy: [{ priority: "asc" }, { runAfter: "asc" }],
@@ -32,8 +39,19 @@ export default async function Page() {
           <h1>Onay kuyruğu</h1>
           <p className="lede" style={{ margin: 0 }}>Onaylanan mesaj, günlük bütçe ve gönderim saatleri içinde gider. Metni burada son kez düzenleyebilirsiniz; değişiklik yalnızca bu kişiye gider.</p>
         </div>
-        {ready > 1 && <form action={approveAll}><SubmitButton pendingText="Onaylanıyor…">Kurallara uyanların tümünü onayla ({ready})</SubmitButton></form>}
+        <div className="row">
+          <form action={prepareDrafts}><SubmitButton className="btn" pendingText="Hazırlanıyor…">Taslakları hazırla</SubmitButton></form>
+          {ready > 1 && <form action={approveAll}><SubmitButton pendingText="Onaylanıyor…">Kurallara uyanların tümünü onayla ({ready})</SubmitButton></form>}
+        </div>
       </div>
+      {sp.onaylandi && <p className="form-ok" style={{ marginBottom: 12 }}>{sp.onaylandi} gönderim onaylandı{sp.hatali && sp.hatali !== "0" ? `, ${sp.hatali} tanesi kural denetiminden geçmedi (metni düzeltip tek tek onaylayın)` : ""}.</p>}
+      {sp.hazirlandi && <p className="form-ok" style={{ marginBottom: 12 }}>Taslaklar hazırlandı. Yeni taslak yoksa kampanyada sırada, onaylı metni olan kişi yok demektir.</p>}
+      {jobs.length > 0 && (
+        <form id="bulk-form" action={approveSelected} className="row between" style={{ marginBottom: 12 }}>
+          <SelectAllJobs />
+          <SubmitButton className="btn primary" pendingText="Onaylanıyor…">Seçilenleri onayla</SubmitButton>
+        </form>
+      )}
       <div className="stack">
         {jobs.map((j) => {
           const ap = j.agentProspectId ? apBy.get(j.agentProspectId) : undefined;
@@ -46,6 +64,7 @@ export default async function Page() {
             <div className="card" key={j.id}>
               <div className="card-h">
                 <div className="row">
+                  {!j.lastError && <input type="checkbox" name="ids" value={j.id} form="bulk-form" aria-label={`${ap?.prospect.fullName ?? "Kişi"} seç`} />}
                   <span className="avatar">{initials(ap?.prospect.fullName ?? "?")}</span>
                   <div>
                     {ap ? <Link className="link" href={`/kisiler/${ap.prospectId}`}><b>{ap.prospect.fullName}</b></Link> : <b>—</b>}
@@ -66,7 +85,7 @@ export default async function Page() {
             </div>
           );
         })}
-        {!jobs.length && <div className="card empty">Onay bekleyen gönderim yok. Yeni taslaklar geldiğinde burada görünür.</div>}
+        {!jobs.length && <div className="card empty">Onay bekleyen gönderim yok. Yeni taslaklar geldiğinde burada görünür.{reviewWaiting > 0 && <> Önce <Link className="link" href="/kisi-bulma?sekme=karar">karar bekleyen {reviewWaiting} kişiyi</Link> &quot;Uygun say&quot; ile kampanyaya alın; onların mesaj taslakları buraya düşer.</>}</div>}
       </div>
     </>
   );

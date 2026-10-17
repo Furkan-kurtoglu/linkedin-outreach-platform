@@ -187,7 +187,8 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
   }
 
   const account = await prisma.linkedinAccount.findUnique({ where: { id: accountId }, include: { workspace: true } });
-  if (!account || account.status !== "CONNECTED") return;
+  // Oturum kapalıyken de taslaklar hazırlanır (onay kuyruğu dolsun); gönderim, çalışan yeniden girişe kadar bekler.
+  if (!account || (account.status !== "CONNECTED" && account.status !== "NEEDS_LOGIN")) return;
   if (account.pausedUntil && account.pausedUntil > now) return;
   const ws = account.workspace;
   const config = toScheduleConfig(account);
