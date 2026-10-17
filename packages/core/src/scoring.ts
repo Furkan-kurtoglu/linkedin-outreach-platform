@@ -72,7 +72,7 @@ const anyIn = (text: string | undefined, list: string[]) =>
 
 /** Hekim/klinik personeli unvanları: yönetici sözcüğü yoksa karar verici sayılmaz. */
 const CLINICIAN_RE = /(^|[^a-z0-9])(dr|uzm|op|prof|doc|md|ebe|nurse)([^a-z0-9]|$)|(^|[^a-z0-9])(doktor|physician|surgeon|cerrah|hemsire|dis hekimi|pratisyen|asistan|tekniker|teknisyen|technician|diyetisyen|dietisyen|dietitian|psikolog|psychologist|fizyoterapi|physiotherap|terapist|therapist|eczaci|pharmacist|laborant|radyolog|odyolog|ergoterapist|sekreter|receptionist|danisman)/
-const MANAGER_RE = /(mudur|direktor|director|baskan|genel mudur|general manager|chief|manager|head of|kurucu|founder|ceo|owner|sahib|basmudur|yonetici|basekim|bashekim|vp |partner)/;
+const MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|genel mudur|general manager|head|kurucu|founder|ceo|coo|cfo|cio|cto|cmo|owner|sahib|yonetici|bashekim|hekim basi|sef|lead|vp |partner|chair)/
 
 export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const reasons: string[] = [];
@@ -91,6 +91,11 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const foldedTitle = fold(p.title ?? "");
   if (foldedTitle && CLINICIAN_RE.test(foldedTitle) && !MANAGER_RE.test(foldedTitle)) {
     return { score: 5, verdict: "elendi", reasons: ["Hekim/klinik personeli; karar verici yönetici değil."] };
+  }
+
+  // Yönetici/karar verici sıfatı (müdür, direktör, başkan, head, chief...) yoksa unvandaki konu (faturalama, strateji...) tek başına yetmez
+  if (foldedTitle && !MANAGER_RE.test(foldedTitle)) {
+    return { score: 10, verdict: "elendi", reasons: ["Unvanda yönetici sıfatı yok (müdür, direktör, başkan, head, chief...)."] };
   }
 
   let score = 0;
