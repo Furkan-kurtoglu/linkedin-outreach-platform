@@ -134,6 +134,12 @@ describe("kişi puanlama", () => {
     expect(r2.verdict).not.toBe("elendi");
   });
 
+  it("hastane direktörünü ve zincir hastane müdürünü elemez", () => {
+    expect(scoreProspect({ fullName: "A", title: "Hastane Direktörü", company: "Medipol Sağlık Grubu" }, t).verdict).not.toBe("elendi");
+    expect(scoreProspect({ fullName: "B", title: "Hastane Müdürü", company: "Dünyagöz Hastaneler Grubu" }, t).verdict).not.toBe("elendi");
+    expect(scoreProspect({ fullName: "C", title: "Kurumsal Pazarlama Müdürü", company: "Central Hospital" }, t).verdict).toBe("belirsiz");
+  });
+
   it("kamu hastanesini eler", () => {
     const r = scoreProspect({ fullName: "X", title: "Hastane Müdürü", company: "Bagcilar Education and Research Hospital" }, t);
     expect(r.verdict).toBe("elendi");

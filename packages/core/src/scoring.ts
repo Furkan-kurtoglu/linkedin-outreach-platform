@@ -74,6 +74,11 @@ const anyIn = (text: string | undefined, list: string[]) =>
 const CLINICIAN_RE = /(^|[^a-z0-9])(dr|uzm|op|prof|doc|md|ebe|nurse)([^a-z0-9]|$)|(^|[^a-z0-9])(doktor|physician|surgeon|cerrah|hemsire|dis hekimi|pratisyen|asistan|tekniker|teknisyen|technician|diyetisyen|dietisyen|dietitian|psikolog|psychologist|fizyoterapi|physiotherap|terapist|therapist|eczaci|pharmacist|laborant|radyolog|odyolog|ergoterapist|sekreter|receptionist|danisman)/
 const MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|genel mudur|general manager|head|kurucu|founder|ceo|coo|cfo|cio|cto|cmo|owner|sahib|yonetici|bashekim|hekim basi|sef|lead|vp |partner|chair)/
 
+/** Hastane/kurum düzeyinde üst yönetim unvanları: hedef unvan listesinde yazmasa da karar verici sayılır. */
+const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|administrator|ceo)|genel mudur|general manager|managing director|ceo|chief executive|bashekim|bas hekim|hekim basi|yonetim kurulu|kurucu|founder|owner|isletme mudur|medical director|chief medical)/
+/** Kurum adından "sağlık kurumu" olduğunu anlamaya yarayan genel ifadeler. */
+const HEALTH_ORG_RE = /(hastane|hospital|healthcare|health care|saglik grub|saglik hizmet|medical ?park|medikal|medical center|tip merkezi)/
+
 export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const reasons: string[] = [];
   const orgText = [p.company, p.about].filter(Boolean).join(" ");
@@ -101,7 +106,7 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   let score = 0;
 
   // Unvan (en fazla 45 puan)
-  const titleHit = anyInWord(p.title, t.titles);
+  const titleHit = anyInWord(p.title, t.titles) ?? (TOP_RE.test(foldedTitle) ? "üst yönetim unvanı" : undefined);
   if (titleHit) {
     score += 45;
     reasons.push(`Unvanda "${titleHit}" geçiyor.`);
@@ -126,6 +131,9 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
     if (hit) {
       score += 15;
       reasons.push(`Kurum bilgisinde "${hit}" geçiyor.`);
+    } else if (HEALTH_ORG_RE.test(fold(orgText)) && t.requiredCompanyKeywords.some((k) => HEALTH_ORG_RE.test(fold(k)))) {
+      score += 10;
+      reasons.push("Kurum bir sağlık kuruluşu görünüyor.");
     } else {
       requiredOk = false;
       reasons.push("Kurumun özel/uygun olduğu doğrulanamadı.");
@@ -157,7 +165,11 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
 
   // Karar
   let verdict: Verdict;
-  if (!titleHit) return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Yönetici/karar verici unvanı yok; listeye alınmadı."] };
+  if (!titleHit) {
+    // Yönetici sıfatlı ama hedef unvan listesinde olmayan kişi: kurum uygunsa elenmez, elle karar için "belirsiz" kalır
+    if (requiredOk && !noCompany) return { score: Math.min(50, score), verdict: "belirsiz", reasons: [...reasons, "Yönetici ama hedef unvan listesinde yok; elle karar verin."] };
+    return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Hedef unvan listesinde yok; listeye alınmadı."] };
+  }
   else if (!requiredOk || !segment) verdict = "belirsiz";
   else verdict = score >= 75 ? "uygun" : "belirsiz";
 
