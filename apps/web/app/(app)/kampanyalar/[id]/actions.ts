@@ -474,7 +474,10 @@ export async function reevaluateEliminated(form: FormData) {
   for (const r of live) {
     const p = r.prospect;
     const sc = scoreProspect({ fullName: p.fullName, title: p.title ?? undefined, company: p.company ?? undefined, location: p.location ?? undefined, about: p.headline ?? undefined }, targeting);
-    if (sc.verdict !== "elendi") continue;
+    if (sc.verdict !== "elendi") {
+      if (sc.score !== r.fitScore) await prisma.agentProspect.update({ where: { id: r.id }, data: { fitScore: sc.score, fitReason: sc.reasons.join(" · ") } });
+      continue;
+    }
     await prisma.agentProspect.update({ where: { id: r.id }, data: { stage: "SKIPPED", fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: sc.reasons[sc.reasons.length - 1] } });
     await prisma.job.updateMany({ where: { agentProspectId: r.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Güncel kurallara göre elendi." } });
     removed++;
