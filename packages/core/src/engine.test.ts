@@ -145,6 +145,21 @@ describe("kişi puanlama", () => {
     expect(scoreProspect({ fullName: "E", title: "İşletme Müdürü", company: "Özel Tepe Hastanesi" }, t).verdict).toBe("belirsiz");
   });
 
+  it("kurumu bilinmeyen sigortacıyı eler, çıplak 'Founder'ı düşük puanla belirsiz bırakır", () => {
+    const a = scoreProspect({ fullName: "F", title: "Anlaşmalı Kurumlar Direktörü", about: "Axa Sigorta Sağlık Anlaşmalı Kurumlar Direktörü" }, t);
+    expect(a.verdict).toBe("elendi");
+    const b = scoreProspect({ fullName: "H", title: "Founder" }, t);
+    expect(b.verdict).toBe("belirsiz");
+    expect(b.score).toBeLessThanOrEqual(25);
+  });
+
+  it("hariç kurumun markasını alt adlarında da yakalar", () => {
+    const x = { ...t, excludedCompanies: ["Acıbadem Sağlık Grubu", "Medicana"] };
+    expect(scoreProspect({ fullName: "A", title: "Hastane Müdürü", company: "Acıbadem Altunizade Hastanesi" }, x).verdict).toBe("elendi");
+    expect(scoreProspect({ fullName: "B", title: "General Surgeon", about: "Acibadem Healthcare Group şirketinde General Surgeon" }, x).verdict).toBe("elendi");
+    expect(scoreProspect({ fullName: "C", title: "Hastane Müdürü", company: "Özel Levent Hastanesi" }, x).verdict).not.toBe("elendi");
+  });
+
   it("kamu hastanesini eler", () => {
     const r = scoreProspect({ fullName: "X", title: "Hastane Müdürü", company: "Bagcilar Education and Research Hospital" }, t);
     expect(r.verdict).toBe("elendi");

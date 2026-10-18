@@ -79,12 +79,26 @@ const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|admi
 /** Kurum adından "sağlık kurumu" olduğunu anlamaya yarayan genel ifadeler. */
 const HEALTH_ORG_RE = /(hastane|hospital|healthcare|health care|saglik grub|saglik hizmet|medical ?park|medikal|medical center|tip merkezi)/
 
+/** Kurum bilinmiyorsa başlıkta bunlar geçiyorsa kişi sağlık dışı bir sektördedir. */
+const NON_HEALTH_RE = /(sigorta|insurance|banka|bank\b|holding|reklam|medya|media|yazilim|software|otel|hotel|insaat|enerji|energy|lojistik|logistics|egitim|okul|school|universite|university|eczane|pharma|ilac|otomotiv|tekstil|gida)/
+const GENERIC_ORG_WORDS = new Set(["ozel", "hastanesi", "hastane", "hospital", "saglik", "grubu", "group", "healthcare", "medical", "tip", "merkezi", "kliniği", "klinik", "sirketi", "a.s", "as"]);
+/** Hariç kurum kuralındaki marka sözcüğü: "Acıbadem Sağlık Grubu" -> "acibadem" (Acıbadem Altunizade Hastanesi'ni de yakalar). */
+function brandOf(rule: string): string | undefined {
+  const w = fold(rule.split(/\s+-/)[0] ?? "").split(/[^a-z0-9]+/).filter(Boolean).find((x) => !GENERIC_ORG_WORDS.has(x));
+  return w && w.length >= 5 ? w : undefined;
+}
+
 export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const reasons: string[] = [];
   const orgText = [p.company, p.about].filter(Boolean).join(" ");
 
   // Kesin eleme kuralları
-  const exCompany = t.excludedCompanies.find((c) => p.company && matchesExcludedCompany(p.company, c));
+  const brandText = fold([p.company, p.about, p.title].filter(Boolean).join(" "));
+  const exCompany = t.excludedCompanies.find((c) => {
+    if (p.company && matchesExcludedCompany(p.company, c)) return true;
+    const b = brandOf(c);
+    return !!b && new RegExp(`(^|[^a-z0-9])${b}`).test(brandText);
+  });
   if (exCompany) return { score: 0, verdict: "elendi", reasons: [`Hariç tutulan kurum: ${exCompany}.`] };
 
   const exKeyword = anyIn(p.company, t.excludedCompanyKeywords);
@@ -161,6 +175,14 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const noCompany = !p.company?.trim();
   if (t.requiredCompanyKeywords.length && !requiredOk && !noCompany) {
     return { score: Math.min(30, score), verdict: "elendi", reasons: [...reasons, p.company ? "Kurum hedef sektör dışında." : "Kurum bilgisi yok; hedef dışı sayıldı."] };
+  }
+
+  // Kurum bilinmiyor ve başlıkta sağlık kurumu belirtisi de yok: sağlık dışı sektör işareti varsa elenir, yoksa düşük puanla "belirsiz" kalır (ziyarette doğrulanır)
+  if (noCompany && !requiredOk) {
+    if (NON_HEALTH_RE.test(fold([orgText, p.title].filter(Boolean).join(" ")))) {
+      return { score: Math.min(20, score), verdict: "elendi", reasons: [...reasons, "Başlıkta sağlık dışı sektör işareti var; kurum bilinmiyor."] };
+    }
+    return { score: Math.min(25, score), verdict: "belirsiz", reasons: [...reasons, "Kurum bilgisi yok; profil ziyaretinde Deneyim bölümünden doğrulanacak."] };
   }
 
   // Karar

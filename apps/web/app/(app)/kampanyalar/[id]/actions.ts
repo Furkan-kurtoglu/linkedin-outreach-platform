@@ -468,9 +468,20 @@ export async function reevaluateEliminated(form: FormData) {
     await prisma.agentProspect.update({ where: { id: r.id }, data: { stage, fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: null } });
     restored++;
   }
-  await audit(ctx, "campaign.reevaluate", { agentId: agent.id, checked: rows.length, restored });
+  // Henüz davet/mesaj gitmemiş sıradaki ve karar bekleyenler de güncel kurallarla (hariç kurumlar dâhil) yeniden denetlenir
+  const live = await prisma.agentProspect.findMany({ where: { agentId: agent.id, stage: { in: ["QUEUED", "NEEDS_REVIEW"] }, inviteSentAt: null }, include: { prospect: true } });
+  let removed = 0;
+  for (const r of live) {
+    const p = r.prospect;
+    const sc = scoreProspect({ fullName: p.fullName, title: p.title ?? undefined, company: p.company ?? undefined, location: p.location ?? undefined, about: p.headline ?? undefined }, targeting);
+    if (sc.verdict !== "elendi") continue;
+    await prisma.agentProspect.update({ where: { id: r.id }, data: { stage: "SKIPPED", fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: sc.reasons[sc.reasons.length - 1] } });
+    await prisma.job.updateMany({ where: { agentProspectId: r.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Güncel kurallara göre elendi." } });
+    removed++;
+  }
+  await audit(ctx, "campaign.reevaluate", { agentId: agent.id, checked: rows.length, restored, removed });
   revalidatePath("/", "layout");
-  back(agent.id, "kisiler&filtre=elenen", `&geriAlinan=${restored}`);
+  back(agent.id, "kisiler&filtre=elenen", `&geriAlinan=${restored}&cikarilan=${removed}`);
 }
 
 export async function undoAction(form: FormData) {

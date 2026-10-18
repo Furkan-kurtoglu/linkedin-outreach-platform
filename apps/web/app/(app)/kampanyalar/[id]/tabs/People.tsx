@@ -21,7 +21,7 @@ export async function PeopleTab({ campaign: c, sp }: TabProps) {
   return (
     <>
       <UndoBanner auditId={sp.geri} workspaceId={c.workspaceId} back={base} />
-      {sp.geriAlinan !== undefined && <p className="notice" style={{ marginBottom: 12 }}>Yeniden değerlendirme bitti: {sp.geriAlinan} kişi elenenlerden çıkarıldı.</p>}
+      {sp.geriAlinan !== undefined && <p className="notice" style={{ marginBottom: 12 }}>Yeniden değerlendirme bitti: {sp.geriAlinan} kişi elenenlerden geri alındı{sp.cikarilan ? `, ${sp.cikarilan} kişi sıradan/karar listesinden çıkarıldı` : ""}.</p>}
       {filtre === "elenen" && (
         <form action={reevaluateEliminated} className="row" style={{ marginBottom: 12, gap: 12 }}>
           <input type="hidden" name="id" value={c.id} />
