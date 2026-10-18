@@ -74,8 +74,8 @@ const anyIn = (text: string | undefined, list: string[]) =>
 const DOC_RE = /(^|[^a-z0-9])(dr|uzm|op|prof|doc|md|ebe)([^a-z0-9]|$)/
 /** Klinik/yardımcı meslekler: unvanda bulunuyorsa (başhekim/hastane müdürü gibi üst yönetim hariç) kişi elenir; "Kurucu Diyetisyen" de karar verici değildir. */
 const PROF_RE = /(^|[^a-z0-9])(doktor|doctor|physician|surgeon|cerrah|hemsire|nurse|dis hekimi|pratisyen|asistan|tekniker|teknisyen|technician|diyetisyen|dietisyen|dietitian|psikolog|psychologist|fizyoterapi|physiotherap|terapist|therapist|eczaci|pharmacist|laborant|radyolog|odyolog|ergoterapist|sekreter|receptionist|danisman|optisyen|ogretmen|akademisyen)/
-const MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|genel mudur|general manager|head|kurucu|founder|ceo|coo|cfo|cio|cto|cmo|owner|sahib|yonetici|bashekim|hekim basi|sef|lead|vp |partner|chair)/
-const STRONG_MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|ceo|coo|cfo|general|yonetici|bashekim|head)/
+const MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|genel mudur|general manager|head|kurucu|founder|(^|[^a-z])(ceo|coo|cfo|cio|cto|cmo)([^a-z]|$)|owner|sahib|yonetici|bashekim|hekim basi|sef|lead|vp |partner|chair)/
+const STRONG_MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|(^|[^a-z])(ceo|coo|cfo)([^a-z]|$)|general|yonetici|bashekim|head)/
 
 /** Hastane/kurum düzeyinde üst yönetim unvanları: hedef unvan listesinde yazmasa da karar verici sayılır (kurucu/sahip hariç; onlar yalnızca sağlık kurumu doğrulanırsa sayılır). */
 const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|administrator|ceo)|genel mudur|general manager|managing director|ceo|chief executive|bashekim|bas hekim|hekim basi|yonetim kurulu|isletme mudur|medical director|chief medical)/
