@@ -155,6 +155,16 @@ describe("kişi puanlama", () => {
     expect(e("Hastane Müdürü", "Özel X Hastanesi", undefined, "Türkiye")).not.toBe("elendi");
   });
 
+  it("BT/İK/pazarlama müdürünü, sigorta ve üniversite kişisini eler; hasta hizmetleri ve fiyatlandırmayı korur", () => {
+    const e = (title: string, company?: string, about?: string) => scoreProspect({ fullName: "X", title, company, about }, t).verdict;
+    expect(e("Bilgi Sistemleri Müdürü", "Özel Levent Hastanesi")).toBe("elendi");
+    expect(e("IT Manager", "Özel Levent Hastanesi")).toBe("elendi");
+    expect(e("Tedarik Zinciri Müdürü", "Medical Park Hastaneler Grubu")).toBe("elendi");
+    expect(e("Hasta Hizmetleri Grup Müdürü", undefined, "Bezmialem Vakıf Üniversitesi Hasta Hizmetleri Grup Müdürü")).toBe("elendi");
+    expect(e("Hasta Hizmetleri Müdürü", "Özel Levent Hastanesi")).not.toBe("elendi");
+    expect(e("Merkez Fiyatlandırma Grup Müdürü", "Medical Park Hastaneler Grubu")).not.toBe("elendi");
+  });
+
   it("sağlık kurumu doğrulanan kurucuyu karar verici sayar", () => {
     expect(scoreProspect({ fullName: "K", title: "Kurucu", company: "Özel Ada Hastanesi" }, t).verdict).not.toBe("elendi");
   });

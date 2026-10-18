@@ -81,6 +81,7 @@ const STRONG_MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|preside
 const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|administrator|ceo)|genel mudur|general manager|managing director|ceo|chief executive|bashekim|bas hekim|hekim basi|yonetim kurulu|isletme mudur|medical director|chief medical)/
 const FOUNDER_RE = /(kurucu|founder|owner|sahib)/
 /** Hasta hizmetleri ve gelir/fatura tarafı yöneticileri: ürünün asıl alıcıları. */
+const OFF_FUNCTION_RE = /(bilgi islem|bilgi sistem|bilgi teknoloji|information|\bit\b|insan kaynak|human resource|\bik\b|\bhr\b|kalite|quality|pazarlama|marketing|satis|sales|satin alma|tedarik|procurement|supply|lojistik|logistic|biyomedikal|biomedical|teknik|facility|guvenlik|security|yazilim|software|e-ticaret|ticaret|egitim|akademi|insaat|santiye|hukuk|legal|halkla iliskiler|kurumsal iletisim|reklam|dijital|digital)/;
 const FUNCTION_RE = /(hasta|patient|muhasebe|fatura|gelir|revenue|finans|mali |fiyatland|pricing|provizyon|anlasmali)/
 /** Kurum adı belli olmasa da unvanın kendisi sağlık kurumuna işaret ediyorsa. */
 const HEALTH_TITLE_RE = /(hasta|patient|hastane|hospital|klinik|clinic|saglik|health|medikal|medical|tibbi|bashekim|hekim)/
@@ -112,6 +113,15 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const exKeyword = anyIn(p.company, t.excludedCompanyKeywords);
   if (exKeyword) return { score: 5, verdict: "elendi", reasons: [`Kurum adında "${exKeyword}" geçiyor; kural dışı.`] };
 
+  // Kurum adı boşsa bile hakkında/unvanda geçen kamu-üniversite-sigorta işaretleri elemeye yeter
+  const ctxFold = fold([p.about, p.title].filter(Boolean).join(" "));
+  if (!p.company && /(universite|university|sigorta|insurance|devlet hastanesi|egitim ve arastirma)/.test(ctxFold)) {
+    return { score: 5, verdict: "elendi", reasons: ["Unvan/özette üniversite, kamu veya sigorta kurumu işareti var; hedef özel hastane değil."] };
+  }
+  if (/(sigorta|insurance)/.test(fold(p.company ?? "")) && !/(hastane|hospital)/.test(fold(p.company ?? ""))) {
+    return { score: 5, verdict: "elendi", reasons: ["Sigorta şirketi; hedef özel hastane değil."] };
+  }
+
   const exTitle = anyInWord(p.title, t.excludedTitles);
   if (exTitle) return { score: 5, verdict: "elendi", reasons: [`Hariç unvan: ${exTitle}.`] };
 
@@ -122,6 +132,11 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   }
   if (foldedTitle && DOC_RE.test(foldedTitle) && !STRONG_MANAGER_RE.test(foldedTitle)) {
     return { score: 5, verdict: "elendi", reasons: ["Hekim/klinik personeli; karar verici yönetici değil."] };
+  }
+
+  // Hasta/gelir/anlaşma dışı bir birimin müdürü (IT, İK, kalite, pazarlama, satın alma...) karar verici değil
+  if (foldedTitle && OFF_FUNCTION_RE.test(foldedTitle) && !FUNCTION_RE.test(foldedTitle) && !top) {
+    return { score: 10, verdict: "elendi", reasons: ["Hasta/gelir yönetimi dışı birim yöneticisi (BT, İK, kalite, pazarlama, satın alma vb.)."] };
   }
 
   // Yönetici/karar verici sıfatı (müdür, direktör, başkan, head, chief...) yoksa unvandaki konu (faturalama, strateji...) tek başına yetmez
