@@ -162,9 +162,11 @@ async function readExperience(page: Page): Promise<string[] | undefined> {
   for (let i = 0; i < count; i++) {
     const spans = await items.nth(i).locator("span[aria-hidden='true']").allInnerTexts().catch(() => [] as string[]);
     const t = spans.map((x) => x.trim()).filter(Boolean);
-    if (t.length < 2) continue;
+    const first = t[0];
+    const second = t[1];
+    if (!first || !second) continue;
     // Aynı kurumda birden çok pozisyon: ilk satır kurum, ikinci satır süre
-    const company = (DURATION.test(t[1]) && !t[1].includes("·") ? t[0] : t[1].split("·")[0]).trim();
+    const company = (DURATION.test(second) && !second.includes("·") ? first : (second.split("·")[0] ?? "")).trim();
     if (!company || company.length > 80) continue;
     const isCurrent = t.some((x) => /(Present|Günümüz|Devam ediyor|Halen)/i.test(x));
     (isCurrent ? current : past).push(company);
