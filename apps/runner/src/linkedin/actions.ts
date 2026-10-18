@@ -123,6 +123,9 @@ export async function visitProfile(page: Page, url: string, opts: { readPost?: b
     .then((t) => t.slice(0, 600))
     .catch(() => undefined);
 
+  // Deneyim bölümü: üstteki kartta kurum yoksa son çalışılan kurumlardan tamamlanır
+  const experience = company ? undefined : await readExperience(page);
+
   let sharedSchool: string | undefined;
   if (opts.readEducation && opts.mySchools.length) {
     const theirs = await readEducation(page);
@@ -145,7 +148,29 @@ export async function visitProfile(page: Page, url: string, opts: { readPost?: b
     if (post && relativeToDate(when).getTime() > Date.now() - 30 * 86_400_000) recentPostText = post.slice(0, 1000);
   }
 
-  return { fullName, headline, location, company, degree, mutualName, mutualConnections, invitePending, openProfile, about, sharedSchool, recentPostText };
+  return { fullName, headline, location, company, experience, degree, mutualName, mutualConnections, invitePending, openProfile, about, sharedSchool, recentPostText };
+}
+
+
+/** Deneyim bölümündeki kurum adları (şu an çalıştıkları önce, ardından en yeniden eskiye). */
+async function readExperience(page: Page): Promise<string[] | undefined> {
+  const DURATION = /^\d+\s*(yıl|yil|yr|ay|mo|mos|yrs)/i;
+  const items = page.locator("section:has(#experience) li.artdeco-list__item");
+  const count = Math.min(await items.count().catch(() => 0), 6);
+  const current: string[] = [];
+  const past: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const spans = await items.nth(i).locator("span[aria-hidden='true']").allInnerTexts().catch(() => [] as string[]);
+    const t = spans.map((x) => x.trim()).filter(Boolean);
+    if (t.length < 2) continue;
+    // Aynı kurumda birden çok pozisyon: ilk satır kurum, ikinci satır süre
+    const company = (DURATION.test(t[1]) && !t[1].includes("·") ? t[0] : t[1].split("·")[0]).trim();
+    if (!company || company.length > 80) continue;
+    const isCurrent = t.some((x) => /(Present|Günümüz|Devam ediyor|Halen)/i.test(x));
+    (isCurrent ? current : past).push(company);
+  }
+  const all = [...new Set([...current, ...past])];
+  return all.length ? all.slice(0, 4) : undefined;
 }
 
 /* ---------- Davet ---------- */

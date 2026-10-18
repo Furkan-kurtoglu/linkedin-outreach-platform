@@ -101,7 +101,7 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
             degree: d.degree ?? undefined,
             openProfile: d.openProfile ?? undefined,
             title: d.title ?? split.title ?? undefined,
-            company: d.company ?? split.company ?? undefined,
+            company: d.company ?? split.company ?? d.experience?.[0] ?? undefined,
             location: d.location ?? undefined,
             headline: d.headline ?? undefined,
             mutualConnections: d.mutualConnections ?? undefined,
@@ -113,6 +113,26 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
           },
         }),
       ]);
+
+      // Kurum ancak ziyarette (üst kart ya da Deneyim bölümü) öğrenildiyse kişi yeniden puanlanır; hedef dışıysa davet gitmeden elenir
+      const foundCompany = d.company ?? split.company ?? d.experience?.[0];
+      if (!ap.prospect.company?.trim() && foundCompany && ["QUEUED", "NEEDS_REVIEW"].includes(ap.stage)) {
+        const agent = await prisma.agent.findUnique({ where: { id: ap.agentId }, include: { segments: true } });
+        if (agent) {
+          const excluded = (await prisma.suppression.findMany({ where: { workspaceId: account.workspaceId, kind: "company" }, select: { value: true } })).map((x) => x.value);
+          const fresh = await prisma.prospect.findUniqueOrThrow({ where: { id: ap.prospectId } });
+          const sc = scoreProspect(
+            { fullName: fresh.fullName, title: fresh.title ?? undefined, company: fresh.company ?? undefined, location: fresh.location ?? undefined, about: [fresh.headline, d.experience?.join(" ")].filter(Boolean).join(" ") },
+            toTargeting(agent, agent.segments, excluded),
+          );
+          if (sc.verdict === "elendi") {
+            await prisma.agentProspect.update({ where: { id: ap.id }, data: { stage: "SKIPPED", fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: `Kurum profilden öğrenildi (${foundCompany}); ${sc.reasons[sc.reasons.length - 1]}` } });
+            await prisma.job.updateMany({ where: { agentProspectId: ap.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Kurum hedef dışı çıktı." } });
+          } else {
+            await prisma.agentProspect.update({ where: { id: ap.id }, data: { fitScore: sc.score, fitReason: sc.reasons.join(" · ") } });
+          }
+        }
+      }
       break;
     }
 

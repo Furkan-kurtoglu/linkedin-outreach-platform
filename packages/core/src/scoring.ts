@@ -159,7 +159,7 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   // Kurum bilgisi yok ya da sektör dışı: kişi hedef dışındadır, karar listesine bile girmez
   // Kurum alanı boşsa (LinkedIn başlığından ayrıştırılamadıysa) üst düzey unvanlı kişi elenmez; "belirsiz" kalır ve elle karar verilir
   const noCompany = !p.company?.trim();
-  if (t.requiredCompanyKeywords.length && !requiredOk && !(noCompany && titleHit)) {
+  if (t.requiredCompanyKeywords.length && !requiredOk && !noCompany) {
     return { score: Math.min(30, score), verdict: "elendi", reasons: [...reasons, p.company ? "Kurum hedef sektör dışında." : "Kurum bilgisi yok; hedef dışı sayıldı."] };
   }
 
@@ -168,6 +168,8 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   if (!titleHit) {
     // Yönetici sıfatlı ama hedef unvan listesinde olmayan kişi: kurum uygunsa elenmez, elle karar için "belirsiz" kalır
     if (requiredOk) return { score: Math.min(50, score), verdict: "belirsiz", reasons: [...reasons, "Yönetici ama hedef unvan listesinde yok; elle karar verin."] };
+    // Kurum bilinmiyorsa profil ziyaretinde Deneyim bölümünden tamamlanır; şimdilik elenmez
+    if (noCompany) return { score: Math.min(25, score), verdict: "belirsiz", reasons: [...reasons, "Kurum bilgisi yok; profil ziyaretinde Deneyim bölümünden doğrulanacak."] };
     return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Hedef unvan listesinde yok; listeye alınmadı."] };
   }
   else if (!requiredOk || !segment) verdict = "belirsiz";

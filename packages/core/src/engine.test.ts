@@ -140,6 +140,11 @@ describe("kişi puanlama", () => {
     expect(scoreProspect({ fullName: "C", title: "Kurumsal Pazarlama Müdürü", company: "Central Hospital" }, t).verdict).toBe("belirsiz");
   });
 
+  it("kurumu bilinmeyen müdürü elemez, ziyarette doğrulanır", () => {
+    expect(scoreProspect({ fullName: "E", title: "İşletme Müdürü" }, t).verdict).toBe("belirsiz");
+    expect(scoreProspect({ fullName: "E", title: "İşletme Müdürü", company: "Özel Tepe Hastanesi" }, t).verdict).toBe("belirsiz");
+  });
+
   it("kamu hastanesini eler", () => {
     const r = scoreProspect({ fullName: "X", title: "Hastane Müdürü", company: "Bagcilar Education and Research Hospital" }, t);
     expect(r.verdict).toBe("elendi");

@@ -90,6 +90,8 @@ export interface VisitData {
   company?: string;
   location?: string;
   about?: string;
+  /** Deneyim bölümündeki kurum adları, en yeni önce (şu an çalıştıkları başta) */
+  experience?: string[];
   /** Profilde görünen ortak bağlantılardan ilki */
   mutualName?: string;
   mutualConnections?: number;
