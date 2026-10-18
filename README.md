@@ -1,1 +1,1 @@
-Yerel çalışan paketi. Kaynak: main dalı 6514c4e92a82d7a419a35c307f8c8c7085ad70ce
+Yerel çalışan paketi. Kaynak: main dalı 22412522d4cd425d0ef1dcb370dcb691f2144fb5
