@@ -167,7 +167,7 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   let verdict: Verdict;
   if (!titleHit) {
     // Yönetici sıfatlı ama hedef unvan listesinde olmayan kişi: kurum uygunsa elenmez, elle karar için "belirsiz" kalır
-    if (requiredOk && !noCompany) return { score: Math.min(50, score), verdict: "belirsiz", reasons: [...reasons, "Yönetici ama hedef unvan listesinde yok; elle karar verin."] };
+    if (requiredOk) return { score: Math.min(50, score), verdict: "belirsiz", reasons: [...reasons, "Yönetici ama hedef unvan listesinde yok; elle karar verin."] };
     return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Hedef unvan listesinde yok; listeye alınmadı."] };
   }
   else if (!requiredOk || !segment) verdict = "belirsiz";
