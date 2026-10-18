@@ -127,6 +127,13 @@ describe("kişi puanlama", () => {
     expect(r.segmentId).toBe("hastane");
   });
 
+  it("kurumu boş ama yönetici unvanlı kişiyi elemez", () => {
+    const r = scoreProspect({ fullName: "X", title: "Genel Müdür Yardımcısı" }, t);
+    expect(r.verdict).toBe("belirsiz");
+    const r2 = scoreProspect({ fullName: "Y", title: "Hastane Müdürü", about: "Hastane Müdürü" }, t);
+    expect(r2.verdict).not.toBe("elendi");
+  });
+
   it("kamu hastanesini eler", () => {
     const r = scoreProspect({ fullName: "X", title: "Hastane Müdürü", company: "Bagcilar Education and Research Hospital" }, t);
     expect(r.verdict).toBe("elendi");

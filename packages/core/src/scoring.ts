@@ -149,7 +149,9 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   }
 
   // Kurum bilgisi yok ya da sektör dışı: kişi hedef dışındadır, karar listesine bile girmez
-  if (t.requiredCompanyKeywords.length && !requiredOk) {
+  // Kurum alanı boşsa (LinkedIn başlığından ayrıştırılamadıysa) üst düzey unvanlı kişi elenmez; "belirsiz" kalır ve elle karar verilir
+  const noCompany = !p.company?.trim();
+  if (t.requiredCompanyKeywords.length && !requiredOk && !(noCompany && titleHit)) {
     return { score: Math.min(30, score), verdict: "elendi", reasons: [...reasons, p.company ? "Kurum hedef sektör dışında." : "Kurum bilgisi yok; hedef dışı sayıldı."] };
   }
 

@@ -4,7 +4,7 @@ import { BulkOps } from "@/components/BulkOps";
 import { PeopleTable } from "@/components/PeopleTable";
 import { UndoBanner } from "@/components/UndoBanner";
 import { FILTERS, filterWhere, personRows } from "@/lib/people";
-import { bulkPeople } from "../actions";
+import { bulkPeople, reevaluateEliminated } from "../actions";
 import type { TabProps } from "./types";
 
 const PAGE = 50;
@@ -21,6 +21,14 @@ export async function PeopleTab({ campaign: c, sp }: TabProps) {
   return (
     <>
       <UndoBanner auditId={sp.geri} workspaceId={c.workspaceId} back={base} />
+      {sp.geriAlinan !== undefined && <p className="notice" style={{ marginBottom: 12 }}>Yeniden değerlendirme bitti: {sp.geriAlinan} kişi elenenlerden çıkarıldı.</p>}
+      {filtre === "elenen" && (
+        <form action={reevaluateEliminated} className="row" style={{ marginBottom: 12, gap: 12 }}>
+          <input type="hidden" name="id" value={c.id} />
+          <button className="btn sm" type="submit">Elenenleri güncel kurallarla yeniden değerlendir</button>
+          <span className="sub">Yanlış elenen yönetici unvanlı kişileri geri alır; elle atladıklarınıza dokunmaz.</span>
+        </form>
+      )}
       <div className="row between" style={{ marginBottom: 12 }}>
         <div className="seg" role="group" aria-label="Filtre" style={{ flexWrap: "wrap" }}>
           {FILTERS.map(([k, l]) => (

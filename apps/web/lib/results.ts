@@ -434,7 +434,7 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
     if (score.verdict === "elendi") {
       rejected++;
       await prisma.agentProspect.create({
-        data: { agentId, prospectId: prospect.id, stage: "SKIPPED", fitScore: score.score, fitReason: score.reasons.join(" · "), skipReason: score.reasons[0], segmentId: score.segmentId },
+        data: { agentId, prospectId: prospect.id, stage: "SKIPPED", fitScore: score.score, fitReason: score.reasons.join(" · "), skipReason: score.reasons[score.reasons.length - 1], segmentId: score.segmentId },
       });
       continue;
     }

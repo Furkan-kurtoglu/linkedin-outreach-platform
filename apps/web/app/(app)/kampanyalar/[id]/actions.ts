@@ -1,10 +1,10 @@
 "use server";
-import { GeminiProvider, assist, companyQueryUrls, parseKinds, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
+import { GeminiProvider, assist, scoreProspect, resolveUncertain, isOpenToWork, companyQueryUrls, parseKinds, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { audit, requireContext, type Ctx } from "@/lib/context";
-import { readTargeting, toRules, toScheduleConfig, type TargetingJson } from "@/lib/convert";
+import { readTargeting, toRules, toScheduleConfig, toTargeting, type TargetingJson } from "@/lib/convert";
 import { env } from "@/lib/env";
 import { applyBulk, type Snapshot } from "@/lib/bulk";
 import { planAccount } from "@/lib/planner";
@@ -436,6 +436,41 @@ export async function bulkPeople(form: FormData) {
   const logId = await applyBulk(ctx, op, ids, agent.id);
   revalidatePath("/", "layout");
   back(agent.id, tab, logId ? `&geri=${logId}` : `&bos=${ids.length}-${op}`);
+}
+
+/** Otomatik elenenleri güncel kurallarla yeniden değerlendirir; artık elenmeyenleri geri alır (elle atlananlara dokunmaz). */
+export async function reevaluateEliminated(form: FormData) {
+  const { ctx, agent } = await own(String(form.get("id")));
+  const full = await prisma.agent.findUniqueOrThrow({ where: { id: agent.id }, include: { segments: true } });
+  const excluded = (await prisma.suppression.findMany({ where: { workspaceId: ctx.workspace.id, kind: "company" }, select: { value: true } })).map((x) => x.value);
+  const targeting = toTargeting(full, full.segments, excluded);
+  const manual = ["Elle atlandı.", "Kurum hariç tutuldu.", "Kalıcı olarak listeden çıkarıldı.", "Onay kuyruğunda atlandı.", "Profil bulunamadı."];
+  const rows = await prisma.agentProspect.findMany({
+    where: { agentId: agent.id, stage: "SKIPPED", fitScore: { not: null }, NOT: { skipReason: { in: manual } } },
+    include: { prospect: true },
+  });
+  let restored = 0;
+  for (const r of rows) {
+    if (r.skipReason?.startsWith("LinkedIn")) continue;
+    const p = r.prospect;
+    const sc = scoreProspect({ fullName: p.fullName, title: p.title ?? undefined, company: p.company ?? undefined, location: p.location ?? undefined, about: p.headline ?? undefined }, targeting);
+    if (sc.verdict !== "elendi" && full.skipOpenToWork && isOpenToWork(p.headline ?? undefined, p.title ?? undefined)) continue;
+    let stage: "QUEUED" | "NEEDS_REVIEW" | null = null;
+    if (sc.verdict === "uygun") stage = "QUEUED";
+    else if (sc.verdict === "belirsiz") {
+      const d = resolveUncertain(full.uncertainPolicy, sc.score);
+      stage = d === "drop" ? null : d === "queue" ? "QUEUED" : "NEEDS_REVIEW";
+    }
+    if (!stage) {
+      await prisma.agentProspect.update({ where: { id: r.id }, data: { fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: sc.reasons[sc.reasons.length - 1] } });
+      continue;
+    }
+    await prisma.agentProspect.update({ where: { id: r.id }, data: { stage, fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: null } });
+    restored++;
+  }
+  await audit(ctx, "campaign.reevaluate", { agentId: agent.id, checked: rows.length, restored });
+  revalidatePath("/", "layout");
+  back(agent.id, "kisiler&filtre=elenen", `&geriAlinan=${restored}`);
 }
 
 export async function undoAction(form: FormData) {
