@@ -159,6 +159,9 @@ describe("kişi puanlama", () => {
     const e = (title: string, company?: string, about?: string) => scoreProspect({ fullName: "X", title, company, about }, t).verdict;
     expect(e("Bilgi Sistemleri Müdürü", "Özel Levent Hastanesi")).toBe("elendi");
     expect(e("IT Manager", "Özel Levent Hastanesi")).toBe("elendi");
+    expect(e("Medipol Hastanesi şirketinde Bilgi Sistemleri Müdürü")).toBe("elendi");
+    expect(e("Özel X Hastanesi Pazarlama Direktörü")).toBe("elendi");
+    expect(e("Patient Coordinator", "Özel Levent Hastanesi")).toBe("elendi");
     expect(e("Tedarik Zinciri Müdürü", "Medical Park Hastaneler Grubu")).toBe("elendi");
     expect(e("Hasta Hizmetleri Grup Müdürü", undefined, "Bezmialem Vakıf Üniversitesi Hasta Hizmetleri Grup Müdürü")).toBe("elendi");
     expect(e("Hasta Hizmetleri Müdürü", "Özel Levent Hastanesi")).not.toBe("elendi");

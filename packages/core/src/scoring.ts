@@ -82,7 +82,7 @@ const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|admi
 const FOUNDER_RE = /(kurucu|founder|owner|sahib)/
 /** Hasta hizmetleri ve gelir/fatura tarafı yöneticileri: ürünün asıl alıcıları. */
 const OFF_FUNCTION_RE = /(bilgi islem|bilgi sistem|bilgi teknoloji|information|\bit\b|insan kaynak|human resource|\bik\b|\bhr\b|kalite|quality|pazarlama|marketing|satis|sales|satin alma|tedarik|procurement|supply|lojistik|logistic|biyomedikal|biomedical|teknik|facility|guvenlik|security|yazilim|software|e-ticaret|ticaret|egitim|akademi|insaat|santiye|hukuk|legal|halkla iliskiler|kurumsal iletisim|reklam|dijital|digital)/;
-const FUNCTION_RE = /(hasta|patient|muhasebe|fatura|gelir|revenue|finans|mali |fiyatland|pricing|provizyon|anlasmali)/
+const FUNCTION_RE = /((^|[^a-z])hasta([^a-z]|$)|patient|muhasebe|fatura|gelir|revenue|finans|mali |fiyatland|pricing|provizyon|anlasmali)/
 /** Kurum adı belli olmasa da unvanın kendisi sağlık kurumuna işaret ediyorsa. */
 const HEALTH_TITLE_RE = /(hasta|patient|hastane|hospital|klinik|clinic|saglik|health|medikal|medical|tibbi|bashekim|hekim)/
 /** Kurum adından "sağlık kurumu" olduğunu anlamaya yarayan genel ifadeler. */
