@@ -70,12 +70,20 @@ const anyInWord = (text: string | undefined, list: string[]) =>
 const anyIn = (text: string | undefined, list: string[]) =>
   text ? list.find((k) => containsFolded(text, k)) : undefined;
 
-/** Hekim/klinik personeli unvanları: yönetici sözcüğü yoksa karar verici sayılmaz. */
-const CLINICIAN_RE = /(^|[^a-z0-9])(dr|uzm|op|prof|doc|md|ebe|nurse)([^a-z0-9]|$)|(^|[^a-z0-9])(doktor|physician|surgeon|cerrah|hemsire|dis hekimi|pratisyen|asistan|tekniker|teknisyen|technician|diyetisyen|dietisyen|dietitian|psikolog|psychologist|fizyoterapi|physiotherap|terapist|therapist|eczaci|pharmacist|laborant|radyolog|odyolog|ergoterapist|sekreter|receptionist|danisman)/
+/** Hekim/klinik personeli kısa unvanları (Dr., Uzm., Op., Prof., MD): güçlü yönetici sözcüğü yoksa karar verici sayılmaz. */
+const DOC_RE = /(^|[^a-z0-9])(dr|uzm|op|prof|doc|md|ebe)([^a-z0-9]|$)/
+/** Klinik/yardımcı meslekler: unvanda bulunuyorsa (başhekim/hastane müdürü gibi üst yönetim hariç) kişi elenir; "Kurucu Diyetisyen" de karar verici değildir. */
+const PROF_RE = /(^|[^a-z0-9])(doktor|doctor|physician|surgeon|cerrah|hemsire|nurse|dis hekimi|pratisyen|asistan|tekniker|teknisyen|technician|diyetisyen|dietisyen|dietitian|psikolog|psychologist|fizyoterapi|physiotherap|terapist|therapist|eczaci|pharmacist|laborant|radyolog|odyolog|ergoterapist|sekreter|receptionist|danisman|optisyen|ogretmen|akademisyen)/
 const MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|genel mudur|general manager|head|kurucu|founder|ceo|coo|cfo|cio|cto|cmo|owner|sahib|yonetici|bashekim|hekim basi|sef|lead|vp |partner|chair)/
+const STRONG_MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|president|ceo|coo|cfo|general|yonetici|bashekim|head)/
 
-/** Hastane/kurum düzeyinde üst yönetim unvanları: hedef unvan listesinde yazmasa da karar verici sayılır. */
-const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|administrator|ceo)|genel mudur|general manager|managing director|ceo|chief executive|bashekim|bas hekim|hekim basi|yonetim kurulu|kurucu|founder|owner|isletme mudur|medical director|chief medical)/
+/** Hastane/kurum düzeyinde üst yönetim unvanları: hedef unvan listesinde yazmasa da karar verici sayılır (kurucu/sahip hariç; onlar yalnızca sağlık kurumu doğrulanırsa sayılır). */
+const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|administrator|ceo)|genel mudur|general manager|managing director|ceo|chief executive|bashekim|bas hekim|hekim basi|yonetim kurulu|isletme mudur|medical director|chief medical)/
+const FOUNDER_RE = /(kurucu|founder|owner|sahib)/
+/** Hasta hizmetleri ve gelir/fatura tarafı yöneticileri: ürünün asıl alıcıları. */
+const FUNCTION_RE = /(hasta|patient|muhasebe|fatura|gelir|revenue|finans|mali |fiyatland|pricing|provizyon|anlasmali)/
+/** Kurum adı belli olmasa da unvanın kendisi sağlık kurumuna işaret ediyorsa. */
+const HEALTH_TITLE_RE = /(hasta|patient|hastane|hospital|klinik|clinic|saglik|health|medikal|medical|tibbi|bashekim|hekim)/
 /** Kurum adından "sağlık kurumu" olduğunu anlamaya yarayan genel ifadeler. */
 const HEALTH_ORG_RE = /(hastane|hospital|healthcare|health care|saglik grub|saglik hizmet|medical ?park|medikal|medical center|tip merkezi)/
 
@@ -90,7 +98,7 @@ function brandOf(rule: string): string | undefined {
 
 export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const reasons: string[] = [];
-  const orgText = [p.company, p.about].filter(Boolean).join(" ");
+  const orgText = [p.company, p.about, p.title].filter(Boolean).join(" ");
 
   // Kesin eleme kuralları
   const brandText = fold([p.company, p.about, p.title].filter(Boolean).join(" "));
@@ -108,7 +116,11 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   if (exTitle) return { score: 5, verdict: "elendi", reasons: [`Hariç unvan: ${exTitle}.`] };
 
   const foldedTitle = fold(p.title ?? "");
-  if (foldedTitle && CLINICIAN_RE.test(foldedTitle) && !MANAGER_RE.test(foldedTitle)) {
+  const top = TOP_RE.test(foldedTitle);
+  if (foldedTitle && PROF_RE.test(foldedTitle) && !top) {
+    return { score: 5, verdict: "elendi", reasons: ["Klinik/yardımcı meslek unvanı; karar verici yönetici değil."] };
+  }
+  if (foldedTitle && DOC_RE.test(foldedTitle) && !STRONG_MANAGER_RE.test(foldedTitle)) {
     return { score: 5, verdict: "elendi", reasons: ["Hekim/klinik personeli; karar verici yönetici değil."] };
   }
 
@@ -120,7 +132,10 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   let score = 0;
 
   // Unvan (en fazla 45 puan)
-  const titleHit = anyInWord(p.title, t.titles) ?? (TOP_RE.test(foldedTitle) ? "üst yönetim unvanı" : undefined);
+  let titleHit: string | undefined =
+    anyInWord(p.title, t.titles) ??
+    (top ? "üst yönetim unvanı" : undefined) ??
+    (STRONG_MANAGER_RE.test(foldedTitle) && FUNCTION_RE.test(foldedTitle) ? "hasta/gelir yönetimi unvanı" : undefined);
   if (titleHit) {
     score += 45;
     reasons.push(`Unvanda "${titleHit}" geçiyor.`);
@@ -128,11 +143,11 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
     reasons.push("Unvan hedef listesinde yok.");
   }
 
-  // Konum (15)
+  // Konum (15): bilinen ve hedef dışı bir şehir kişiyi eler; yalnızca ülke yazıyorsa ya da konum yoksa geçer
   if (!t.locations.length) score += 15;
   else if (anyIn(p.location, t.locations)) score += 15;
-  else if (!p.location) reasons.push("Konum bilinmiyor.");
-  else reasons.push(`Konum hedef dışında: ${p.location}.`);
+  else if (!p.location || /^\s*(turkiye|turkey|turkei)\s*$/.test(fold(p.location))) reasons.push("Konum bilinmiyor.");
+  else return { score: Math.min(20, score), verdict: "elendi", reasons: [...reasons, `Konum hedef dışında: ${p.location}.`] };
 
   // Sektör (15)
   if (!t.industries.length || anyIn(p.industry, t.industries)) score += 15;
@@ -145,7 +160,7 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
     if (hit) {
       score += 15;
       reasons.push(`Kurum bilgisinde "${hit}" geçiyor.`);
-    } else if (HEALTH_ORG_RE.test(fold(orgText)) && t.requiredCompanyKeywords.some((k) => HEALTH_ORG_RE.test(fold(k)))) {
+    } else if ((HEALTH_ORG_RE.test(fold(orgText)) || HEALTH_TITLE_RE.test(foldedTitle)) && t.requiredCompanyKeywords.some((k) => HEALTH_ORG_RE.test(fold(k)))) {
       score += 10;
       reasons.push("Kurum bir sağlık kuruluşu görünüyor.");
     } else {
@@ -171,31 +186,22 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   }
 
   // Kurum bilgisi yok ya da sektör dışı: kişi hedef dışındadır, karar listesine bile girmez
-  // Kurum alanı boşsa (LinkedIn başlığından ayrıştırılamadıysa) üst düzey unvanlı kişi elenmez; "belirsiz" kalır ve elle karar verilir
   const noCompany = !p.company?.trim();
-  if (t.requiredCompanyKeywords.length && !requiredOk && !noCompany) {
-    return { score: Math.min(30, score), verdict: "elendi", reasons: [...reasons, p.company ? "Kurum hedef sektör dışında." : "Kurum bilgisi yok; hedef dışı sayıldı."] };
+  if (t.requiredCompanyKeywords.length && !requiredOk) {
+    const nonHealth = NON_HEALTH_RE.test(fold(orgText));
+    return {
+      score: Math.min(30, score),
+      verdict: "elendi",
+      reasons: [...reasons, noCompany ? (nonHealth ? "Başlıkta sağlık dışı sektör işareti var; kurum bilinmiyor." : "Kurum bilinmiyor ve başlıkta sağlık kurumu belirtisi yok.") : "Kurum hedef sektör dışında."],
+    };
   }
 
-  // Kurum bilinmiyor ve başlıkta sağlık kurumu belirtisi de yok: sağlık dışı sektör işareti varsa elenir, yoksa düşük puanla "belirsiz" kalır (ziyarette doğrulanır)
-  if (noCompany && !requiredOk) {
-    if (NON_HEALTH_RE.test(fold([orgText, p.title].filter(Boolean).join(" ")))) {
-      return { score: Math.min(20, score), verdict: "elendi", reasons: [...reasons, "Başlıkta sağlık dışı sektör işareti var; kurum bilinmiyor."] };
-    }
-    return { score: Math.min(25, score), verdict: "belirsiz", reasons: [...reasons, "Kurum bilgisi yok; profil ziyaretinde Deneyim bölümünden doğrulanacak."] };
-  }
+  // Kurucu/sahip yalnızca sağlık kurumu doğrulanmışsa karar verici sayılır
+  if (!titleHit && FOUNDER_RE.test(foldedTitle)) titleHit = "kurucu/sahip (sağlık kurumu doğrulandı)";
 
-  // Karar
-  let verdict: Verdict;
-  if (!titleHit) {
-    // Yönetici sıfatlı ama hedef unvan listesinde olmayan kişi: kurum uygunsa elenmez, elle karar için "belirsiz" kalır
-    if (requiredOk) return { score: Math.min(50, score), verdict: "belirsiz", reasons: [...reasons, "Yönetici ama hedef unvan listesinde yok; elle karar verin."] };
-    // Kurum bilinmiyorsa profil ziyaretinde Deneyim bölümünden tamamlanır; şimdilik elenmez
-    if (noCompany) return { score: Math.min(25, score), verdict: "belirsiz", reasons: [...reasons, "Kurum bilgisi yok; profil ziyaretinde Deneyim bölümünden doğrulanacak."] };
-    return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Hedef unvan listesinde yok; listeye alınmadı."] };
-  }
-  else if (!requiredOk || !segment) verdict = "belirsiz";
-  else verdict = score >= 75 ? "uygun" : "belirsiz";
+  // Karar: hedef unvan ya da üst yönetim/hasta-gelir yönetimi unvanı yoksa kişi listeye alınmaz
+  if (!titleHit) return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Hedef unvan listesinde yok; listeye alınmadı."] };
+  const verdict: Verdict = !requiredOk || !segment ? "belirsiz" : score >= 75 ? "uygun" : "belirsiz";
 
   return { score: Math.min(100, score), verdict, segmentId: segment?.id, reasons };
 }

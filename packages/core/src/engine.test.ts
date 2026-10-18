@@ -127,36 +127,42 @@ describe("kişi puanlama", () => {
     expect(r.segmentId).toBe("hastane");
   });
 
-  it("kurumu boş ama yönetici unvanlı kişiyi elemez", () => {
-    const r = scoreProspect({ fullName: "X", title: "Genel Müdür Yardımcısı" }, t);
-    expect(r.verdict).toBe("belirsiz");
-    const r2 = scoreProspect({ fullName: "Y", title: "Hastane Müdürü", about: "Hastane Müdürü" }, t);
-    expect(r2.verdict).not.toBe("elendi");
-  });
+
+
+
 
   it("hastane direktörünü ve zincir hastane müdürünü elemez", () => {
     expect(scoreProspect({ fullName: "A", title: "Hastane Direktörü", company: "Medipol Sağlık Grubu" }, t).verdict).not.toBe("elendi");
     expect(scoreProspect({ fullName: "B", title: "Hastane Müdürü", company: "Dünyagöz Hastaneler Grubu" }, t).verdict).not.toBe("elendi");
-    expect(scoreProspect({ fullName: "C", title: "Kurumsal Pazarlama Müdürü", company: "Central Hospital" }, t).verdict).toBe("belirsiz");
+    expect(scoreProspect({ fullName: "I", title: "İşletme Müdürü", company: "Özel Tepe Hastanesi" }, t).verdict).toBe("belirsiz");
+    expect(scoreProspect({ fullName: "K", title: "Hasta Hizmetleri Müdürü" }, t).verdict).not.toBe("elendi");
   });
 
-  it("kurumu bilinmeyen müdürü elemez, ziyarette doğrulanır", () => {
-    expect(scoreProspect({ fullName: "E", title: "İşletme Müdürü" }, t).verdict).toBe("belirsiz");
-    expect(scoreProspect({ fullName: "E", title: "İşletme Müdürü", company: "Özel Tepe Hastanesi" }, t).verdict).toBe("belirsiz");
+  it("sağlıkla ilgisiz ya da kurumu belirsiz kişileri eler", () => {
+    const e = (title: string, company?: string, about?: string, location?: string) => scoreProspect({ fullName: "X", title, company, about, location }, t).verdict;
+    expect(e("Founder")).toBe("elendi");
+    expect(e("Genel Müdür Yardımcısı")).toBe("elendi");
+    expect(e("İşletme Müdürü")).toBe("elendi");
+    expect(e("Anlaşmalı Kurumlar Direktörü", undefined, "Axa Sigorta Sağlık Anlaşmalı Kurumlar Direktörü")).toBe("elendi");
+    expect(e("Kurumsal Pazarlama Müdürü", "Central Hospital")).toBe("elendi");
+    expect(e("İnsan Kaynakları Müdürü", "Özel Levent Hastanesi")).toBe("elendi");
+    expect(e("Kalite Müdürü", "Özel Levent Hastanesi")).toBe("elendi");
+    expect(e("Şantiye Şefi", undefined, "Misek İnşaat Çapa Hastanesi Şantiyesi")).toBe("elendi");
+    expect(e("Kurucu Diyetisyen", undefined, "Beslenme ve Diyet Danışmanlığında Kurucu Diyetisyen")).toBe("elendi");
+    expect(e("Akademi Kurucu", "UTA Ufuk Timuçin Akademi")).toBe("elendi");
+    expect(e("Hastane Müdürü", "Özel X Hastanesi", undefined, "Bursa, Türkiye")).toBe("elendi");
+    expect(e("Hastane Müdürü", "Özel X Hastanesi", undefined, "Istanbul, Türkiye")).not.toBe("elendi");
+    expect(e("Hastane Müdürü", "Özel X Hastanesi", undefined, "Türkiye")).not.toBe("elendi");
   });
 
-  it("kurumu bilinmeyen sigortacıyı eler, çıplak 'Founder'ı düşük puanla belirsiz bırakır", () => {
-    const a = scoreProspect({ fullName: "F", title: "Anlaşmalı Kurumlar Direktörü", about: "Axa Sigorta Sağlık Anlaşmalı Kurumlar Direktörü" }, t);
-    expect(a.verdict).toBe("elendi");
-    const b = scoreProspect({ fullName: "H", title: "Founder" }, t);
-    expect(b.verdict).toBe("belirsiz");
-    expect(b.score).toBeLessThanOrEqual(25);
+  it("sağlık kurumu doğrulanan kurucuyu karar verici sayar", () => {
+    expect(scoreProspect({ fullName: "K", title: "Kurucu", company: "Özel Ada Hastanesi" }, t).verdict).not.toBe("elendi");
   });
 
   it("hariç kurumun markasını alt adlarında da yakalar", () => {
     const x = { ...t, excludedCompanies: ["Acıbadem Sağlık Grubu", "Medicana"] };
     expect(scoreProspect({ fullName: "A", title: "Hastane Müdürü", company: "Acıbadem Altunizade Hastanesi" }, x).verdict).toBe("elendi");
-    expect(scoreProspect({ fullName: "B", title: "General Surgeon", about: "Acibadem Healthcare Group şirketinde General Surgeon" }, x).verdict).toBe("elendi");
+    expect(scoreProspect({ fullName: "B", title: "Hastane Müdürü", about: "Acibadem Healthcare Group şirketinde Hastane Müdürü" }, x).verdict).toBe("elendi");
     expect(scoreProspect({ fullName: "C", title: "Hastane Müdürü", company: "Özel Levent Hastanesi" }, x).verdict).not.toBe("elendi");
   });
 
