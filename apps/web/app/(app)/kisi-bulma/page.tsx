@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { UndoBanner } from "@/components/UndoBanner";
 import { requireContext } from "@/lib/context";
 import { personRows } from "@/lib/people";
+import { BulkOps } from "@/components/BulkOps";
 import { bulkReview } from "./review";
 import { discoverNow, importProfiles, rescoreReview } from "./actions";
 
@@ -96,9 +97,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <form action={bulkReview}>
             <div className="row" style={{ marginBottom: 10 }}>
               <span className="sub">Seçilenler:</span>
-              <button className="btn sm" name="op" value="ok">Uygun say</button>
-              <button className="btn sm" name="op" value="skip">Atla</button>
-              <button className="btn sm" name="op" value="exclude">Kurumunu hariç tut</button>
+              <BulkOps ops={[{ value: "ok", label: "Uygun say" }, { value: "skip", label: "Atla" }, { value: "exclude", label: "Kurumunu hariç tut" }]} />
             </div>
             <PeopleTable rows={await personRows(reviewWhere, 200)} />
           </form>

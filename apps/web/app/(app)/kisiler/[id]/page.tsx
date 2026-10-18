@@ -1,3 +1,4 @@
+import { BulkOps } from "@/components/BulkOps";
 import { buildTimeline } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
@@ -73,9 +74,11 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <form action={personAction} className="row">
           <input type="hidden" name="prospectId" value={p.id} />
           <a className="btn" href={p.linkedinUrl} target="_blank" rel="noopener noreferrer">LinkedIn&apos;de aç</a>
-          {ap && !["SKIPPED", "FINISHED", "WITHDRAWN"].includes(ap.stage) && <button className="btn" name="op" value="skip">Atla</button>}
-          {p.company && <button className="btn" name="op" value="exclude">Kurumu hariç tut</button>}
-          <button className="btn quiet" name="op" value="never">Bir daha yazma</button>
+          <BulkOps ops={[
+            ...(ap && !["SKIPPED", "FINISHED", "WITHDRAWN"].includes(ap.stage) ? [{ value: "skip", label: "Atla", className: "btn" }] : []),
+            ...(p.company ? [{ value: "exclude", label: "Kurumu hariç tut", className: "btn" }] : []),
+            { value: "never", label: "Bir daha yazma", className: "btn quiet" },
+          ]} />
         </form>
       </div>
       <div className="grid g-main">

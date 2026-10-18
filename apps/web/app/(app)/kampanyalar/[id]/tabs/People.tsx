@@ -1,5 +1,6 @@
 import { prisma } from "@hfo/db";
 import Link from "next/link";
+import { BulkOps } from "@/components/BulkOps";
 import { PeopleTable } from "@/components/PeopleTable";
 import { UndoBanner } from "@/components/UndoBanner";
 import { FILTERS, filterWhere, personRows } from "@/lib/people";
@@ -50,10 +51,7 @@ export async function PeopleTab({ campaign: c, sp }: TabProps) {
         <input type="hidden" name="filtre" value={filtre} />
         <div className="row" style={{ marginBottom: 10 }}>
           <span className="sub">Seçilenler:</span>
-          <button className="btn sm" name="op" value="ok">Uygun say</button>
-          <button className="btn sm" name="op" value="skip">Atla</button>
-          <button className="btn sm" name="op" value="exclude">Kurumunu hariç tut</button>
-          <button className="btn sm quiet" name="op" value="never">Bir daha yazma</button>
+          <BulkOps ops={[{ value: "ok", label: "Uygun say" }, { value: "skip", label: "Atla" }, { value: "exclude", label: "Kurumunu hariç tut" }, { value: "never", label: "Bir daha yazma", quiet: true }]} />
         </div>
         <PeopleTable rows={rows} />
       </form>

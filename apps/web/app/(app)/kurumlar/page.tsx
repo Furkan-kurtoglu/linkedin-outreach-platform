@@ -1,3 +1,4 @@
+import { BulkOps } from "@/components/BulkOps";
 import { KIND_SEARCH, TR_PROVINCES, fold } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
@@ -201,10 +202,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
               <option value="" disabled>Kampanya seç…</option>
               {agents.map((a) => { const ks = readTargeting(a.targeting).institutionKinds; return <option key={a.id} value={a.id}>{a.name} — {ks.length ? ks.map((k) => KIND_LABEL[k] ?? k).join(", ") : "tür sınırı yok (Hedefleme'den seçin)"}</option>; })}
             </select>
-            <button name="op" value="kampanya" className="btn sm">Kampanyaya ekle</button>
-            <button name="op" value="haric" className="btn sm">Hariç tut</button>
-            <button name="op" value="yeni" className="btn sm">Yeniye al</button>
-            <button name="op" value="sil" className="btn sm danger">Sil</button>
+            <BulkOps ops={[{ value: "kampanya", label: "Kampanyaya ekle" }, { value: "haric", label: "Hariç tut" }, { value: "yeni", label: "Yeniye al" }, { value: "sil", label: "Sil", danger: true }]} />
           </div>
           <div className="card scroll">
             <table>
