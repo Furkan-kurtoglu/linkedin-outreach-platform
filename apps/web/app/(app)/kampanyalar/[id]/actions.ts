@@ -7,6 +7,7 @@ import { audit, requireContext, type Ctx } from "@/lib/context";
 import { readTargeting, toRules, toScheduleConfig, type TargetingJson } from "@/lib/convert";
 import { env } from "@/lib/env";
 import { applyBulk, type Snapshot } from "@/lib/bulk";
+import { planAccount } from "@/lib/planner";
 import { enqueueDiscover } from "@/lib/discover-queue";
 import { fireWebhook } from "@/lib/webhook";
 import { randomBytes } from "node:crypto";
@@ -383,6 +384,14 @@ export async function saveTemplate(_: SaveTemplateState, form: FormData): Promis
   }
   const t = await newVersion(step.id, segmentId, lang, variant, body, approve, ctx);
   await audit(ctx, approve ? "template.approve" : "template.draft", { agentId: agent.id, stepId: step.id, version: t.version, lang, variant });
+  if (approve) {
+    // Onay bekleyen taslaklar eski metinle hazırlanmıştı: bu adımın bekleyenleri iptal edilip yeni metinle yeniden hazırlanır
+    const stale = await prisma.job.updateMany({
+      where: { status: "AWAITING_APPROVAL", agentProspect: { agentId: agent.id }, payload: { path: ["stepId"], equals: step.id } },
+      data: { status: "CANCELLED", lastError: "Mesaj metni güncellendi; taslak yeniden hazırlanır." },
+    });
+    if (stale.count > 0 && agent.linkedinAccountId) await planAccount(agent.linkedinAccountId, { force: true }).catch(() => undefined);
+  }
   revalidatePath(`/kampanyalar/${agent.id}`);
   revalidatePath("/", "layout");
   return { ok: approve ? `Sürüm ${t.version} onaylandı; bundan sonraki gönderimlerde kullanılır.` : `Sürüm ${t.version} taslak olarak kaydedildi.` };
