@@ -387,7 +387,7 @@ export async function saveTemplate(_: SaveTemplateState, form: FormData): Promis
   if (approve) {
     // Onay bekleyen taslaklar eski metinle hazırlanmıştı: bu adımın bekleyenleri iptal edilip yeni metinle yeniden hazırlanır
     const stale = await prisma.job.updateMany({
-      where: { status: "AWAITING_APPROVAL", agentProspect: { agentId: agent.id }, payload: { path: ["stepId"], equals: step.id } },
+      where: { status: "AWAITING_APPROVAL", linkedinAccountId: agent.linkedinAccountId, payload: { path: ["stepId"], equals: step.id } },
       data: { status: "CANCELLED", lastError: "Mesaj metni güncellendi; taslak yeniden hazırlanır." },
     });
     if (stale.count > 0 && agent.linkedinAccountId) await planAccount(agent.linkedinAccountId, { force: true }).catch(() => undefined);
