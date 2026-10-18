@@ -422,9 +422,11 @@ export async function assistTemplate(input: { id: string; stepId: string; body: 
 export async function bulkPeople(form: FormData) {
   const { ctx, agent } = await own(String(form.get("id")));
   const tab = `kisiler${form.get("filtre") ? `&filtre=${encodeURIComponent(String(form.get("filtre")))}` : ""}`;
-  const logId = await applyBulk(ctx, String(form.get("op")), form.getAll("ap").map(String), agent.id);
+  const ids = form.getAll("ap").map(String);
+  const op = String(form.get("op"));
+  const logId = await applyBulk(ctx, op, ids, agent.id);
   revalidatePath("/", "layout");
-  back(agent.id, tab, logId ? `&geri=${logId}` : "");
+  back(agent.id, tab, logId ? `&geri=${logId}` : `&bos=${ids.length}-${op}`);
 }
 
 export async function undoAction(form: FormData) {
