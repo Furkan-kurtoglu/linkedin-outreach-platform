@@ -311,7 +311,17 @@ describe("alakasız sağlık meslekleri", () => {
 });
 
 describe("profil doğrulaması", () => {
-  const t2 = { ...t, knownCompanies: ["Özel Levent Hastanesi"] };
+  const t2: Targeting = {
+    titles: ["Hastane Müdürü", "Genel Müdür", "Genel Müdür Yardımcısı", "Hasta Hizmetleri", "Anlaşmalı Kurumlar", "Başhekim"],
+    excludedTitles: ["Stajyer", "Hemşire", "Asistan"],
+    locations: ["İstanbul"],
+    industries: [],
+    excludedCompanies: ["Acıbadem Sağlık Grubu"],
+    excludedCompanyKeywords: ["devlet hastanesi", "eğitim ve araştırma", "şehir hastanesi", "üniversite"],
+    requiredCompanyKeywords: ["özel hastane", "hastanesi", "hospital", "sağlık grubu"],
+    segments: [{ id: "h", name: "Özel hastaneler", keywords: ["hastane", "hospital"] }],
+    knownCompanies: ["Özel Levent Hastanesi"],
+  };
   it("kartta ad tekrarını gerçek başlık saymaz", () => {
     expect(hasRealHeadline("Zeynep Aytumur Zeynep Aytumur", "Zeynep Aytumur")).toBe(false);
     expect(hasRealHeadline("Hastane Müdürü", "Zeynep Aytumur")).toBe(true);
