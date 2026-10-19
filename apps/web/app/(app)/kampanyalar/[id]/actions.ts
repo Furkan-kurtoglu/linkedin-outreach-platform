@@ -1,5 +1,5 @@
 "use server";
-import { GeminiProvider, assist, scoreProspect, resolveUncertain, isOpenToWork, companyQueryUrls, parseKinds, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
+import { GeminiProvider, assist, scoreProspect, resolveUncertain, isOpenToWork, hasRealHeadline, verifyReason, companyQueryUrls, parseKinds, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -451,9 +451,14 @@ export async function reevaluateEliminated(form: FormData) {
   });
   let restored = 0;
   for (const r of rows) {
-    if (r.skipReason?.startsWith("LinkedIn")) continue;
+    if (r.skipReason?.startsWith("LinkedIn") || r.skipReason?.startsWith("Profilde doğrulandı")) continue;
     const p = r.prospect;
-    const sc = scoreProspect({ fullName: p.fullName, title: p.title ?? undefined, company: p.company ?? undefined, location: p.location ?? undefined, about: p.headline ?? undefined }, targeting);
+    // Ad tekrarı gibi çöp başlıklar yok sayılır; kişi unvanı bilinmiyorsa profilden doğrulanır
+    const realTitle = hasRealHeadline(p.title ?? undefined, p.fullName) ? p.title ?? undefined : undefined;
+    const realHeadline = hasRealHeadline(p.headline ?? undefined, p.fullName) ? p.headline ?? undefined : undefined;
+    const hasH = !!(realTitle || realHeadline);
+    const input = { fullName: p.fullName, title: realTitle, company: p.company ?? undefined, location: p.location ?? undefined, about: realHeadline };
+    const sc = scoreProspect(input, targeting);
     if (sc.verdict !== "elendi" && full.skipOpenToWork && isOpenToWork(p.headline ?? undefined, p.title ?? undefined)) continue;
     let stage: "QUEUED" | "NEEDS_REVIEW" | null = null;
     if (sc.verdict === "uygun") stage = "QUEUED";
@@ -462,7 +467,9 @@ export async function reevaluateEliminated(form: FormData) {
       stage = d === "drop" ? null : d === "queue" ? "QUEUED" : "NEEDS_REVIEW";
     }
     if (!stage) {
-      await prisma.agentProspect.update({ where: { id: r.id }, data: { fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: sc.reasons[sc.reasons.length - 1] } });
+      const vr = sc.verdict === "elendi" ? verifyReason(input, hasH, sc, targeting) : undefined;
+      const priority = vr ? 40 + (p.source === "ACCOUNTS" ? 15 : 0) + (p.degree === 1 ? 20 : p.degree === 2 ? 10 : 0) + Math.min(10, Math.floor((p.mutualConnections ?? 0) / 5)) : undefined;
+      await prisma.agentProspect.update({ where: { id: r.id }, data: { fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: vr ? `Doğrulama bekliyor: ${vr}` : sc.reasons[sc.reasons.length - 1], ...(priority ? { priority } : {}) } });
       continue;
     }
     await prisma.agentProspect.update({ where: { id: r.id }, data: { stage, fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: null } });

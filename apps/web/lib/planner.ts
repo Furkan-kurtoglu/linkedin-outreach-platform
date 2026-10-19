@@ -460,6 +460,8 @@ export async function planAccount(accountId: string, opts: { now?: Date; force?:
           profileUrl: cand.prospect.linkedinUrl,
           readPost: (agent.firstLineEnabled && agent.firstLineSources.includes("post")) || undefined,
           readEducation: (agent.firstLineEnabled && agent.firstLineSources.includes("school")) || undefined,
+          // Davetten önce güncel pozisyon (unvan + kurum + görev) profilden doğrulanır
+          verify: true,
         },
         agentProspectId: cand.ap.id,
       }),
@@ -568,6 +570,29 @@ async function periodicJobs(account: LinkedinAccount, agents: Agent[], now: Date
   if (talking > 0 && (await due("CHECK_INBOX", CHECK_EVERY_MS)))
     out.push(job({ ...base, type: "CHECK_INBOX", priority: 2, payload: { type: "CHECK_INBOX", limit: 20 } }));
   if (await due("SYNC_SENT_INVITES", 20 * HOUR)) out.push(job({ ...base, type: "SYNC_SENT_INVITES", priority: 30, payload: { type: "SYNC_SENT_INVITES" } }));
+
+  // Doğrulama ziyaretleri: kartta unvan/kurum anlaşılamayan ama umut vadeden kişiler (en öncelikli önce) profilden okunur.
+  // LinkedIn'i yormamak için günde en çok 30, aynı anda en çok 10 ziyaret.
+  {
+    const verifyJobs = { linkedinAccountId: account.id, type: "VISIT_PROFILE" as const, payload: { path: ["verify"], equals: true } };
+    const [open, last24h] = await Promise.all([
+      prisma.job.count({ where: { ...verifyJobs, status: { in: [...OPEN_JOB] } } }),
+      prisma.job.count({ where: { ...verifyJobs, createdAt: { gte: new Date(now.getTime() - DAY) } } }),
+    ]);
+    const room = Math.min(10 - open, 30 - last24h);
+    if (room > 0 && agentIds.length) {
+      const busy = (await prisma.job.findMany({ where: { linkedinAccountId: account.id, type: "VISIT_PROFILE", agentProspectId: { not: null }, OR: [{ status: { in: [...OPEN_JOB] } }, { status: "FAILED", createdAt: { gte: new Date(now.getTime() - 3 * DAY) } }] }, select: { agentProspectId: true } })).map((x) => x.agentProspectId!);
+      const rows = await prisma.agentProspect.findMany({
+        where: { agentId: { in: agentIds }, stage: "SKIPPED", skipReason: { startsWith: "Doğrulama bekliyor" }, id: { notIn: busy } },
+        orderBy: [{ priority: { sort: "desc", nulls: "last" } }, { createdAt: "asc" }],
+        take: room,
+        include: { prospect: { select: { linkedinUrl: true } } },
+      });
+      for (const r of rows) {
+        out.push(job({ ...base, type: "VISIT_PROFILE", priority: 25, payload: { type: "VISIT_PROFILE", profileUrl: r.prospect.linkedinUrl, verify: true }, agentProspectId: r.id }));
+      }
+    }
+  }
 
   // Kişi bulma sürekli çalışır: kampanyada bekleyen kişi tamponu (üç haftalık davet hakkı) dolmadıkça,
   // önceki tur bittikten 3 saat sonra yeni tur başlar; günde en çok 3 tur (LinkedIn'i yormamak için).

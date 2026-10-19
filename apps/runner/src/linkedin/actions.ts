@@ -82,7 +82,7 @@ async function readEducation(page: Page): Promise<string[]> {
 
 const DEGREE_RE = /(?:^|\s|·|•)(1|2|3)(?:\.|st|nd|rd|th)(?:\s|$)/;
 
-export async function visitProfile(page: Page, url: string, opts: { readPost?: boolean; readEducation?: boolean; mySchools: string[] }): Promise<VisitData> {
+export async function visitProfile(page: Page, url: string, opts: { readPost?: boolean; readEducation?: boolean; verify?: boolean; mySchools: string[] }): Promise<VisitData> {
   await open(page, url);
   const top = page.locator("main section").first();
   const fullName = await profileName(page, 15_000);
@@ -124,7 +124,9 @@ export async function visitProfile(page: Page, url: string, opts: { readPost?: b
     .catch(() => undefined);
 
   // Deneyim bölümü: üstteki kartta kurum yoksa son çalışılan kurumlardan tamamlanır
-  const experience = company ? undefined : await readExperience(page);
+  // Doğrulama ziyaretinde (ve kurum bilinmiyorsa) pozisyonlar okunur; karar kartın başlığına değil profile göre verilir
+  const positions = opts.verify || !company ? await readPositions(page) : undefined;
+  const experience = positions?.length ? [...new Set(positions.map((x) => x.company).filter((x): x is string => !!x))].slice(0, 4) : company ? undefined : await readExperience(page);
 
   let sharedSchool: string | undefined;
   if (opts.readEducation && opts.mySchools.length) {
@@ -148,9 +150,72 @@ export async function visitProfile(page: Page, url: string, opts: { readPost?: b
     if (post && relativeToDate(when).getTime() > Date.now() - 30 * 86_400_000) recentPostText = post.slice(0, 1000);
   }
 
-  return { fullName, headline, location, company, experience, degree, mutualName, mutualConnections, invitePending, openProfile, about, sharedSchool, recentPostText };
+  return { fullName, headline, location, company, experience, positions, degree, mutualName, mutualConnections, invitePending, openProfile, about, sharedSchool, recentPostText };
 }
 
+
+/**
+ * Deneyim bölümündeki pozisyonlar. LinkedIn düzeni sık değiştiği için bölümün görünür metin satırları düz sırayla
+ * okunur: tarih satırı ("Oca 2020 - Günümüz") bir pozisyonun işaretidir; üstündeki satırlar unvan ve kurumdur.
+ * Aynı kurumda birden çok pozisyonda kurum başlığı yalnızca süre satırıyla ("3 yıl 2 ay") gelir.
+ */
+async function readPositions(page: Page): Promise<{ title?: string; company?: string; current: boolean; description?: string }[] | undefined> {
+  const raw = await page
+    .evaluate(() => {
+      const sec = document.querySelector("section:has(#experience)");
+      if (!sec) return [] as string[];
+      const out: string[] = [];
+      for (const el of Array.from(sec.querySelectorAll("span[aria-hidden='true']")) as HTMLElement[]) {
+        const t = (el.innerText ?? "").replace(/\s+/g, " ").trim();
+        if (t && out[out.length - 1] !== t) out.push(t);
+      }
+      return out;
+    })
+    .catch(() => [] as string[]);
+  if (!raw.length) return undefined;
+  const DATE_LINE = /((19|20)\d{2}|Present|Günümüz|Halen|Devam ediyor)\s*[-–]\s*((19|20)\d{2}|Present|Günümüz|Halen|Devam ediyor|\w+\.?\s*(19|20)\d{2})|^((19|20)\d{2})\s*·/i;
+  const DURATION_ONLY = /^(\d+\s*(yıl|yil|yr|yrs|ay|mo|mos|year|years|month|months)\s*)+$/i;
+  const CURRENT = /(Present|Günümüz|Halen|Devam ediyor)/i;
+  const out: { title?: string; company?: string; current: boolean; description?: string }[] = [];
+  let group: string | undefined;
+  for (let i = 0; i < raw.length && out.length < 6; i++) {
+    const line = raw[i]!;
+    if (DURATION_ONLY.test(line) && i > 0) {
+      group = raw[i - 1]!.split("·")[0]?.trim();
+      continue;
+    }
+    if (!DATE_LINE.test(line) || line.length > 70) continue;
+    const prev = raw[i - 1];
+    const prev2 = raw[i - 2];
+    if (!prev) continue;
+    let title: string | undefined;
+    let company: string | undefined;
+    if (prev.includes("·") && prev2 && !DATE_LINE.test(prev2)) {
+      // "Şirket · Tam zamanlı" biçimi: unvan bir üst satırda
+      title = prev2;
+      company = prev.split("·")[0]?.trim();
+      group = undefined;
+    } else if (group) {
+      title = prev;
+      company = group;
+    } else {
+      title = prev2 && !DATE_LINE.test(prev2) ? prev2 : prev;
+      company = prev2 && !DATE_LINE.test(prev2) ? prev : undefined;
+    }
+    // Sonraki uzun satır görev tanımıdır (konum satırı kısa ve virgüllü olur)
+    let description: string | undefined;
+    for (let j = i + 1; j < Math.min(i + 4, raw.length); j++) {
+      const l = raw[j]!;
+      if (DATE_LINE.test(l)) break;
+      if (l.length > 50) {
+        description = l.slice(0, 400);
+        break;
+      }
+    }
+    out.push({ title: title?.slice(0, 120), company: company?.slice(0, 100), current: CURRENT.test(line), description });
+  }
+  return out.length ? out : undefined;
+}
 
 /** Deneyim bölümündeki kurum adları (şu an çalıştıkları önce, ardından en yeniden eskiye). */
 async function readExperience(page: Page): Promise<string[] | undefined> {
@@ -561,11 +626,15 @@ export async function discover(page: Page, steps: DiscoverStepPayload[], viewBud
         const degree = degLine ? (Number(DEGREE_RE.exec(` ${degLine} `)![1]) as 1 | 2 | 3) : step.source === "connections" ? 1 : undefined;
         const rest = lines.filter((l) => l !== degLine && !/^(connect|bağlantı kur|message|mesaj|follow|takip et|pending|beklemede)$/i.test(l));
         const mutualLine = rest.find((l) => /ortak bağlantı|mutual connection/i.test(l));
-        const content = rest.filter((l) => l !== mutualLine && !/^(current|şu an|past|geçmiş):/i.test(l));
+        // Ad tekrarı ve "profilini görüntüle" gibi satırlar başlık sayılmaz; "Şu an:" satırı güncel görevi taşır
+        const nameKey = norm(r.name);
+        const nameLike = (l: string) => { const n = norm(l); return n === nameKey || n === `${nameKey} ${nameKey}` || /(profilini goruntule|view .*profile)/.test(n); };
+        const curLine = rest.find((l) => /^(current|şu an|mevcut):/i.test(l))?.replace(/^[^:]+:\s*/, "").trim();
+        const content = rest.filter((l) => l !== mutualLine && !/^(current|şu an|past|geçmiş|mevcut):/i.test(l) && !nameLike(l));
         candidates.push({
           profileUrl: url,
           fullName: r.name,
-          headline: content[0],
+          headline: content[0] && curLine ? `${content[0]} · Şu an: ${curLine}` : (content[0] ?? curLine),
           location: content[1],
           degree,
           mutualConnections: mutualLine ? Number(mutualLine.match(/(\d+)/)?.[1] ?? 1) : undefined,

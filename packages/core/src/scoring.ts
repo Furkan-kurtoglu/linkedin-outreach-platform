@@ -35,6 +35,8 @@ export interface Targeting {
   segments: SegmentRule[];
   /** Tercihli ifadeler: bulunursa puan artar, bulunmaması elemez */
   preferredKeywords?: string[];
+  /** Hedef kurum listesindeki kurumlar: güncel şirket bunlardan biriyse kurum doğrulanmış sayılır */
+  knownCompanies?: string[];
 }
 
 export type Verdict = "uygun" | "belirsiz" | "elendi";
@@ -81,7 +83,7 @@ const STRONG_MANAGER_RE = /(mudur|direktor|director|manager|baskan|chief|preside
 const TOP_RE = /(hastane (mudur|direktor|baskan)|hospital (director|manager|administrator|ceo)|genel mudur|general manager|managing director|ceo|chief executive|bashekim|bas hekim|hekim basi|yonetim kurulu|isletme mudur|medical director|chief medical)/
 const FOUNDER_RE = /(kurucu|founder|owner|sahib)/
 /** Hasta hizmetleri ve gelir/fatura tarafı yöneticileri: ürünün asıl alıcıları. */
-const OFF_FUNCTION_RE = /(bilgi islem|bilgi sistem|bilgi teknoloji|information|\bit\b|insan kaynak|human resource|\bik\b|\bhr\b|kalite|quality|pazarlama|marketing|satis|sales|satin alma|tedarik|procurement|supply|lojistik|logistic|biyomedikal|biomedical|teknik|facility|guvenlik|security|yazilim|software|e-ticaret|ticaret|egitim|akademi|insaat|santiye|hukuk|legal|halkla iliskiler|kurumsal iletisim|reklam|dijital|digital)/;
+const OFF_FUNCTION_RE = /(bilgi islem|bilgi sistem|bilgi teknoloji|information|\bit\b|insan kaynak|human resource|\bik\b|\bhr\b|kalite|quality|pazarlama|marketing|satis|sales|satin alma|tedarik|procurement|supply|lojistik|logistic|biyomedikal|biomedical|teknik|facility|guvenlik|security|yazilim|software|e-ticaret|ticaret|egitim|akademi|insaat|santiye|hukuk|legal|halkla iliskiler|kurumsal iletisim|reklam|dijital|digital|project|proje |product|urun|account|store|magaza|branch|sube)/;
 const FUNCTION_RE = /((^|[^a-z])hasta([^a-z]|$)|patient|muhasebe|fatura|gelir|revenue|finans|mali |fiyatland|pricing|provizyon|anlasmali)/
 /** Kurum adı belli olmasa da unvanın kendisi sağlık kurumuna işaret ediyorsa. */
 const HEALTH_TITLE_RE = /(hasta|patient|hastane|hospital|klinik|clinic|saglik|health|medikal|medical|tibbi|bashekim|hekim)/
@@ -92,7 +94,7 @@ const HEALTH_ORG_RE = /(hastane|hospital|healthcare|health care|saglik grub|sagl
 const NON_HEALTH_RE = /(sigorta|insurance|banka|bank\b|holding|reklam|medya|media|yazilim|software|otel|hotel|insaat|enerji|energy|lojistik|logistics|egitim|okul|school|universite|university|eczane|pharma|ilac|otomotiv|tekstil|gida)/
 const GENERIC_ORG_WORDS = new Set(["ozel", "hastanesi", "hastane", "hospital", "saglik", "grubu", "group", "healthcare", "medical", "tip", "merkezi", "kliniği", "klinik", "sirketi", "a.s", "as"]);
 /** Hariç kurum kuralındaki marka sözcüğü: "Acıbadem Sağlık Grubu" -> "acibadem" (Acıbadem Altunizade Hastanesi'ni de yakalar). */
-function brandOf(rule: string): string | undefined {
+export function brandOf(rule: string): string | undefined {
   const w = fold(rule.split(/\s+-/)[0] ?? "").split(/[^a-z0-9]+/).filter(Boolean).find((x) => !GENERIC_ORG_WORDS.has(x));
   return w && w.length >= 5 ? w : undefined;
 }
@@ -175,6 +177,9 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
     if (hit) {
       score += 15;
       reasons.push(`Kurum bilgisinde "${hit}" geçiyor.`);
+    } else if (p.company && t.knownCompanies?.some((k) => { const b = brandOf(k); return !!b && new RegExp(`(^|[^a-z0-9])${b}`).test(fold(p.company ?? "")); })) {
+      score += 15;
+      reasons.push("Kurum hedef kurum listesinde.");
     } else if ((HEALTH_ORG_RE.test(fold(orgText)) || HEALTH_TITLE_RE.test(foldedTitle)) && t.requiredCompanyKeywords.some((k) => HEALTH_ORG_RE.test(fold(k)))) {
       score += 10;
       reasons.push("Kurum bir sağlık kuruluşu görünüyor.");
@@ -213,6 +218,12 @@ export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
 
   // Kurucu/sahip yalnızca sağlık kurumu doğrulanmışsa karar verici sayılır
   if (!titleHit && FOUNDER_RE.test(foldedTitle)) titleHit = "kurucu/sahip (sağlık kurumu doğrulandı)";
+  // Yönetici sıfatlı, hasta/gelir dışı birimi belli olmayan unvan + doğrulanmış hastane: karar verici adayı (puan düşük başlar)
+  if (!titleHit && STRONG_MANAGER_RE.test(foldedTitle) && requiredOk && /(hastane|hospital)/.test(fold(orgText))) {
+    titleHit = "yönetici sıfatı (hastane doğrulandı)";
+    score += 25;
+    reasons.push(`Unvanda "${titleHit}" geçiyor.`);
+  }
 
   // Karar: hedef unvan ya da üst yönetim/hasta-gelir yönetimi unvanı yoksa kişi listeye alınmaz
   if (!titleHit) return { score: Math.min(35, score), verdict: "elendi", reasons: [...reasons, "Hedef unvan listesinde yok; listeye alınmadı."] };

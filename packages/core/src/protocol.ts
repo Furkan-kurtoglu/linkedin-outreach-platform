@@ -62,6 +62,8 @@ export type JobPayload =
       readPost?: boolean;
       /** Ortak okul için eğitim bilgisini oku (yalnızca seçenek açıksa) */
       readEducation?: boolean;
+      /** Doğrulama ziyareti: Deneyim bölümündeki güncel pozisyonlar okunur, karar buna göre verilir */
+      verify?: boolean;
     }
   | ({ type: "SEND_INVITE"; profileUrl: string; note?: string } & StepRef)
   | ({ type: "SEND_MESSAGE"; profileUrl: string; text: string; attachment?: { fileId: string; name: string }; viaOpenProfile?: boolean } & StepRef)
@@ -92,6 +94,8 @@ export interface VisitData {
   about?: string;
   /** Deneyim bölümündeki kurum adları, en yeni önce (şu an çalıştıkları başta) */
   experience?: string[];
+  /** Deneyim bölümündeki pozisyonlar (unvan, kurum, güncel mi, görev tanımının başı) */
+  positions?: { title?: string; company?: string; current: boolean; description?: string }[];
   /** Profilde görünen ortak bağlantılardan ilki */
   mutualName?: string;
   mutualConnections?: number;

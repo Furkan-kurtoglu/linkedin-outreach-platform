@@ -11,6 +11,7 @@ export const FILTERS = [
   ["baglandi", "Bağlandı", ["CONNECTED", "MESSAGED", "INMAIL_SENT"]],
   ["cevap", "Cevap verdi", ["REPLIED"]],
   ["bitti", "Biten", ["FINISHED", "WITHDRAWN"]],
+  ["dogrulanacak", "Doğrulanacak", ["SKIPPED"]],
   ["elenen", "Elenenler", ["SKIPPED"]],
 ] as const satisfies readonly (readonly [string, string, readonly ProspectStage[] | undefined])[];
 
@@ -26,6 +27,9 @@ function baseWhere(agentId: string | undefined, filtre: string | undefined, work
   const f = FILTERS.find(([k]) => k === filtre) ?? FILTERS[0];
   const base: Prisma.AgentProspectWhereInput = agentId ? { agentId } : { agent: { workspaceId } };
   // Elenen/atlanan kişiler ana listeleri kirletmesin; yalnızca "Elenenler" sekmesinde görünür
+  // Doğrulanacaklar: kartta anlaşılamayıp profil ziyaretini bekleyenler; "Elenenler"den ayrı tutulur
+  if (f[0] === "dogrulanacak") return { ...base, stage: "SKIPPED", skipReason: { startsWith: "Doğrulama bekliyor" } };
+  if (f[0] === "elenen") return { AND: [base, { stage: "SKIPPED" }, { NOT: { skipReason: { startsWith: "Doğrulama bekliyor" } } }] };
   if (f[0] === "birinci") return { AND: [base, { stage: { not: "SKIPPED" } }, { OR: [{ branch: "CONNECTED" }, { prospect: { degree: 1 } }] }] };
   return f[2] ? { ...base, stage: { in: [...f[2]] } } : { ...base, stage: { not: "SKIPPED" } };
 }

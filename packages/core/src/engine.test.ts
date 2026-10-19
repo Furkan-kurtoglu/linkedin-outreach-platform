@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   AiLimitError,
+  hasRealHeadline,
+  scoreProfile,
+  verifyReason,
   GeminiProvider,
   PUBLIC_HOSPITAL_KEYWORDS,
   assist,
@@ -305,4 +308,37 @@ describe("alakasız sağlık meslekleri", () => {
     it(`${title} elenir`, () => {
       expect(scoreProspect({ fullName: "A B", title, company: "X Hastanesi" }, t).verdict).toBe("elendi");
     });
+});
+
+describe("profil doğrulaması", () => {
+  const t2 = { ...t, knownCompanies: ["Özel Levent Hastanesi"] };
+  it("kartta ad tekrarını gerçek başlık saymaz", () => {
+    expect(hasRealHeadline("Zeynep Aytumur Zeynep Aytumur", "Zeynep Aytumur")).toBe(false);
+    expect(hasRealHeadline("Hastane Müdürü", "Zeynep Aytumur")).toBe(true);
+  });
+  it("güncel pozisyona göre karar verir, geçmiş pozisyona bakmaz", () => {
+    const ok = scoreProfile({ fullName: "A", headline: "Yönetici", location: "İstanbul, Türkiye", positions: [{ title: "Hasta Hizmetleri Müdürü", company: "Özel Levent Hastanesi", current: true, description: "Hasta kabul ve provizyon süreçleri" }] }, t2);
+    expect(ok.verdict).not.toBe("elendi");
+    const past = scoreProfile({ fullName: "A", headline: "Hastane Müdürü", location: "İstanbul, Türkiye", positions: [{ title: "Hastane Müdürü", company: "Özel Levent Hastanesi", current: false }, { title: "Yazılım Müdürü", company: "Acme Yazılım", current: true }] }, t2);
+    expect(past.verdict).toBe("elendi");
+  });
+  it("Eda tipi: başlıkta kurum yok, profilde özel hastane var", () => {
+    const cardScore = scoreProspect({ fullName: "E", title: "İşletme Müdürü", location: "İstanbul, Türkiye" }, t2);
+    expect(cardScore.verdict).toBe("elendi");
+    expect(verifyReason({ fullName: "E", title: "İşletme Müdürü", location: "İstanbul, Türkiye" }, true, cardScore, t2)).toBeTruthy();
+    const prof = scoreProfile({ fullName: "E", headline: "İşletme Müdürü", location: "İstanbul, Türkiye", positions: [{ title: "İşletme Müdürü", company: "Özel Levent Hastanesi", current: true }] }, t2);
+    expect(prof.verdict).not.toBe("elendi");
+  });
+  it("kesin elenenler doğrulamaya gitmez", () => {
+    const e = (title: string, company?: string, location = "İstanbul, Türkiye") => {
+      const inp = { fullName: "X", title, company, location };
+      const sc = scoreProspect(inp, t2);
+      return sc.verdict === "elendi" ? verifyReason(inp, true, sc, t2) : "gecti";
+    };
+    expect(e("Hemşire")).toBeUndefined();
+    expect(e("Uzm. Dr. Ali")).toBeUndefined();
+    expect(e("Hastane Müdürü", "Özel X Hastanesi", "Bursa, Türkiye")).toBeUndefined();
+    expect(e("Bilgi Sistemleri Müdürü")).toBeUndefined();
+    expect(e("Founder")).toBeUndefined();
+  });
 });

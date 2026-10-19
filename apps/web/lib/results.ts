@@ -16,6 +16,9 @@ import {
   countExternalInvites,
   detectLanguage,
   featuresOf,
+  hasRealHeadline,
+  scoreProfile,
+  verifyReason,
   isOpenToWork,
   matchesExcludedCompany,
   learnedBoost,
@@ -114,22 +117,47 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
         }),
       ]);
 
-      // Kurum ancak ziyarette (üst kart ya da Deneyim bölümü) öğrenildiyse kişi yeniden puanlanır; hedef dışıysa davet gitmeden elenir
+      // Karar kartın başlığına değil profile göre verilir: Deneyim bölümündeki GÜNCEL pozisyonlar (unvan + kurum + görev tanımı)
+      const isVerify = ap.stage === "SKIPPED" && !!ap.skipReason?.startsWith("Doğrulama bekliyor");
       const foundCompany = d.company ?? split.company ?? d.experience?.[0];
-      if (!ap.prospect.company?.trim() && foundCompany && ["QUEUED", "NEEDS_REVIEW"].includes(ap.stage)) {
-        const agent = await prisma.agent.findUnique({ where: { id: ap.agentId }, include: { segments: true } });
+      const positions = d.positions ?? [];
+      if (["QUEUED", "NEEDS_REVIEW"].includes(ap.stage) || isVerify) {
+        const agent = await prisma.agent.findUnique({ where: { id: ap.agentId }, include: { segments: true, targetAccounts: { select: { name: true } } } });
         if (agent) {
           const excluded = (await prisma.suppression.findMany({ where: { workspaceId: account.workspaceId, kind: "company" }, select: { value: true } })).map((x) => x.value);
           const fresh = await prisma.prospect.findUniqueOrThrow({ where: { id: ap.prospectId } });
-          const sc = scoreProspect(
-            { fullName: fresh.fullName, title: fresh.title ?? undefined, company: fresh.company ?? undefined, location: fresh.location ?? undefined, about: [fresh.headline, d.experience?.join(" ")].filter(Boolean).join(" ") },
-            toTargeting(agent, agent.segments, excluded),
-          );
-          if (sc.verdict === "elendi") {
-            await prisma.agentProspect.update({ where: { id: ap.id }, data: { stage: "SKIPPED", fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: `Kurum profilden öğrenildi (${foundCompany}); ${sc.reasons[sc.reasons.length - 1]}` } });
-            await prisma.job.updateMany({ where: { agentProspectId: ap.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Kurum hedef dışı çıktı." } });
+          const targeting = { ...toTargeting(agent, agent.segments, excluded), knownCompanies: agent.targetAccounts.map((x) => x.name) };
+          let sc: (ReturnType<typeof scoreProfile> | undefined);
+          if (positions.length) {
+            sc = scoreProfile({ fullName: fresh.fullName, headline: d.headline ?? fresh.headline ?? undefined, location: d.location ?? fresh.location ?? undefined, positions }, targeting);
+          } else if (!ap.prospect.company?.trim() && foundCompany) {
+            sc = scoreProspect(
+              { fullName: fresh.fullName, title: fresh.title ?? undefined, company: fresh.company ?? undefined, location: fresh.location ?? undefined, about: [fresh.headline, d.experience?.join(" ")].filter(Boolean).join(" ") },
+              targeting,
+            );
+          }
+          if (!sc) {
+            if (isVerify) await prisma.agentProspect.update({ where: { id: ap.id }, data: { skipReason: "Profilde doğrulandı: pozisyon/kurum okunamadı; listeye alınmadı." } });
+          } else if (sc.verdict === "elendi") {
+            await prisma.agentProspect.update({ where: { id: ap.id }, data: { stage: "SKIPPED", fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: `Profilde doğrulandı: ${sc.reasons[sc.reasons.length - 1]}` } });
+            await prisma.job.updateMany({ where: { agentProspectId: ap.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Profilde hedef dışı çıktı." } });
           } else {
-            await prisma.agentProspect.update({ where: { id: ap.id }, data: { fitScore: sc.score, fitReason: sc.reasons.join(" · ") } });
+            const pos = "position" in sc ? sc.position : undefined;
+            if (pos?.title || pos?.company) await prisma.prospect.update({ where: { id: ap.prospectId }, data: { title: pos.title ?? undefined, company: pos.company ?? undefined } });
+            let stage: "QUEUED" | "NEEDS_REVIEW" | "SKIPPED" | undefined;
+            if (isVerify) {
+              const r = sc.verdict === "uygun" ? "queue" : resolveUncertain(agent.uncertainPolicy, sc.score);
+              stage = r === "queue" ? "QUEUED" : r === "drop" ? "SKIPPED" : "NEEDS_REVIEW";
+            }
+            await prisma.agentProspect.update({
+              where: { id: ap.id },
+              data: {
+                fitScore: sc.score,
+                fitReason: sc.reasons.join(" · "),
+                segmentId: sc.segmentId ?? undefined,
+                ...(stage ? { stage, ...(stage === "SKIPPED" ? { skipReason: "Profilde doğrulandı: belirsiz; kampanya ayarı gereği elendi." } : { skipReason: null }) } : {}),
+              },
+            });
           }
         }
       }
@@ -404,18 +432,22 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
   let added = 0;
   let review = 0;
   let rejected = 0;
+  let verify = 0;
   for (const c of data.candidates) {
     const url = canonicalProfileUrl(c.profileUrl);
     if (!url || blockedPeople.has(urlHash(url))) continue;
-    const split = c.title || c.company ? { title: c.title, company: c.company } : splitHeadline(c.headline);
-    const score = scoreProspect({ fullName: c.fullName, title: split.title, company: split.company, location: c.location, about: c.headline }, targeting);
+    // Kartta ad tekrarı ya da çöp satır varsa gerçek bir başlık yoktur; kişi profilinden doğrulanır
+    const hasHeadline = hasRealHeadline(c.headline, c.fullName);
+    const headline = hasHeadline ? c.headline : undefined;
+    const split = c.title || c.company ? { title: c.title, company: c.company } : splitHeadline(headline);
+    const score = scoreProspect({ fullName: c.fullName, title: split.title, company: split.company, location: c.location, about: headline }, targeting);
 
     const prospect = await prisma.prospect.upsert({
       where: { workspaceId_linkedinUrl: { workspaceId: ws.id, linkedinUrl: url } },
       update: {
         degree: c.degree ?? undefined,
         mutualConnections: c.mutualConnections ?? undefined,
-        headline: c.headline ?? undefined,
+        headline: headline ?? undefined,
       },
       create: {
         workspaceId: ws.id,
@@ -424,7 +456,7 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
         title: split.title,
         company: split.company,
         location: c.location,
-        headline: c.headline,
+        headline,
         degree: c.degree,
         mutualConnections: c.mutualConnections,
         source: ({ connections: "CONNECTIONS", accounts: "ACCOUNTS", search: "SEARCH", engagers: "ENGAGERS", import: "IMPORT" } as const)[c.source],
@@ -438,7 +470,7 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
     const lastEnded = prospect.agents.filter((a) => ["FINISHED", "REPLIED"].includes(a.stage)).map((a) => a.lastMessageAt ?? a.createdAt).sort((a, b) => b.getTime() - a.getTime())[0];
     const withdrawn = prospect.agents.map((a) => a.withdrawnAt).filter((d): d is Date => !!d).sort((a, b) => b.getTime() - a.getTime())[0];
 
-    if (agent.skipOpenToWork && score.verdict !== "elendi" && isOpenToWork(c.headline, split.title)) {
+    if (agent.skipOpenToWork && score.verdict !== "elendi" && isOpenToWork(headline, split.title)) {
       score.verdict = "elendi";
       score.reasons = ["İş arayan profil (Open to Work).", ...score.reasons];
     }
@@ -452,6 +484,16 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
       } else outcome = r === "queue" ? "queue" : "review";
     }
     if (score.verdict === "elendi") {
+      // Yalnızca kurum/özet bilgisi eksik olduğu için elenenler "doğrulanacak" havuzuna girer; profil ziyaretiyle karar verilir
+      const vr = verifyReason({ fullName: c.fullName, title: split.title, company: split.company, location: c.location, about: headline }, hasHeadline, score, targeting);
+      if (vr) {
+        verify++;
+        const priority = priorityScore({ candidate: { ...c, profileUrl: url }, fitScore: Math.max(score.score, 40), learnedBoost: 0 });
+        await prisma.agentProspect.create({
+          data: { agentId, prospectId: prospect.id, stage: "SKIPPED", fitScore: score.score, priority, fitReason: score.reasons.join(" · "), skipReason: `Doğrulama bekliyor: ${vr}`, segmentId: score.segmentId },
+        });
+        continue;
+      }
       rejected++;
       await prisma.agentProspect.create({
         data: { agentId, prospectId: prospect.id, stage: "SKIPPED", fitScore: score.score, fitReason: score.reasons.join(" · "), skipReason: score.reasons[score.reasons.length - 1], segmentId: score.segmentId },
@@ -482,7 +524,7 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
       workspaceId: ws.id,
       actor: "system",
       action: "discover",
-      details: { jobId, agentId, viewed: data.viewed, steps: data.steps, added, review, rejected } as Prisma.InputJsonValue,
+      details: { jobId, agentId, viewed: data.viewed, steps: data.steps, added, review, rejected, verify } as Prisma.InputJsonValue,
     },
   });
 }

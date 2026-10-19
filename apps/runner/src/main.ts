@@ -89,7 +89,7 @@ async function runJob(page: Page, api: PanelApi, self: SelfInfo, job: RunnerJob,
   const p: JobPayload = job.payload;
   switch (p.type) {
     case "VISIT_PROFILE":
-      return { ok: true, data: await visitProfile(page, p.profileUrl, { readPost: p.readPost, readEducation: p.readEducation, mySchools: self.schools }) };
+      return { ok: true, data: await visitProfile(page, p.profileUrl, { readPost: p.readPost, readEducation: p.readEducation, verify: p.verify, mySchools: self.schools }) };
     case "SEND_INVITE":
       return { ok: true, data: await sendInvite(page, p.profileUrl, p.note) };
     case "SEND_MESSAGE":
