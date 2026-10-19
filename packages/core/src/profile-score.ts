@@ -46,7 +46,7 @@ export function verifyReason(p: ProspectInput, hasHeadline: boolean, score: Scor
   if (/(kurucu|founder|owner|sahib)/.test(ft) && !/(mudur|direktor|director|manager|baskan|ceo|general|yonetici)/.test(ft)) return undefined;
   if (!hasHeadline) return "Kartta unvan okunamadı; profilden okunacak.";
   const counter = scoreProspect({ ...p, company: undefined, about: `${p.about ?? ""} Özel Hastanesi` }, { ...t, excludedCompanyKeywords: [] });
-  if (counter.verdict !== "elendi" && /(Kurum bilinmiyor|Kurum hedef sektör dışında|Kurumun özel|Hedef unvan)/.test(last)) return "Kurum kartta anlaşılmadı; profilden doğrulanacak.";
+  if (counter.verdict !== "elendi" && /(Kurum bilinmiyor|Kurumun özel|Hedef unvan)/.test(last)) return "Kurum kartta anlaşılmadı; profilden doğrulanacak.";
   return undefined;
 }
 
