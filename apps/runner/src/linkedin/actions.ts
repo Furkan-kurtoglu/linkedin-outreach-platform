@@ -125,7 +125,18 @@ export async function visitProfile(page: Page, url: string, opts: { readPost?: b
 
   // Deneyim bölümü: üstteki kartta kurum yoksa son çalışılan kurumlardan tamamlanır
   // Doğrulama ziyaretinde (ve kurum bilinmiyorsa) pozisyonlar okunur; karar kartın başlığına değil profile göre verilir
-  const positions = opts.verify || !company ? await readPositions(page) : undefined;
+  let positions: Awaited<ReturnType<typeof readPositions>>;
+  if (opts.verify || !company) {
+    // Bölümler aşağı kaydırıldıkça yüklenir: Deneyim görünene kadar birkaç kez kaydırılır
+    for (let i = 0; i < 4; i++) {
+      const has = await page.evaluate(() => !!document.querySelector("section:has(#experience)")).catch(() => false);
+      if (has) break;
+      await page.mouse.wheel(0, 1400).catch(() => undefined);
+      await pause(900, 1500);
+    }
+    positions = await readPositions(page);
+    if (opts.verify && !positions?.length) await dumpDebug(page, "deneyim-bos");
+  }
   const experience = positions?.length ? [...new Set(positions.map((x) => x.company).filter((x): x is string => !!x))].slice(0, 4) : company ? undefined : await readExperience(page);
 
   let sharedSchool: string | undefined;
@@ -162,7 +173,12 @@ export async function visitProfile(page: Page, url: string, opts: { readPost?: b
 async function readPositions(page: Page): Promise<{ title?: string; company?: string; current: boolean; description?: string }[] | undefined> {
   const raw = await page
     .evaluate(() => {
-      const sec = document.querySelector("section:has(#experience)");
+      let sec: Element | null = document.querySelector("section:has(#experience)");
+      if (!sec) {
+        // Anchor yoksa "Deneyim/Experience" başlıklı bölümü bul
+        const head = Array.from(document.querySelectorAll("main section h2, main section span[aria-hidden='true']")).find((e) => /^(Deneyim|Experience)$/i.test((e as HTMLElement).innerText?.trim() ?? ""));
+        sec = head?.closest("section") ?? null;
+      }
       if (!sec) return [] as string[];
       const out: string[] = [];
       for (const el of Array.from(sec.querySelectorAll("span[aria-hidden='true']")) as HTMLElement[]) {
