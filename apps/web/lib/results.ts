@@ -137,7 +137,7 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
             );
           }
           if (!sc) {
-            if (isVerify) await prisma.agentProspect.update({ where: { id: ap.id }, data: { skipReason: "Profilde doğrulandı: pozisyon/kurum okunamadı; listeye alınmadı." } });
+            if (isVerify) await prisma.agentProspect.update({ where: { id: ap.id }, data: { skipReason: "Doğrulama okunamadı: profilde pozisyon bulunamadı; elendi." } });
           } else if (sc.verdict === "elendi") {
             await prisma.agentProspect.update({ where: { id: ap.id }, data: { stage: "SKIPPED", fitScore: sc.score, fitReason: sc.reasons.join(" · "), skipReason: `Profilde doğrulandı: ${sc.reasons[sc.reasons.length - 1]}` } });
             await prisma.job.updateMany({ where: { agentProspectId: ap.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Profilde hedef dışı çıktı." } });
