@@ -27,6 +27,7 @@ import {
   priorityScore,
   scoreProspect,
   splitHeadline,
+  splitCurrent,
   suppressesPermanently,
   type CompanyDiscoverData,
   type EnrichCompaniesData,
@@ -439,7 +440,10 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
     // Kartta ad tekrarı ya da çöp satır varsa gerçek bir başlık yoktur; kişi profilinden doğrulanır
     const hasHeadline = hasRealHeadline(c.headline, c.fullName);
     const headline = hasHeadline ? c.headline : undefined;
-    const split = c.title || c.company ? { title: c.title, company: c.company } : splitHeadline(headline);
+    // Kartta "Şu an: ..." satırı varsa güncel görev başlıktan daha güvenilirdir
+    const curLine = headline?.split(/\s·\sŞu an:\s/)[1];
+    const cur = splitCurrent(curLine);
+    const split = c.title || c.company ? { title: c.title, company: c.company } : cur.company || cur.title ? cur : splitHeadline(headline);
     const score = scoreProspect({ fullName: c.fullName, title: split.title, company: split.company, location: c.location, about: headline }, targeting);
 
     const prospect = await prisma.prospect.upsert({

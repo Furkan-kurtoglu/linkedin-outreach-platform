@@ -86,7 +86,7 @@ const FOUNDER_RE = /(kurucu|founder|owner|sahib)/
 const OFF_FUNCTION_RE = /(bilgi islem|bilgi sistem|bilgi teknoloji|information|\bit\b|insan kaynak|human resource|\bik\b|\bhr\b|kalite|quality|pazarlama|marketing|satis|sales|satin alma|tedarik|procurement|supply|lojistik|logistic|biyomedikal|biomedical|teknik|facility|guvenlik|security|yazilim|software|e-ticaret|ticaret|egitim|akademi|insaat|santiye|hukuk|legal|halkla iliskiler|kurumsal iletisim|reklam|dijital|digital|project|proje |product|urun|account|store|magaza|branch|sube)/;
 const FUNCTION_RE = /((^|[^a-z])hasta([^a-z]|$)|patient|muhasebe|fatura|gelir|revenue|finans|mali |fiyatland|pricing|provizyon|anlasmali)/
 /** Kurum adı belli olmasa da unvanın kendisi sağlık kurumuna işaret ediyorsa. */
-const HEALTH_TITLE_RE = /(hasta|patient|hastane|hospital|klinik|clinic|saglik|health|medikal|medical|tibbi|bashekim|hekim)/
+const HEALTH_TITLE_RE = /((^|[^a-z])hasta([^a-z]|$)|patient|hastane|hospital|klinik|clinic|bashekim)/
 /** Kurum adından "sağlık kurumu" olduğunu anlamaya yarayan genel ifadeler. */
 const HEALTH_ORG_RE = /(hastane|hospital|healthcare|health care|saglik grub|saglik hizmet|medical ?park|medikal|medical center|tip merkezi)/
 
@@ -101,7 +101,8 @@ export function brandOf(rule: string): string | undefined {
 
 export function scoreProspect(p: ProspectInput, t: Targeting): ScoreResult {
   const reasons: string[] = [];
-  const orgText = [p.company, p.about, p.title].filter(Boolean).join(" ");
+  // "Hospitality" (otelcilik) "hospital" sayılmasın
+  const orgText = [p.company, p.about, p.title].filter(Boolean).join(" ").replace(/hospitality/gi, "otel");
 
   // Kesin eleme kuralları
   const brandText = fold([p.company, p.about, p.title].filter(Boolean).join(" "));

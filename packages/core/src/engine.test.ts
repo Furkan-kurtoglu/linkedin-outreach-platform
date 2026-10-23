@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AiLimitError,
   hasRealHeadline,
+  splitCurrent,
   scoreProfile,
   verifyReason,
   GeminiProvider,
@@ -339,6 +340,17 @@ describe("profil doğrulaması", () => {
     const prof = scoreProfile({ fullName: "E", headline: "İşletme Müdürü", location: "İstanbul, Türkiye", positions: [{ title: "İşletme Müdürü", company: "Özel Levent Hastanesi", current: true }] }, t2);
     expect(prof.verdict).not.toBe("elendi");
   });
+  it("kart güncel görev satırını ayırır; ilaç/otelcilik Medical Director'ı elenir", () => {
+    expect(splitCurrent("Medipol Sağlık Grubu şirketinde Ayaktan Hasta Hizmetleri Müdürü")).toEqual({ company: "Medipol Sağlık Grubu", title: "Ayaktan Hasta Hizmetleri Müdürü" });
+    expect(splitCurrent("Hospital Director at Memorial")).toEqual({ title: "Hospital Director", company: "Memorial" });
+    const e = (title: string, company?: string, about?: string) => scoreProspect({ fullName: "X", title, company, about, location: "İstanbul, Türkiye" }, t2).verdict;
+    expect(e("Medical Director", "Adeka İlaç A.Ş.")).toBe("elendi");
+    expect(e("Managing Director", "Doğuş Hospitality & Retail Group")).toBe("elendi");
+    expect(e("Medical Director", undefined, "AI-Powered Precision Medicine")).toBe("elendi");
+    expect(e("Hasta Hizmetleri Müdürü", "Medipol Sağlık Grubu")).not.toBe("elendi");
+    expect(e("Hasta Hizmetleri Müdürü")).not.toBe("elendi");
+  });
+
   it("kesin elenenler doğrulamaya gitmez", () => {
     const e = (title: string, company?: string, location = "İstanbul, Türkiye") => {
       const inp = { fullName: "X", title, company, location };

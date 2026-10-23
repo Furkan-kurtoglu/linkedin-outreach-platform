@@ -213,3 +213,14 @@ export function splitHeadline(headline: string | undefined): { title?: string; c
   if (parts.length >= 2) return { title: parts[0], company: parts[1] };
   return { title: h };
 }
+
+/** Arama kartındaki "Şu an: Kurum şirketinde Unvan" / "Current: Title at Company" satırını ayırır. */
+export function splitCurrent(line: string | undefined): { title?: string; company?: string } {
+  const l = line?.trim();
+  if (!l) return {};
+  const tr = l.match(/^(.+?)\s+(?:şirketinde|kurumunda|kuruluşunda|işletmesinde|firmasında|kurulușunda)\s+(.+)$/i);
+  if (tr) return { company: tr[1]!.trim(), title: tr[2]!.trim() };
+  const en = l.match(/^(.+?)\s+(?:at|@)\s+(.+)$/i);
+  if (en) return { title: en[1]!.trim(), company: en[2]!.trim() };
+  return { title: l };
+}
