@@ -1,5 +1,5 @@
 "use server";
-import { GeminiProvider, assist, scoreProspect, resolveUncertain, isOpenToWork, hasRealHeadline, verifyReason, companyQueryUrls, parseKinds, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
+import { GeminiProvider, assist, scoreProspect, resolveUncertain, isOpenToWork, hasRealHeadline, splitCurrent, verifyReason, companyQueryUrls, parseKinds, type JobPayload, canActivateAgent, canUndo, checkMessage, checkWebhookUrl, estimateDailyInvites, parseTime, validateAgentWindow, WEBHOOK_EVENTS, type AssistAction, type AssistResult } from "@hfo/core";
 import { prisma, Prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -457,7 +457,8 @@ export async function reevaluateEliminated(form: FormData) {
     const realTitle = hasRealHeadline(p.title ?? undefined, p.fullName) ? p.title ?? undefined : undefined;
     const realHeadline = hasRealHeadline(p.headline ?? undefined, p.fullName) ? p.headline ?? undefined : undefined;
     const hasH = !!(realTitle || realHeadline);
-    const input = { fullName: p.fullName, title: realTitle, company: p.company ?? undefined, location: p.location ?? undefined, about: realHeadline };
+    const cur = splitCurrent(realHeadline?.split(/\s·\sŞu an:\s/)[1]);
+    const input = { fullName: p.fullName, title: cur.title ?? realTitle, company: cur.company ?? p.company ?? undefined, location: p.location ?? undefined, about: realHeadline };
     const sc = scoreProspect(input, targeting);
     if (sc.verdict !== "elendi" && full.skipOpenToWork && isOpenToWork(p.headline ?? undefined, p.title ?? undefined)) continue;
     let stage: "QUEUED" | "NEEDS_REVIEW" | null = null;
@@ -480,7 +481,8 @@ export async function reevaluateEliminated(form: FormData) {
   let removed = 0;
   for (const r of live) {
     const p = r.prospect;
-    const sc = scoreProspect({ fullName: p.fullName, title: p.title ?? undefined, company: p.company ?? undefined, location: p.location ?? undefined, about: p.headline ?? undefined }, targeting);
+    const cur = splitCurrent(p.headline?.split(/\s·\sŞu an:\s/)[1]);
+    const sc = scoreProspect({ fullName: p.fullName, title: cur.title ?? p.title ?? undefined, company: cur.company ?? p.company ?? undefined, location: p.location ?? undefined, about: p.headline ?? undefined }, targeting);
     if (sc.verdict !== "elendi") {
       if (sc.score !== r.fitScore) await prisma.agentProspect.update({ where: { id: r.id }, data: { fitScore: sc.score, fitReason: sc.reasons.join(" · ") } });
       continue;
