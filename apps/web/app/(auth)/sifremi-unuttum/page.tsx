@@ -9,7 +9,7 @@ export default function Page() {
     <div className="login">
       <div className="card">
         <form className="card-b stack" action={action}>
-          <div className="logo" style={{ padding: 0 }}><i>H</i>HeAlthFintel Outreach</div>
+          <div className="logo" style={{ padding: 0 }}><i>H</i>Outreach Platformu</div>
           <h1 style={{ fontSize: 18 }}>Şifremi unuttum</h1>
           <div className="field">
             <label htmlFor="email">E-posta</label>

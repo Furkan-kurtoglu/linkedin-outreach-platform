@@ -16,7 +16,7 @@ GitHub'da depoya girin: **Settings → Secrets and variables → Actions → New
 
 | Ad | Değer |
 | --- | --- |
-| `HFO_PANEL` | (isteğe bağlı) Boş bırakılırsa `https://healthfintel-outreach.vercel.app` kullanılır. |
+| `HFO_PANEL` | (isteğe bağlı) Boş bırakılırsa `https://linkedin-outreach-platform.vercel.app` kullanılır. |
 | `HFO_TOKEN` | Panelde **LinkedIn hesapları → Yerel çalışan → Anahtarı yenile** ile çıkan `hfo_…` anahtarı. Yenileyince bilgisayardaki çalışanın anahtarı da değişir; onu da `baslat.bat --sifirla` ile yeniden girmeniz gerekir. |
 | `LI_AT` | LinkedIn oturum çerezi (aşağıya bakın) |
 

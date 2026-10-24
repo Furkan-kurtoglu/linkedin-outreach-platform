@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "HeAlthFintel Outreach", template: "%s · HeAlthFintel Outreach" },
+  title: { default: "Outreach Platformu", template: "%s · Outreach Platformu" },
   description: "LinkedIn iletişim paneli",
   robots: { index: false, follow: false },
 };

@@ -1,5 +1,5 @@
 #!/bin/bash
-# HeAlthFintel yerel çalışanı (Mac). Çift tıklayarak açın.
+# Yerel çalışanı (Mac). Çift tıklayarak açın.
 cd "$(dirname "$0")/../.." || exit 1
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js bulunamadı. https://nodejs.org adresinden LTS sürümünü kurup bu dosyayı tekrar açın."

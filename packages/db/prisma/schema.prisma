@@ -1,4 +1,4 @@
-// HeAlthFintel Outreach veri modeli.
+// Outreach platformu veri modeli.
 // Her kayıt bir çalışma alanına (workspace) bağlıdır: her kullanıcı yalnızca kendi verisini görür.
 
 generator client {

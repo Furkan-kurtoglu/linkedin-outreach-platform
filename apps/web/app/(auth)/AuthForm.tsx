@@ -10,7 +10,7 @@ export function AuthForm({ mode, next, notice }: { mode: "in" | "up"; next?: str
       <div className="card">
         <form className="card-b stack" action={action}>
           <div className="logo" style={{ padding: 0 }}>
-            <i>H</i>HeAlthFintel Outreach
+            <i>H</i>Outreach Platformu
           </div>
           <h1 style={{ fontSize: 18 }}>{mode === "in" ? "Giriş yap" : "Hesap oluştur"}</h1>
           {notice && <p className="form-error">{notice}</p>}

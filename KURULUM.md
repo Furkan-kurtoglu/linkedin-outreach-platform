@@ -13,7 +13,7 @@ Hesaplara girişleri ve gizli anahtar gerektiren adımları siz yaparsınız; gi
 2. **Supabase** (veritabanı, giriş ve belge deposu, ücretsiz): Vercel projesinde **Storage → Create Database → Supabase** → bölge **Frankfurt** → oluştur → projeye bağla.
    - Veritabanı ve Supabase anahtarları Vercel'e **otomatik** eklenir.
 3. **Deployments → Redeploy.** Yayın sırasında tablolar, güvenlik kuralları (RLS) ve özel `belgeler` deposu otomatik kurulur.
-4. Supabase panelinde **Authentication → URL Configuration → Site URL** = Vercel adresi (ör. `https://healthfintel-outreach.vercel.app`).
+4. Supabase panelinde **Authentication → URL Configuration → Site URL** = Vercel adresi (ör. `https://linkedin-outreach-platform.vercel.app`).
    - İsteğe bağlı: **Authentication → Providers → Email → Confirm email** kapatılırsa kayıt sonrası e-posta doğrulaması beklenmez (ücretsiz katmanda doğrulama e-postası saatte birkaç adetle sınırlıdır).
 5. Panelde kayıt olun → **LinkedIn hesapları** → hesabı ekleyin → **bağlantı anahtarı** oluşturun.
 

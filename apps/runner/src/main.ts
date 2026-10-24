@@ -1,5 +1,5 @@
 /**
- * HeAlthFintel yerel çalışanı.
+ * Yerel çalışanı.
  *
  * Bilgisayarınızda açık kaldığı sürece panelden sıradaki işi ister (profil ziyareti, davet,
  * mesaj…), işi kendi Chrome penceresinde yapar ve sonucu bildirir. LinkedIn şifreniz

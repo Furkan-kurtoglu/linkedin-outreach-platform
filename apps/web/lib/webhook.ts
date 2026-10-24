@@ -31,7 +31,7 @@ export async function fireWebhook(agent: Pick<Agent, "id" | "name" | "webhookUrl
         method: "POST",
         redirect: "error",
         signal: AbortSignal.timeout(6000),
-        headers: { "content-type": "application/json", "user-agent": "HeAlthFintel-Outreach/1", "x-hfo-event": body.event, ...(agent.webhookSecret ? { "x-hfo-signature": sign(agent.webhookSecret, payload) } : {}) },
+        headers: { "content-type": "application/json", "user-agent": "Outreach-Platform/1", "x-hfo-event": body.event, ...(agent.webhookSecret ? { "x-hfo-signature": sign(agent.webhookSecret, payload) } : {}) },
         body: payload,
       });
       status = res.ok ? `Teslim edildi (${res.status})` : `Alıcı hata döndü (${res.status})`;

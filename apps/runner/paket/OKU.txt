@@ -1,4 +1,4 @@
-HeAlthFintel yerel çalışanı
+Yerel çalışanı
 
 1. Baslat.bat dosyasına çift tıklayın (Mac: Baslat.command, sağ tık > Aç).
 2. İlk açılışta panelden aldığınız bağlantı anahtarını siyah pencerede SAĞ TIKLAYARAK yapıştırıp Enter'a basın (yazı görünmez).

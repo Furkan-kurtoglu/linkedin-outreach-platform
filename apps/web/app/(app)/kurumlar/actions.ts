@@ -11,7 +11,7 @@ import { readTargeting } from "@/lib/convert";
 import { SEED } from "@/lib/institution-seed";
 
 const MOH_URL = "https://shgmozelhasdb.saglik.gov.tr/TR-53567/ozel-hastane-listesi-faal.html";
-const UA = "HeAlthFintelOutreach/1.0 (kurum listesi; iletisim: healthfintel.com.tr)";
+const UA = "OutreachPlatform/1.0 (kurum listesi)";
 const clean = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 
 /** Aynı kurumu bir kez tutar; var olanlara dokunmaz. Eklenen sayıyı döner. */
