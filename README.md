@@ -1,10 +1,34 @@
-# HeAlthFintel Outreach
+# LinkedIn Outreach Platformu
 
-**LinkedIn'de sağlık ve finans alanındaki karar vericilere ulaşmak için ekibin kendi kurduğu, ücretsiz ve çok kullanıcılı iletişim platformu.**
+**Herhangi bir sektörde, doğru karar vericilere LinkedIn üzerinden güvenli ve kontrollü biçimde ulaşmak için kurulan, ücretsiz ve çok kullanıcılı bir iletişim platformu.**
 
-Panelden şirket ve kampanya tanımlarsınız; platform doğru kişileri bulur, davetleri haftalık güvenli sınırın içinde gün ve saatlere yayar, bağlantı kabul edildiği anda onayladığınız mesajı gönderir, gelen cevapları etiketler ve sıcak fırsatları ayrı bir panoda toplar. LinkedIn işlemleri hesabın sahibinin kendi bilgisayarında, kendi Chrome oturumuyla yapılır; LinkedIn şifresi hiçbir yerde saklanmaz.
+Panelden şirket ve kampanya tanımlarsınız; platform hedef kişileri bulur, her adayın **şu an çalıştığı kurumu ve görevini profilinden doğrular**, davetleri haftalık güvenli sınırın içinde gün ve saatlere yayar, bağlantı kabul edildiği anda onayladığınız mesajı gönderir, gelen cevapları etiketler ve sıcak fırsatları ayrı bir panoda toplar. LinkedIn işlemleri hesabın sahibinin kendi bilgisayarında, kendi Chrome oturumuyla yapılır; LinkedIn şifresi hiçbir yerde saklanmaz.
 
-Canlı panel: <https://healthfintel-outreach.vercel.app> (yalnızca izinli e-postalar girebilir)
+## Sektörden bağımsız tasarım
+
+Platformda hiçbir sektöre ait sabit kural yoktur; her şey kampanya ayarı olarak tanımlanır. Aynı yapı sağlık, finans, yazılım, üretim, eğitim, gayrimenkul, danışmanlık gibi herhangi bir alanda çalışır:
+
+- **Hedef unvanlar**: aranacak ve puan verilecek görevler (ör. "Satın Alma Müdürü", "Genel Müdür", "Pazarlama Direktörü").
+- **Hedef kurumlar**: elle girilen ya da listeden alınan kurum adları; eşleşen kuruma ek puan verilir.
+- **Sektör ve kurum anahtar kelimeleri**: kurumun doğru sektörde olduğunu doğrulayan ifadeler.
+- **Hariç tutma**: istenmeyen sektör, kurum, unvan ve ifadeler; bunlar kesin eleme sebebidir.
+- **Konum**: hedef şehir ve ülkeler.
+- **İşlev anahtar kelimeleri**: görev tanımında aranan konular; görev başlığı belirsizse görev açıklaması da değerlendirilir.
+- **Mesaj akışı**: ziyaret, davet, kabul sonrası mesaj ve takipler; şablonlar, zamanlama ve kurallar kampanya bazındadır.
+
+Yeni bir sektöre geçmek için kod değişmez; yalnızca yeni bir kampanya kurulur.
+
+## Kişi bulma ve doğrulama
+
+Arama sonucundaki kart yalnızca başlangıçtır; karar kartın üst satırına bakılarak verilmez.
+
+1. **Kartı oku**: ad, başlık, konum, bağlantı derecesi ve kartın "Şu an" satırındaki güncel görev ve kurum ayrıştırılır.
+2. **Katı puanla**: unvan, kurum, sektör, konum ve işlev uyumu puanlanır. Hariç tutulanlar, yanlış sektörler (ör. aynı unvanı taşıyan ama farklı alandaki kişiler) ve ilgisiz işlevler elenir.
+3. **Belirsizi doğrula**: kartta unvan ya da kurum anlaşılamıyorsa kişi atılmaz, "doğrulanacak" havuzuna alınır. Çalışan profili açar, **Deneyim bölümündeki güncel pozisyonların hepsini** okur (görev, kurum, süre, görev tanımı).
+4. **Güncel pozisyonu puanla**: her güncel pozisyon ayrı değerlendirilir, en uygunu kişinin kararı olur. Geçmiş görevler dikkate alınmaz. Görev tanımı hedef konularla ilgiliyse ek puan verilir.
+5. **Karar**: uygun olanlar kuyruğa girer, belirsizler kampanyanın "belirsizleri nasıl ele al" ayarına göre sorulur ya da elenir, uymayanlar gerekçesiyle elenir. Her karar gerekçesiyle saklanır ve geri alınabilir.
+
+Elenenler, kurallar değiştiğinde tek tuşla yeniden değerlendirilebilir; elle atlananlara dokunulmaz.
 
 ## Ne işe yarar
 
@@ -12,7 +36,8 @@ Canlı panel: <https://healthfintel-outreach.vercel.app> (yalnızca izinli e-pos
 | --- | --- |
 | **Şirketler** | Birden fazla şirket ekleyin; her şirkete ayrı temsilci (kampanya) atayın. Aynı anda en fazla **5 aktif temsilci** çalışır. |
 | **Kampanyalar** | Sihirbazla veya hazır şablonla kurun. Akış (ziyaret → davet → mesaj → takip), hedefleme, gönderim saatleri, otomatik geri çekme, A/B, öğrenme ve webhook ayarları kampanya bazında açılıp kapanır. |
-| **Kişi bulma** | Arama kriterlerinden aday toplar; unvan, sektör, kurum ve hariç tutma kurallarıyla puanlar; belirsiz adaylar için "sor / ele / güçlü olanı kabul et" seçeneği sunar. |
+| **Kişi bulma** | Arama kriterlerinden aday toplar; puanlar; profilden doğrular; belirsiz adaylar için "sor / ele / güçlü olanı kabul et" seçeneği sunar. |
+| **Kurumlar** | Hedef kurum listesi oluşturulur; kurumdaki kişiler bu listeye göre aranır ve puanlanır. |
 | **Onay kuyruğu** | Kural denetimine takılan veya sizin onay istediğiniz mesajlar gitmeden önce burada bekler. |
 | **Gelen kutusu** | Cevaplar etiketlenir (ilgili, ertele, ilgisiz, toplantı…), filtrelenir ve buradan yanıtlanır. |
 | **Fırsatlar** | Sıcak görüşmeler süreç panosunda aşama aşama izlenir. |
@@ -36,14 +61,14 @@ Tarayıcı ──► Panel (Next.js, Vercel) ──► Supabase PostgreSQL
 | --- | --- |
 | `apps/web` | Panel (Next.js 15, React 19, Supabase Auth, Prisma). Planlayıcı ve yerel çalışanın API'si de burada. |
 | `apps/runner` | Yerel çalışan. Panelden sıradaki işi ister, Chrome'da yapar, sonucu bildirir. Windows ve Mac. |
-| `packages/core` | Yapay zekâsız motor: akış, zamanlama, bütçeler, puanlama, mesaj kuralları, cevap etiketleme, öğrenme. Vitest ile test edilir. |
+| `packages/core` | Yapay zekâsız motor: akış, zamanlama, bütçeler, katı puanlama, profil doğrulama, mesaj kuralları, cevap etiketleme, öğrenme. Vitest ile test edilir. |
 | `packages/db` | Prisma şeması ve elle yazılmış SQL göçleri. |
 | `docs` | KVKK aydınlatma metni, arayüz planı, tasarım notları. |
 
 ### Nasıl çalışır
 
 1. Çalışan dakikada bir "sıradaki iş ne?" diye sorar. Panel o an planlama yapar (zamanlanmış görev gerekmez) ve zamanı gelmiş en öncelikli işi verir.
-2. Planlama; haftalık 180 davet sınırı, günlük bütçe, kampanya payları, gönderim pencereleri, tatiller, kurum başına sınır ve akış adımlarına göre yapılır. Son kontrol işi verirken tekrar yapılır.
+2. Planlama; haftalık 180 davet sınırı, günlük bütçe, kampanya payları, gönderim pencereleri, tatiller, kurum başına sınır ve akış adımlarına göre yapılır. Son kontrol işi verirken tekrar yapılır. Profil doğrulama ziyaretleri de aynı bütçe içinde, öncelik sırasıyla (ortak bağlantısı çok olan ve hedef kurumdan gelenler önce) yapılır.
 3. Çalışan işi Chrome'da insan gibi aralıklarla yapar. İki gönderim arasında en az 45 sn bekler; LinkedIn uyarısında gönderim 24 saat duraklar.
 4. Kabul edilen bağlantılar düzenli taranır; kabul edene detay mesajı kısa süre içinde (gece ise sabah) gider.
 5. Her mesaj gönderilmeden önce kural denetiminden geçer: yasak ifade, hariç kurum, karakter sınırı, zorunlu link. Geçmeyen mesaj onaya düşer.
