@@ -42,7 +42,17 @@ export async function loadConfig(): Promise<Config> {
   }
   try {
     const c = JSON.parse(await readFile(CONFIG_FILE, "utf8")) as Partial<Config>;
-    if (c.panelUrl && c.token) return { panelUrl: c.panelUrl, token: c.token };
+    if (c.panelUrl && c.token) {
+      // Panel adresi taşındıysa kayıtlı eski adres paketteki yeni adresle değiştirilir
+      const def = (process.env.HFO_DEFAULT_PANEL ?? "").replace(/\/+$/, "");
+      if (def && /^https?:\/\/\S+$/.test(def) && c.panelUrl.replace(/\/+$/, "") !== def && /\.vercel\.app$/.test(c.panelUrl.replace(/\/+$/, ""))) {
+        const moved = { panelUrl: def, token: c.token };
+        await writeFile(CONFIG_FILE, JSON.stringify(moved, null, 2), { mode: 0o600 });
+        console.log(`Panel adresi güncellendi: ${def}`);
+        return moved;
+      }
+      return { panelUrl: c.panelUrl, token: c.token };
+    }
   } catch {
     /* ilk çalıştırma */
   }
