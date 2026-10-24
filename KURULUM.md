@@ -6,7 +6,7 @@
 
 Hesaplara girişleri ve gizli anahtar gerektiren adımları siz yaparsınız; gizli anahtarlar hiçbir yere elle kopyalanmaz.
 
-1. **Vercel** (vercel.com, ücretsiz Hobby): GitHub ile giriş → **Add New → Project** → `healthfintel-outreach` deposunu içe aktar.
+1. **Vercel** (vercel.com, ücretsiz Hobby): GitHub ile giriş → **Add New → Project** → `linkedin-outreach-platform` deposunu içe aktar.
    - **Root Directory:** `apps/web` · Framework: Next.js (otomatik).
    - **Environment Variables:** yalnızca `ALLOWED_EMAILS` = panele girecek e-postalar (virgülle). İsteğe bağlı `GEMINI_API_KEY`.
    - Henüz **Deploy etmeyin** (ya da ilk yayın veritabanı olmadığı için hata verirse sorun değil).
