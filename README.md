@@ -4,6 +4,28 @@
 
 Panelden şirket ve kampanya tanımlarsınız; platform hedef kişileri bulur, her adayın **şu an çalıştığı kurumu ve görevini profilinden doğrular**, davetleri haftalık güvenli sınırın içinde gün ve saatlere yayar, bağlantı kabul edildiği anda onayladığınız mesajı gönderir, gelen cevapları etiketler ve sıcak fırsatları ayrı bir panoda toplar. LinkedIn işlemleri hesabın sahibinin kendi bilgisayarında, kendi Chrome oturumuyla yapılır; LinkedIn şifresi hiçbir yerde saklanmaz.
 
+## Ekran görüntüleri
+
+Aşağıdaki görüntüler örnek verilerle hazırlanmış arayüz prototipinden alınmıştır; gerçek kişi veya kurum içermez.
+
+| | |
+| --- | --- |
+| **Genel bakış**: haftalık davet sayacı, kabul oranı, ilgilenmeniz gerekenler, günlük davet grafiği. | ![Genel bakış](docs/ekran-goruntuleri/01-genel-bakis.png) |
+| **Kampanyalar**: her hedef kitle için ayrı temsilci; durum, haftalık pay ve sonuçlar tek listede. | ![Kampanyalar](docs/ekran-goruntuleri/02-kampanyalar.png) |
+| **Kampanya sihirbazı**: kimlere, hangi amaçla yazılacağı birkaç soruyla belirlenir; mesaj metinleri otomatik üretilir. | ![Kampanya sihirbazı](docs/ekran-goruntuleri/03-kampanya-sihirbazi.png) |
+| **Kişi bulma**: bağlantılarınız, hedef kurum listesi ve LinkedIn araması sırayla taranır; bulunan herkes kurallarla puanlanır. | ![Kişi bulma](docs/ekran-goruntuleri/04-kisi-bulma.png) |
+| **Onay kuyruğu**: kural denetimine takılan ya da sizin onay istediğiniz mesajlar gitmeden burada bekler. | ![Onay kuyruğu](docs/ekran-goruntuleri/05-onay-kuyrugu.png) |
+| **Gelen kutusu**: cevaplar etiketlenir ve buradan yanıtlanır. | ![Gelen kutusu](docs/ekran-goruntuleri/06-gelen-kutusu.png) |
+| **Fırsatlar**: sıcak görüşmeler aşama aşama izlenir. | ![Fırsatlar](docs/ekran-goruntuleri/07-firsatlar.png) |
+| **Hesaplar**: LinkedIn hesabının bağlantı durumu ve yerel çalışan anahtarı. | ![Hesaplar](docs/ekran-goruntuleri/08-hesaplar.png) |
+
+## Kısaca nasıl kullanılır
+
+1. Panelde bir kampanya kurarsınız: kime, hangi amaçla, hangi mesajla yazılacağını sihirbaz birkaç soruyla toplar.
+2. Kendi bilgisayarınıza yerel çalışanı kurar ve LinkedIn'e bir kez giriş yaparsınız.
+3. Platform kişileri bulur, doğrular ve davetleri haftalık sınırın içinde yayar. Mesajlar yalnızca onayladığınız metinlerle gider.
+4. Cevaplar gelen kutusunda, sıcak görüşmeler fırsatlar panosunda toplanır.
+
 ## Sektörden bağımsız tasarım
 
 Platformda hiçbir sektöre ait sabit kural yoktur; her şey kampanya ayarı olarak tanımlanır. Aynı yapı sağlık, finans, yazılım, üretim, eğitim, gayrimenkul, danışmanlık gibi herhangi bir alanda çalışır:
