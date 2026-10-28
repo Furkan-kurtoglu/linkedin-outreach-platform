@@ -1,6 +1,6 @@
 # LinkedIn Outreach Platformu
 
-**Herhangi bir sektörde, doğru karar vericilere LinkedIn üzerinden güvenli ve kontrollü biçimde ulaşmak için kurulan, ücretsiz ve çok kullanıcılı bir iletişim platformu.**
+**Herhangi bir sektörde, doğru karar vericilere LinkedIn üzerinden güvenli ve kontrollü biçimde ulaşmak için kurulan, ücretsiz ve çok kullanıcılı bir iletişim platformudur.**
 
 Panelden şirket ve kampanya tanımlarsınız; platform hedef kişileri bulur, her adayın **şu an çalıştığı kurumu ve görevini profilinden doğrular**, davetleri haftalık güvenli sınırın içinde gün ve saatlere yayar, bağlantı kabul edildiği anda onayladığınız mesajı gönderir, gelen cevapları etiketler ve sıcak fırsatları ayrı bir panoda toplar. LinkedIn işlemleri hesabın sahibinin kendi bilgisayarında, kendi Chrome oturumuyla yapılır; LinkedIn şifresi hiçbir yerde saklanmaz.
 
