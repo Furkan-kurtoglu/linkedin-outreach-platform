@@ -50,6 +50,7 @@ import { applyCompanyExclusions } from "./institution-exclusions";
 import { pooledModel } from "./learning-model";
 import { planAccount } from "./planner";
 import { extendRetention } from "./retention";
+import { notifyWorkspace } from "./email";
 import { fireWebhook } from "./webhook";
 
 const DAY = 86_400_000;
@@ -274,12 +275,16 @@ export async function handleResult(account: LinkedinAccount, job: Job, result: J
 async function handleError(account: LinkedinAccount, job: Job, error: string, message?: string) {
   const now = new Date();
   const fail = (data: Prisma.JobUpdateInput) => prisma.job.update({ where: { id: job.id }, data: { lockedUntil: null, lastError: message ?? error, ...data } });
+  // Aynı çalışma alanına bir saatte en fazla bir hata e-postası gider (art arda hatalarda spam olmaz).
+  const notifyError = (text: string) =>
+    notifyWorkspace(account.workspaceId, "error", { account: account.displayName, error: text }, { dedupeMinutes: 60 });
 
   switch (error) {
     case "session_expired":
       // İş kaybolmaz: oturum açılınca yeniden denenir
       await prisma.linkedinAccount.update({ where: { id: account.id }, data: { status: "NEEDS_LOGIN" } });
       await fail({ status: "PENDING" });
+      await notifyError("LinkedIn oturumu kapandı; panelden yeniden giriş yapılması gerekiyor.");
       return;
     case "linkedin_warning":
     case "invite_limit": {
@@ -289,6 +294,11 @@ async function handleError(account: LinkedinAccount, job: Job, error: string, me
         data: { status: "PAUSED", pausedUntil: until, lastWarning: message ?? (error === "invite_limit" ? "LinkedIn haftalık davet sınırı uyarısı gösterdi." : "LinkedIn bir uyarı gösterdi.") },
       });
       await fail({ status: "PENDING", runAfter: until });
+      await notifyError(
+        error === "invite_limit"
+          ? "LinkedIn haftalık davet sınırı uyarısı gösterdi; hesap bir gün duraklatıldı."
+          : "LinkedIn bir uyarı gösterdi; hesap bir gün duraklatıldı.",
+      );
       return;
     }
     case "not_found":
@@ -304,8 +314,10 @@ async function handleError(account: LinkedinAccount, job: Job, error: string, me
     }
     default: {
       const attempts = job.attempts + 1;
-      if (attempts >= MAX_ATTEMPTS) await fail({ status: "FAILED", attempts, finishedAt: now });
-      else await fail({ status: "PENDING", attempts, runAfter: new Date(now.getTime() + attempts * 15 * 60_000) });
+      if (attempts >= MAX_ATTEMPTS) {
+        await fail({ status: "FAILED", attempts, finishedAt: now });
+        await notifyError(`İş kalıcı olarak başarısız oldu (${job.type}): ${message ?? error}`);
+      } else await fail({ status: "PENDING", attempts, runAfter: new Date(now.getTime() + attempts * 15 * 60_000) });
     }
   }
 }
@@ -392,11 +404,13 @@ async function ingestInbox(account: LinkedinAccount, data: InboxData, now: Date)
     const lastText = fresh.at(-1)!.text;
     const label = classifyReply(lastText);
     const aps = await prisma.agentProspect.findMany({ where: { prospectId: prospect.id, agent: { linkedinAccountId: account.id } } });
+    let campaignName: string | undefined;
     for (const ap of aps) {
       await prisma.agentProspect.update({ where: { id: ap.id }, data: { stage: "REPLIED", repliedAt: ap.repliedAt ?? now, replyLabel: REPLY_DB[label] } });
       // Cevap gelen kişiye bekleyen otomatik mesaj gitmez
       await prisma.job.updateMany({ where: { agentProspectId: ap.id, status: { in: ["PENDING", "AWAITING_APPROVAL"] } }, data: { status: "CANCELLED", lastError: "Kişi cevap verdi." } });
       const ag = await prisma.agent.findUnique({ where: { id: ap.agentId } });
+      campaignName ??= ag?.name;
       if (ag?.webhookUrl) {
         const person = { name: prospect.fullName, title: prospect.title, company: prospect.company, linkedinUrl: prospect.linkedinUrl };
         await fireWebhook(ag, { event: "replied", person, message: lastText.slice(0, 500) });
@@ -406,6 +420,17 @@ async function ingestInbox(account: LinkedinAccount, data: InboxData, now: Date)
         const exists = await prisma.opportunity.findFirst({ where: { prospectId: prospect.id } });
         if (!exists) await prisma.opportunity.create({ data: { workspaceId: account.workspaceId, prospectId: prospect.id, agentId: ap.agentId } });
       }
+    }
+    // E-posta: kampanya başına değil, cevap başına tek bildirim (ilgilenen cevap sıcak fırsattır)
+    if (aps.length) {
+      await notifyWorkspace(account.workspaceId, label === "ilgileniyor" ? "interested" : "replied", {
+        campaign: campaignName,
+        personName: prospect.fullName,
+        personTitle: prospect.title,
+        personCompany: prospect.company,
+        linkedinUrl: prospect.linkedinUrl,
+        message: lastText.slice(0, 500),
+      });
     }
     if (suppressesPermanently(label)) {
       await prisma.suppression.upsert({
@@ -533,15 +558,28 @@ async function ingestDiscovery(account: LinkedinAccount, agentId: string, data: 
   });
 }
 
-/** Kabul olaylarını kampanyaların webhook adreslerine bildirir (hata akışı durdurmaz). */
+/** Kabul olaylarını kampanyaların webhook adreslerine ve çalışma alanının e-postasına bildirir (hata akışı durdurmaz). */
 async function notifyAccepted(apIds: string[]) {
   try {
     const rows = await prisma.agentProspect.findMany({ where: { id: { in: apIds } }, include: { prospect: true, agent: true } });
+    const byAgent = new Map<string, { agent: (typeof rows)[number]["agent"]; names: string[] }>();
     for (const r of rows) {
-      if (!r.agent.webhookUrl) continue;
-      await fireWebhook(r.agent, { event: "accepted", person: { name: r.prospect.fullName, title: r.prospect.title, company: r.prospect.company, linkedinUrl: r.prospect.linkedinUrl } });
+      if (r.agent.webhookUrl) {
+        await fireWebhook(r.agent, { event: "accepted", person: { name: r.prospect.fullName, title: r.prospect.title, company: r.prospect.company, linkedinUrl: r.prospect.linkedinUrl } });
+      }
+      const group = byAgent.get(r.agent.id) ?? { agent: r.agent, names: [] };
+      group.names.push(r.prospect.fullName);
+      byAgent.set(r.agent.id, group);
+    }
+    // Toplu kabulde kişi başına ayrı e-posta değil, kampanya başına tek özet gider
+    for (const { agent, names } of byAgent.values()) {
+      await notifyWorkspace(agent.workspaceId, "accepted", {
+        campaign: agent.name,
+        personName: names.length === 1 ? names[0] : `${names.length} kişi`,
+        message: names.length > 1 ? names.slice(0, 10).join(", ") + (names.length > 10 ? "…" : "") : undefined,
+      });
     }
   } catch {
-    /* webhook hatası sonuç işlemeyi bozmaz */
+    /* webhook/e-posta hatası sonuç işlemeyi bozmaz */
   }
 }

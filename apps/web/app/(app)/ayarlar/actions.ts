@@ -1,7 +1,9 @@
 "use server";
+import { EMAIL_EVENTS, MAX_NOTIFY_EMAILS, parseEmailList } from "@hfo/core";
 import { prisma } from "@hfo/db";
 import { revalidatePath } from "next/cache";
 import { audit, requireContext } from "@/lib/context";
+import { notifyWorkspace } from "@/lib/email";
 import { applyCompanyExclusions } from "@/lib/institution-exclusions";
 
 const lines = (v: FormDataEntryValue | null) =>
@@ -43,6 +45,38 @@ export async function saveExcluded(form: FormData) {
   }
   await applyCompanyExclusions(ctx.workspace.id);
   await audit(ctx, "settings.excluded", { count: wanted.length });
+  revalidatePath("/ayarlar");
+}
+
+export async function saveNotifications(form: FormData) {
+  const ctx = await requireContext();
+  const { emails, invalid } = parseEmailList(String(form.get("notifyEmails") ?? ""));
+  const events = EMAIL_EVENTS.map(([k]) => k).filter((k) => form.get(`ev-${k}`) === "on");
+  await prisma.workspace.update({
+    where: { id: ctx.workspace.id },
+    data: { notifyEmails: emails.slice(0, MAX_NOTIFY_EMAILS), notifyEvents: events },
+  });
+  await audit(ctx, "settings.notifications", { emails: emails.slice(0, MAX_NOTIFY_EMAILS), invalid, events });
+  revalidatePath("/ayarlar");
+}
+
+export async function testNotification() {
+  const ctx = await requireContext();
+  const status = await notifyWorkspace(
+    ctx.workspace.id,
+    "test",
+    {
+      workspace: ctx.workspace.name,
+      campaign: "Deneme kampanyası",
+      personName: "Örnek Kişi",
+      personTitle: "Genel Müdür",
+      personCompany: "Örnek Kurum",
+      linkedinUrl: "https://www.linkedin.com/in/ornek",
+      message: "Bu bir deneme bildirimidir.",
+    },
+    { force: true },
+  );
+  await audit(ctx, "settings.notifications.test", { status });
   revalidatePath("/ayarlar");
 }
 

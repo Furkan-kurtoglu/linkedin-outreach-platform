@@ -8,6 +8,7 @@ export * from "./names";
 export * from "./template";
 export * from "./schedule";
 export * from "./agentrules";
+export * from "./notify";
 export * from "./wizard";
 export * from "./generate";
 export * from "./salutation";

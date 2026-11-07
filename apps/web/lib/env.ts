@@ -16,6 +16,13 @@ export const env = {
   supabaseAnonKey: () => first("NEXT_PUBLIC_SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_ANON_KEY", "SUPABASE_PUBLISHABLE_KEY"),
   serviceRoleKey: () => first("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"),
   geminiKey: () => process.env.GEMINI_API_KEY || undefined,
+  /** E-posta bildirimi gönderen adresi (Resend/Brevo'da doğrulanmış alan adından). */
+  emailFrom: () => process.env.EMAIL_FROM?.trim() || undefined,
+  emailFromName: () => process.env.EMAIL_FROM_NAME?.trim() || "Outreach",
+  resendKey: () => process.env.RESEND_API_KEY?.trim() || undefined,
+  brevoKey: () => process.env.BREVO_API_KEY?.trim() || undefined,
+  /** E-posta gövdesindeki bağlantılar için panelin genel adresi. */
+  appUrl: () => process.env.APP_URL?.trim() || "https://linkedin-outreach-platform.vercel.app",
   allowedEmails: (): string[] =>
     (process.env.ALLOWED_EMAILS ?? "")
       .split(",")

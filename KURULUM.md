@@ -8,7 +8,7 @@ Hesaplara girişleri ve gizli anahtar gerektiren adımları siz yaparsınız; gi
 
 1. **Vercel** (vercel.com, ücretsiz Hobby): GitHub ile giriş → **Add New → Project** → `linkedin-outreach-platform` deposunu içe aktar.
    - **Root Directory:** `apps/web` · Framework: Next.js (otomatik).
-   - **Environment Variables:** yalnızca `ALLOWED_EMAILS` = panele girecek e-postalar (virgülle). İsteğe bağlı `GEMINI_API_KEY`.
+   - **Environment Variables:** yalnızca `ALLOWED_EMAILS` = panele girecek e-postalar (virgülle). İsteğe bağlı `GEMINI_API_KEY`. E-posta bildirimi için `EMAIL_FROM` + `RESEND_API_KEY` (ya da `BREVO_API_KEY`); tanımlanmazsa özellik kapalı kalır.
    - Henüz **Deploy etmeyin** (ya da ilk yayın veritabanı olmadığı için hata verirse sorun değil).
 2. **Supabase** (veritabanı, giriş ve belge deposu, ücretsiz): Vercel projesinde **Storage → Create Database → Supabase** → bölge **Frankfurt** → oluştur → projeye bağla.
    - Veritabanı ve Supabase anahtarları Vercel'e **otomatik** eklenir.

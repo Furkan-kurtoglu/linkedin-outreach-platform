@@ -64,10 +64,11 @@ Elenenler, kurallar değiştiğinde tek tuşla yeniden değerlendirilebilir; ell
 | **Gelen kutusu** | Cevaplar etiketlenir (ilgili, ertele, ilgisiz, toplantı…), filtrelenir ve buradan yanıtlanır. |
 | **Fırsatlar** | Sıcak görüşmeler süreç panosunda aşama aşama izlenir. |
 | **Analitik** | Davet, kabul, cevap ve toplantı oranları; günlük grafikler; kampanya ve şablon karşılaştırması. |
+| **Bildirimler** | Yeni cevap, sıcak fırsat, bağlantı kabulü ve çalışan hatasında e-posta. Ücretsiz Resend/Brevo katmanıyla çalışır; alıcılar ve olaylar **Ayarlar**'dan seçilir. Ayrıca imzalı webhook. |
 | **Hesaplar** | LinkedIn hesabının bağlantı durumu, haftalık davet sayacı, yerel çalışan anahtarı. |
 | **Belgeler** | Mesajlara eklenecek PDF vb. dosyalar. |
 
-Kapsam dışı (bilerek): içerik/paylaşım üretimi, ücretli e-posta bildirimi (bunun yerine imzalı webhook ile Zapier/Make bağlanır), LinkedIn'den güvenilir okunamayan niyet sinyalleri.
+Kapsam dışı (bilerek): içerik/paylaşım üretimi, LinkedIn'den güvenilir okunamayan niyet sinyalleri. E-posta bildirimi isteğe bağlıdır; anahtar tanımlanmazsa panel çalışmaya devam eder ve yalnızca webhook kullanılır.
 
 ## Mimari
 
@@ -101,13 +102,14 @@ Tarayıcı ──► Panel (Next.js, Vercel) ──► Supabase PostgreSQL
 - Çalışan veritabanına bağlanmaz; yalnızca kendi anahtarıyla sınırlı uçlara erişir (anahtarın yalnızca özeti saklanır).
 - Tüm tablolarda Row Level Security açıktır. Panele yalnızca `ALLOWED_EMAILS` listesindekiler ve davet edilenler girer.
 - Webhook'lar HMAC-SHA256 ile imzalanır (`X-HFO-Signature`), yalnızca https kabul eder, iç ağ adreslerine karşı korumalıdır.
+- E-posta bildirimi isteğe bağlıdır ve yalnızca seçilen olaylarda gönderilir. Gövdede kişinin adı, unvanı, kurumu ve cevabın kısa özeti bulunur; bu veri seçilen sağlayıcıya (Resend/Brevo) iletilir. Alıcı listesi ve olaylar panelden kapatılabilir.
 - Cevap vermeyenlerin verisi ayarlanan süre sonunda silinir; "bir daha yazma" ve silme taleplerinde yalnızca profil linkinin özeti tutulur.
 - Kişi verisi hiçbir yapay zekâ servisine gönderilmez. `.env` ve tarayıcı profilleri repoya girmez.
 - `docs/kvkk-aydinlatma.md` yayınlanmadan önce köşeli parantezli alanlar doldurulmalı ve hukuki incelemeden geçmelidir.
 
 ## Maliyet
 
-Hiçbir ücretli servis gerekmez: Vercel Hobby, Supabase ücretsiz katman, GitHub Actions.
+Hiçbir ücretli servis gerekmez: Vercel Hobby, Supabase ücretsiz katman, GitHub Actions. E-posta bildirimi için Resend (ayda 3.000 / günde 100) veya Brevo (günde 300) ücretsiz katmanı yeterlidir; anahtar tanımlanmazsa bu özellik kapalı kalır.
 
 ## Kurulum
 

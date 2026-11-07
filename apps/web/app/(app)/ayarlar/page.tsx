@@ -3,7 +3,9 @@ import { prisma } from "@hfo/db";
 import type { Metadata } from "next";
 import { SubmitButton } from "@/components/SubmitButton";
 import { requireContext } from "@/lib/context";
+import { emailConfigured, emailProvider } from "@/lib/email";
 import { inviteMember, removeInvite, saveExcluded, saveGeneral } from "./actions";
+import { Notifications } from "./Notifications";
 import { PasswordForm } from "./PasswordForm";
 
 export const metadata: Metadata = { title: "Ayarlar" };
@@ -62,6 +64,7 @@ export default async function Page() {
               <div className="row"><SubmitButton className="btn">Kaydet</SubmitButton></div>
             </div>
           </form>
+          <Notifications ws={ws} configured={emailConfigured()} provider={emailProvider()} />
         </div>
         <div className="stack">
           <div className="card">

@@ -35,13 +35,13 @@ Sıralama: önce kullanıcıya en çok değer katan, sonra kalan.
 | 8 | Kişiler tablosu | Var | Süzgeç, sütun seçimi, toplu işlem, puan sütunu |
 | 9 | Akış tuvali | Liste biçimli adımlar | Koşul adımı ("kabul edildi mi") ve bekleme süresini gösteren görsel akış |
 | 10 | Öğrenme | A/B sonucu | Not deneyi özeti, ret nedenleri, sorgu verimi |
-| 11 | Bildirim ve webhook | Panel uyarıları | E-posta/webhook (ücretsiz seçenekle) |
+| 11 | Bildirim ve webhook | Panel uyarıları, e-posta (Resend/Brevo), imzalı webhook | Tamam |
 | 12 | Niyet sinyalleri | Yok | Önce profil ziyareti ve etkinlik sinyali; diğerleri LinkedIn'den okunabildiği ölçüde |
 
 Bilerek yapılmayanlar: içerik/gönderi üretimi, ücretli entegrasyonlar.
 Tasarım ilkesi: ProspectHalo'nun bilgi mimarisinden ilham, görünüm bizim mevcut tasarım dilimizde (kopya değil).
 
-## Durum (11 Ekim 2026)
-Tamamlandı ve yayında: çoklu şirket + en fazla 5 aktif temsilci · kampanya ayarları alt menüsü (Genel, Gönderim, Hedefleme, Özerklik, Seçenekler, Öğrenme, Entegrasyon, Tehlikeli alan) · kampanyaya özel gönderim penceresi (planlayıcıya bağlı) · tercihli ölçüt, iş arayanı atlama, kararsız aday politikası (keşif sonuç işleyicisine bağlı) · "yalnızca bul" modu · webhook (imzalı, deneme gönderimi) · hesap sayaçları ve eski davet temizleme anahtarı · genel bakış grafiği · analitik sayfası · gelen kutusu süzgeçleri · kişi arama/sıralama · akış şeması.
+## Durum (7 Kasım 2026)
+Tamamlandı ve yayında: çoklu şirket + en fazla 5 aktif temsilci · kampanya ayarları alt menüsü (Genel, Gönderim, Hedefleme, Özerklik, Seçenekler, Öğrenme, Entegrasyon, Tehlikeli alan) · kampanyaya özel gönderim penceresi (planlayıcıya bağlı) · tercihli ölçüt, iş arayanı atlama, kararsız aday politikası (keşif sonuç işleyicisine bağlı) · "yalnızca bul" modu · webhook (imzalı, deneme gönderimi) · **e-posta bildirimi (Resend/Brevo ücretsiz katmanı; yeni cevap, sıcak fırsat, kabul ve çalışan hatası; alıcı ve olay seçimi Ayarlar'dan)** · hesap sayaçları ve eski davet temizleme anahtarı · genel bakış grafiği · analitik sayfası · gelen kutusu süzgeçleri · kişi arama/sıralama · akış şeması.
 
-Yapılmadı (bilerek): içerik üretimi; e-posta bildirimi (ücretsiz gönderici yok; webhook ile Zapier/Make üzerinden e-postaya bağlanabilir); niyet sinyalleri (iş ilanı, rakip, uzman izleme) — LinkedIn'den güvenilir okunamadığı için; Sales Navigator'a bağlı filtreler (kıdem, işlev, şirket büyüklüğü).
+Yapılmadı (bilerek): içerik üretimi; niyet sinyalleri (iş ilanı, rakip, uzman izleme) — LinkedIn'den güvenilir okunamadığı için; Sales Navigator'a bağlı filtreler (kıdem, işlev, şirket büyüklüğü).

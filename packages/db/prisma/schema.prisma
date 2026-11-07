@@ -149,6 +149,12 @@ model Workspace {
   bannedPhrases    String[] @default([])
   /// İlk giriş kontrol listesi: tamamlanan adımların anahtarları
   onboardingDone   String[] @default([])
+  /// E-posta bildirimi alıcıları; boşsa çalışma alanı üyelerinin adresleri kullanılır
+  notifyEmails     String[] @default([])
+  /// replied, interested, accepted, error
+  notifyEvents     String[] @default(["replied", "interested", "error"])
+  notifyLastStatus String?
+  notifyLastAt     DateTime?
   createdAt        DateTime @default(now())
 
   members          Membership[]
