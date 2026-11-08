@@ -16,6 +16,9 @@ export async function GET(req: Request) {
     return new Response("Yetkisiz.", { status: 401 });
   }
 
+  // Supabase "etkinlik" olarak gerçek sorguları sayar; birkaç sorgu gönderiyoruz.
   await prisma.$queryRaw`SELECT 1`;
-  return Response.json({ ok: true, at: new Date().toISOString() });
+  const workspaces = await prisma.workspace.count();
+  await prisma.$queryRaw`SELECT now()`;
+  return Response.json({ ok: true, at: new Date().toISOString(), workspaces });
 }

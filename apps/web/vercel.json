@@ -4,5 +4,8 @@
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm run vercel-build",
   "regions": ["fra1"],
-  "crons": [{ "path": "/api/keepalive", "schedule": "0 5 * * *" }]
+  "crons": [
+    { "path": "/api/keepalive", "schedule": "0 5 * * *" },
+    { "path": "/api/keepalive", "schedule": "0 17 * * *" }
+  ]
 }
