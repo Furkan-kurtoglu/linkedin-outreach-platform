@@ -3,5 +3,6 @@
   "framework": "nextjs",
   "installCommand": "pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm run vercel-build",
-  "regions": ["fra1"]
+  "regions": ["fra1"],
+  "crons": [{ "path": "/api/keepalive", "schedule": "0 5 * * *" }]
 }
