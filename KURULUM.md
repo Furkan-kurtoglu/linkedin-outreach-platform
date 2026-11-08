@@ -19,6 +19,10 @@ Hesaplara girişleri ve gizli anahtar gerektiren adımları siz yaparsınız; gi
 
 Şema değiştiğinde: GitHub → Actions → **Veritabanı göçü üret** → Run workflow. Bir sonraki yayında Vercel değişikliği uygular.
 
+### Yayın "Resource provisioning failed" ile düşerse
+
+Build hiç başlamadan bu hata geliyorsa sebep genelde koddan bağımsızdır: Supabase projesi duraklatılmıştır (ücretsiz plan yaklaşık bir hafta kullanılmazsa kendiliğinden durur) ve Vercel entegrasyonu kaynağı hazırlayamaz. Supabase panelinde **Resume project** deyin, proje **Active** olana kadar bekleyin (birkaç dakika), sonra Vercel'de yeniden dağıtın.
+
 ## 2. Yerel çalışan (her LinkedIn hesabı sahibi kendi bilgisayarında)
 
 Gerekenler: **Google Chrome** ve **Node.js LTS** (nodejs.org → LTS → kur, varsayılan ayarlarla).
