@@ -1,8 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Herkese açık yollar: giriş, kayıt, e-posta doğrulama ve yerel çalışanın API'si (kendi anahtarıyla). */
-const PUBLIC = ["/giris", "/kayit", "/sifremi-unuttum", "/auth", "/api/runner"];
+/** Herkese açık yollar: giriş, kayıt, e-posta doğrulama, yerel çalışanın API'si (kendi anahtarıyla) ve zamanlanmış uyanık tutma ucu. */
+const PUBLIC = ["/giris", "/kayit", "/sifremi-unuttum", "/auth", "/api/runner", "/api/keepalive"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
